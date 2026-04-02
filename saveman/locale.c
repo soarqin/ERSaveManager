@@ -1,0 +1,640 @@
+/**
+ * @file locale.c
+ * @brief Implementation of localization functions
+ * @details This file contains the implementation of functions that handle localization
+ *          and string translations for the Elden Ring face data manager.
+ */
+
+#include "locale.h"
+
+#include <windows.h>
+
+/* Array of available locale names */
+static const wchar_t *locales[] = {
+    L"English",
+    L"Français",
+    L"Deutsch",
+    L"Italiano",
+    L"Español",
+    L"Português",
+    L"Русский",
+    L"日本語",
+    L"한국어",
+    L"简体中文",
+    L"繁體中文",
+};
+
+/* Array of localized strings for each language */
+static const wchar_t *locale_strings[11][STR_MAX] = {
+    /* English strings */
+    {
+        L"Elden Ring Save Data Manager",
+        L"Confirm",
+        L"Cancel",
+        L"Change Save Folder",
+        L"Slot",
+        L"Body Type",
+        L"Type A",
+        L"Type B",
+        L"(EMPTY)",
+        L"Import Face Data",
+        L"Export Face Data",
+        L"All Files",
+        L"Failed to load save file",
+        L"Error",
+        L"Face data imported successfully",
+        L"Success",
+        L"Failed to import face data",
+        L"Face data exported successfully",
+        L"Failed to export face data",
+        L"Name",
+        L"Level",
+        L"Attributes",
+        L"In-Game Time",
+        L"Characters",
+        L"Faces",
+        L"Import Character",
+        L"Export Character",
+        L"Rename Character",
+        L"Enter new character name:",
+        L"Character data imported successfully",
+        L"Failed to import character data",
+        L"Character data exported successfully",
+        L"Failed to export character data",
+        L"Failed to rename character",
+        L"Language",
+        L"The save folder does not match the Steam ID in save file. Do you want to update the Steam ID in save file?",
+        L"Import NPC face data",
+        L"Base Game",
+        L"Base Game (Non-Interactable)",
+        L"DLC",
+        L"DLC (Non-Interactable)",
+        L"Select a character to import data from.",
+        L"No character found",
+        L"Face Data...",
+    },
+    /* French strings */
+    {
+        L"Gestionnaire de Données d'Elden Ring",
+        L"Confirmer",
+        L"Annuler",
+        L"Changer le Dossier de Sauvegarde",
+        L"Emplacement",
+        L"Type de Corps",
+        L"Type A",
+        L"Type B",
+        L"(VIDE)",
+        L"Importer les Données de Visage",
+        L"Exporter les Données de Visage",
+        L"Tous les Fichiers",
+        L"Échec du chargement du fichier de sauvegarde",
+        L"Erreur",
+        L"Données de visage importées avec succès",
+        L"Succès",
+        L"Échec de l'importation des données de visage",
+        L"Données de visage exportées avec succès",
+        L"Échec de l'exportation des données de visage",
+        L"Nom",
+        L"Niveau",
+        L"Attributs",
+        L"Temps de Jeu",
+        L"Personnages",
+        L"Visages",
+        L"Importer le Personnage",
+        L"Exporter le Personnage",
+        L"Renommer le Personnage",
+        L"Entrez le nouveau nom du personnage :",
+        L"Données du personnage importées avec succès",
+        L"Échec de l'importation des données du personnage",
+        L"Données du personnage exportées avec succès",
+        L"Échec de l'exportation des données du personnage",
+        L"Échec de la modification du nom du personnage",
+        L"Langue",
+        L"Le dossier de sauvegarde ne correspond pas à l'ID Steam dans le fichier de sauvegarde. Voulez-vous mettre à jour l'ID Steam dans le fichier de sauvegarde ?",
+        L"Importer les Données de Visage Embed",
+        L"Jeu de Base",
+        L"Jeu de Base (Non Interactif)",
+        L"DLC",
+        L"DLC (Non Interactif)",
+        L"Sélectionnez un personnage pour importer des données.",
+        L"Aucun personnage trouvé",
+        L"Données de Visage...",
+    },
+    /* German strings */
+    {
+        L"Elden Ring Daten-Manager",
+        L"Bestätigen",
+        L"Abbrechen",
+        L"Speicherordner ändern",
+        L"Slot",
+        L"Körpertyp",
+        L"Typ A",
+        L"Typ B",
+        L"(LEER)",
+        L"Gesichtsdaten importieren",
+        L"Gesichtsdaten exportieren",
+        L"Alle Dateien",
+        L"Fehler beim Laden der Speicherdatei",
+        L"Fehler",
+        L"Gesichtsdaten erfolgreich importiert",
+        L"Erfolg",
+        L"Fehler beim Importieren der Gesichtsdaten",
+        L"Gesichtsdaten erfolgreich exportiert",
+        L"Fehler beim Exportieren der Gesichtsdaten",
+        L"Name",
+        L"Level",
+        L"Attribute",
+        L"Spielzeit",
+        L"Charaktere",
+        L"Gesichter",
+        L"Charakter importieren",
+        L"Charakter exportieren",
+        L"Charakter umbenennen",
+        L"Geben Sie den neuen Charakternamen ein:",
+        L"Charakterdaten erfolgreich importiert",
+        L"Fehler beim Importieren der Charakterdaten",
+        L"Charakterdaten erfolgreich exportiert",
+        L"Fehler beim Exportieren der Charakterdaten",
+        L"Fehler beim Umbenennen des Charakters",
+        L"Sprache",
+        L"Der Speicherordner stimmt nicht mit der Steam-ID in der Speicherdatei überein. Möchten Sie die Steam-ID in der Speicherdatei aktualisieren?",
+        L"Importiere eingebettete Gesichtsdaten",
+        L"Hauptspiel",
+        L"Hauptspiel (Nicht Interagierbar)",
+        L"DLC",
+        L"DLC (Nicht Interagierbar)",
+        L"Wählen Sie einen Charakter aus, um Daten auszugleichen.",
+        L"Kein Charakter gefunden",
+        L"Gesichtsdaten...",
+    },
+    /* Italian strings */
+    {
+        L"Gestore Dati di Elden Ring",
+        L"Conferma",
+        L"Annulla",
+        L"Cambia Cartella di Salvataggio",
+        L"Slot",
+        L"Tipo di Corpo",
+        L"Tipo A",
+        L"Tipo B",
+        L"(VUOTO)",
+        L"Importa Dati Viso",
+        L"Esporta Dati Viso",
+        L"Tutti i File",
+        L"Impossibile caricare il file di salvataggio",
+        L"Errore",
+        L"Dati viso importati con successo",
+        L"Successo",
+        L"Impossibile importare i dati viso",
+        L"Dati viso esportati con successo",
+        L"Impossibile esportare i dati viso",
+        L"Nome",
+        L"Livello",
+        L"Attributi",
+        L"Tempo di Gioco",
+        L"Personaggi",
+        L"Volti",
+        L"Importa Personaggio",
+        L"Esporta Personaggio",
+        L"Rinomina Personaggio",
+        L"Inserisci il nuovo nome del personaggio:",
+        L"Dati personaggio importati con successo",
+        L"Impossibile importare i dati del personaggio",
+        L"Dati personaggio esportati con successo",
+        L"Impossibile esportare i dati del personaggio",
+        L"Impossibile modificare il nome del personaggio",
+        L"Lingua",
+        L"La cartella di salvataggio non corrisponde all'ID Steam nel file di salvataggio. Vuoi aggiornare l'ID Steam nel file di salvataggio?",
+        L"Importa dati viso incorporati",
+        L"Gioco Base",
+        L"Gioco Base (Non Interattivo)",
+        L"DLC",
+        L"DLC (Non Interattivo)",
+        L"Seleziona un personaggio per importare dati da.",
+        L"Nessun personaggio trovato",
+        L"Dati Viso...",
+    },
+    /* Spanish strings */
+    {
+        L"Gestor de Datos de Elden Ring",
+        L"Confirmar",
+        L"Cancelar",
+        L"Cambiar Carpeta de Guardado",
+        L"Ranura",
+        L"Tipo de Cuerpo",
+        L"Tipo A",
+        L"Tipo B",
+        L"(VACÍO)",
+        L"Importar Datos de Rostro",
+        L"Exportar Datos de Rostro",
+        L"Todos los Archivos",
+        L"Error al cargar archivo de guardado",
+        L"Error",
+        L"Datos de rostro importados con éxito",
+        L"Éxito",
+        L"Error al importar datos de rostro",
+        L"Datos de rostro exportados con éxito",
+        L"Error al exportar datos de rostro",
+        L"Nombre",
+        L"Nivel",
+        L"Atributos",
+        L"Tiempo de Juego",
+        L"Personajes",
+        L"Rostros",
+        L"Importar Personaje",
+        L"Exportar Personaje",
+        L"Renombrar Personaje",
+        L"Ingrese el nuevo nombre del personaje:",
+        L"Datos de personaje importados con éxito",
+        L"Error al importar datos de personaje",
+        L"Datos de personaje exportados con éxito",
+        L"Error al exportar datos de personaje",
+        L"Error al cambiar el nombre del personaje",
+        L"Idioma",
+        L"La carpeta de guardado no coincide con el ID de Steam en el archivo de guardado. ¿Desea actualizar el ID de Steam en el archivo de guardado?",
+        L"Importar datos viso incorporados",
+        L"Juego Base",
+        L"Juego Base (No Interactivo)",
+        L"DLC",
+        L"DLC (No Interactivo)",
+        L"Seleccione un personaje para importar datos de.",
+        L"No se encontró ningún personaje",
+        L"Datos de Rostro...",
+    },
+    /* Portuguese strings */
+    {
+        L"Gerenciador de Dados do Elden Ring",
+        L"Confirmar",
+        L"Cancelar",
+        L"Alterar Pasta de Salvamento",
+        L"Slot",
+        L"Tipo de Corpo",
+        L"Tipo A",
+        L"Tipo B",
+        L"(VAZIO)",
+        L"Importar Dados de Rosto",
+        L"Exportar Dados de Rosto",
+        L"Todos os Arquivos",
+        L"Falha ao carregar arquivo de salvamento",
+        L"Erro",
+        L"Dados de rosto importados com sucesso",
+        L"Sucesso",
+        L"Falha ao importar dados de rosto",
+        L"Dados de rosto exportados com sucesso",
+        L"Falha ao exportar dados de rosto",
+        L"Nome",
+        L"Nível",
+        L"Atributos",
+        L"Tempo de Jogo",
+        L"Personagens",
+        L"Rostos",
+        L"Importar Personagem",
+        L"Exportar Personagem",
+        L"Renomear Personagem",
+        L"Insira o novo nome do personagem:",
+        L"Dados de personagem importados com sucesso",
+        L"Falha ao importar dados de personagem",
+        L"Dados de personagem exportados com sucesso",
+        L"Falha ao exportar dados de personagem",
+        L"Falha ao alterar o nome do personagem",
+        L"Idioma",
+        L"A pasta de salvamento não corresponde ao ID do Steam no arquivo de salvamento. Deseja atualizar o ID do Steam no arquivo de salvamento?",
+        L"Importar dados viso incorporados",
+        L"Jogo Base",
+        L"Jogo Base (Não Interativo)",
+        L"DLC",
+        L"DLC (Não Interativo)",
+        L"Selecione um personagem para importar dados de.",
+        L"Nenhum personagem encontrado",
+        L"Dados de Rosto...",
+    },
+    /* Russian strings */
+    {
+        L"Менеджер данных Elden Ring",
+        L"Подтвердить",
+        L"Отмена",
+        L"Изменить папку сохранения",
+        L"Слот",
+        L"Тип тела",
+        L"Тип A",
+        L"Тип B",
+        L"(ПУСТО)",
+        L"Импорт данных лица",
+        L"Экспорт данных лица",
+        L"Все файлы",
+        L"Не удалось загрузить файл сохранения",
+        L"Ошибка",
+        L"Данные лица успешно импортированы",
+        L"Успех",
+        L"Не удалось импортировать данные лица",
+        L"Данные лица успешно экспортированы",
+        L"Не удалось экспортировать данные лица",
+        L"Имя",
+        L"Уровень",
+        L"Атрибуты",
+        L"Время в игре",
+        L"Персонажи",
+        L"Лица",
+        L"Импорт персонажа",
+        L"Экспорт персонажа",
+        L"Переименовать персонажа",
+        L"Введите новый имя персонажа:",
+        L"Данные персонажа успешно импортированы",
+        L"Не удалось импортировать данные персонажа",
+        L"Данные персонажа успешно экспортированы",
+        L"Не удалось экспортировать данные персонажа",
+        L"Не удалось изменить имя персонажа",
+        L"Язык",
+        L"Папка сохранения не соответствует Steam ID в файле сохранения. Хотите обновить Steam ID в файле сохранения?",
+        L"Импортировать встроенные данные лица",
+        L"Базовая игра",
+        L"Базовая игра (Не интерактивный)",
+        L"DLC",
+        L"DLC (Не интерактивный)",
+        L"Выберите персонажа для импорта данных.",
+        L"Нет персонажа найдено",
+        L"Данные лица...",
+    },
+    /* Japanese strings */
+    {
+        L"エルデンリング データ管理",
+        L"確認",
+        L"キャンセル",
+        L"セーブフォルダの変更",
+        L"スロット",
+        L"体型",
+        L"タイプA",
+        L"タイプB",
+        L"(空)",
+        L"顔データのインポート",
+        L"顔データのエクスポート",
+        L"すべてのファイル",
+        L"セーブファイルの読み込みに失敗しました",
+        L"エラー",
+        L"顔データのインポートに成功しました",
+        L"成功",
+        L"顔データのインポートに失敗しました",
+        L"顔データのエクスポートに成功しました",
+        L"顔データのエクスポートに失敗しました",
+        L"名前",
+        L"レベル",
+        L"属性",
+        L"プレイ時間",
+        L"キャラクター",
+        L"顔",
+        L"キャラクターのインポート",
+        L"キャラクターのエクスポート",
+        L"キャラクターの名前を変更",
+        L"新しいキャラクター名を入力してください:",
+        L"キャラクターデータのインポートに成功しました",
+        L"キャラクターデータのインポートに失敗しました",
+        L"キャラクターデータのエクスポートに成功しました",
+        L"キャラクターデータのエクスポートに失敗しました",
+        L"キャラクターの名前を変更できませんでした",
+        L"言語",
+        L"セーブフォルダがセーブファイルのSteam IDと一致しません。セーブファイルのSteam IDを更新しますか？",
+        L"NPCの顔データをインポート",
+        L"基本ゲーム",
+        L"基本ゲーム（操作不可）",
+        L"DLC",
+        L"DLC（操作不可）",
+        L"データをインポートするキャラクターを選択してください。",
+        L"キャラクターが見つかりません",
+        L"顔データ...",
+    },
+    /* Korean strings */
+    {
+        L"엘든 링 데이터 관리자",
+        L"확인",
+        L"취소",
+        L"저장 폴더 변경",
+        L"슬롯",
+        L"체형",
+        L"타입 A",
+        L"타입 B",
+        L"(비어있음)",
+        L"얼굴 데이터 가져오기",
+        L"얼굴 데이터 내보내기",
+        L"모든 파일",
+        L"저장 파일을 불러오는데 실패했습니다",
+        L"오류",
+        L"얼굴 데이터를 성공적으로 가져왔습니다",
+        L"성공",
+        L"얼굴 데이터를 가져오는데 실패했습니다",
+        L"얼굴 데이터를 성공적으로 내보냈습니다",
+        L"얼굴 데이터를 내보내는데 실패했습니다",
+        L"이름",
+        L"레벨",
+        L"속성",
+        L"게임 시간",
+        L"캐릭터",
+        L"얼굴",
+        L"캐릭터 가져오기",
+        L"캐릭터 내보내기",
+        L"캐릭터 이름 변경",
+        L"새로운 캐릭터 이름을 입력하세요:",
+        L"캐릭터 데이터를 성공적으로 가져왔습니다",
+        L"캐릭터 데이터를 가져오는데 실패했습니다",
+        L"캐릭터 데이터를 성공적으로 내보냈습니다",
+        L"캐릭터 데이터를 내보내는데 실패했습니다",
+        L"캐릭터 이름을 변경할 수 없습니다",
+        L"언어",
+        L"저장 폴더가 저장 파일의 Steam ID와 일치하지 않습니다. 저장 파일의 Steam ID를 업데이트하시겠습니까?",
+        L"NPC의 얼굴 데이터를 가져오기",
+        L"기본 게임",
+        L"기본 게임 (상호작용 불가)",
+        L"DLC",
+        L"DLC (상호작용 불가)",
+        L"데이터를 가져올 캐릭터를 선택하세요.",
+        L"캐릭터를 찾을 수 없습니다",
+        L"얼굴 데이터...",
+    },
+    /* Simplified Chinese strings */
+    {
+        L"艾尔登法环存档数据管理器",
+        L"确定",
+        L"取消",
+        L"更改存档文件夹",
+        L"槽位",
+        L"体型",
+        L"类型A",
+        L"类型B",
+        L"(空)",
+        L"导入面部数据",
+        L"导出面部数据",
+        L"所有文件",
+        L"加载存档文件失败",
+        L"错误",
+        L"面部数据导入成功",
+        L"成功",
+        L"面部数据导入失败",
+        L"面部数据导出成功",
+        L"面部数据导出失败",
+        L"名称",
+        L"等级",
+        L"属性",
+        L"游戏时间",
+        L"角色",
+        L"面部",
+        L"导入角色",
+        L"导出角色",
+        L"角色改名",
+        L"输入新的角色名:",
+        L"角色数据导入成功",
+        L"角色数据导入失败",
+        L"角色数据导出成功",
+        L"角色数据导出失败",
+        L"无法更改角色名",
+        L"语言",
+        L"存档文件夹与存档文件中的Steam ID不匹配。是否要更新存档文件中的Steam ID？",
+        L"导入NPC面部数据",
+        L"基础游戏",
+        L"基础游戏（不可交互）",
+        L"DLC",
+        L"DLC（不可交互）",
+        L"选择一个角色数据来导入",
+        L"没有找到角色",
+        L"捏脸数据...",
+    },
+    /* Traditional Chinese strings */
+    {
+        L"艾爾登法環存檔數據管理器",
+        L"確定",
+        L"取消",
+        L"更改存檔資料夾",
+        L"槽位",
+        L"體型",
+        L"類型A",
+        L"類型B",
+        L"(空)",
+        L"導入面部數據",
+        L"導出面部數據",
+        L"所有檔案",
+        L"載入存檔檔案失敗",
+        L"錯誤",
+        L"面部數據導入成功",
+        L"成功",
+        L"面部數據導入失敗",
+        L"面部數據導出成功",
+        L"面部數據導出失敗",
+        L"名稱",
+        L"等級",
+        L"屬性",
+        L"遊戲時間",
+        L"角色",
+        L"面部",
+        L"導入角色",
+        L"導出角色",
+        L"角色改名",
+        L"輸入新的角色名:",
+        L"角色數據導入成功",
+        L"角色數據導入失敗",
+        L"角色數據導出成功",
+        L"角色數據導出失敗",
+        L"無法更改角色名",
+        L"語言",
+        L"存檔資料夾與存檔檔案中的Steam ID不匹配。是否要更新存檔檔案中的Steam ID？",
+        L"導入NPC面部數據",
+        L"基礎遊戲",
+        L"基礎遊戲（不可互動）",
+        L"DLC",
+        L"DLC（不可互動）",
+        L"選擇一個角色數據來導入",
+        L"沒有找到角色",
+        L"捏臉數據...",
+    }
+};
+
+/* Current locale index */
+int current_locale = 0;
+
+/**
+ * @brief Gets a localized string by index
+ * @param string_index Index of the string to retrieve
+ * @return Pointer to the localized string
+ */
+const wchar_t *locale_str(locale_string_index_t string_index) {
+    if (string_index < 0 || string_index >= STR_MAX) {
+        return L"";
+    }
+    return locale_strings[get_current_locale()][string_index];
+}
+
+/**
+ * @brief Sets the current locale
+ * @param locale_index Index of the locale to set
+ */
+void set_current_locale(int locale_index) {
+    current_locale = locale_index;
+}
+
+/**
+ * @brief Gets the current locale index
+ * @return Current locale index
+ */
+int get_current_locale(void) {
+    return current_locale;
+}
+
+/**
+ * @brief Gets the total number of available locales
+ * @return Number of available locales
+ */
+int locale_count(void) {
+    return sizeof(locales) / sizeof(locales[0]);
+}
+
+/**
+ * @brief Gets the name of a locale by index
+ * @param locale_index Index of the locale
+ * @return Pointer to the locale name string
+ */
+const wchar_t *locale_name(int locale_index) {
+    return locales[locale_index];
+}
+
+/**
+ * @brief Detects the system language and returns the best matching language index
+ * @return Best matching language index
+ */
+int detect_system_language(void) {
+    /* Get system language using Windows API */
+    LANGID lang_id = GetSystemDefaultLangID();
+    int primary_lang = PRIMARYLANGID(lang_id);
+    int sub_lang = SUBLANGID(lang_id);
+
+    /* Map system language to our supported languages */
+    switch (primary_lang) {
+        case LANG_CHINESE:
+            /* Handle different Chinese variants */
+            switch (sub_lang) {
+                case SUBLANG_CHINESE_SIMPLIFIED:
+                case SUBLANG_CHINESE_SINGAPORE:
+                case SUBLANG_NEUTRAL:
+                    return 9; /* Simplified Chinese */
+                case SUBLANG_CHINESE_TRADITIONAL:
+                case SUBLANG_CHINESE_HONGKONG:
+                case SUBLANG_CHINESE_MACAU:
+                default:
+                    return 10; /* Traditional Chinese */
+            }
+        case LANG_JAPANESE:
+            return 7; /* Japanese */
+        case LANG_KOREAN:
+            return 8; /* Korean */
+        case LANG_FRENCH:
+            return 1; /* French */
+        case LANG_GERMAN:
+            return 2; /* German */
+        case LANG_ITALIAN:
+            return 3; /* Italian */
+        case LANG_SPANISH:
+            return 4; /* Spanish */
+        case LANG_PORTUGUESE:
+            return 5; /* Portuguese */
+        case LANG_RUSSIAN:
+            return 6; /* Russian */
+        default:
+            return 0; /* Default to English */
+    }
+}

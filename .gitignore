@@ -1,0 +1,44 @@
+# Build directories
+build/
+out/
+cmake-build-*/
+
+# Compiled objects and binaries
+*.obj
+*.o
+*.exe
+*.dll
+*.lib
+*.a
+*.so
+*.exp
+*.pdb
+*.ilk
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.sln
+*.vcxproj
+*.vcxproj.*
+*.suo
+*.user
+*.sdf
+*.opensdf
+*.db
+*.opendb
+*.ipch
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+CTestTestfile.cmake
+
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,28 @@
+#include <winres.h>
+#include "resource.h"
+
+/* Include manifest */
+1 RT_MANIFEST "app.manifest"
+
+/* Application icon */
+IDI_APP_ICON ICON "app.ico"
+
+/* Rename character dialog */
+IDD_RENAME_CHARACTER DIALOG 0, 0, 200, 75
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Rename Character"
+FONT 9, "MS Shell Dlg"
+BEGIN
+    LTEXT           "Enter new character name:", IDC_STATIC_CHARACTER_NAME, 10, 10, 180, 8
+    EDITTEXT        IDC_EDIT_CHARACTER_NAME, 10, 25, 180, 14, ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "Confirm", IDOK, 80, 50, 50, 14
+    PUSHBUTTON      "Cancel", IDCANCEL, 140, 50, 50, 14
+END
+
+/* Face data management dialog (resizable, content created programmatically) */
+IDD_FACE_DATA DIALOG 0, 0, 180, 250
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+CAPTION "Face Data"
+FONT 9, "MS Shell Dlg"
+BEGIN
+END
