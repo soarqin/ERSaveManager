@@ -7,6 +7,8 @@ add_project(saveman WIN32
 
     embedded_face_data.c embedded_face_data.h
 
+    file_dialog.c file_dialog.h
+
     resource.h
     app.rc
     FOLDER "app"

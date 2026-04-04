@@ -5,6 +5,7 @@
 #include "locale.h"
 
 #include "embedded_face_data.h"
+#include "file_dialog.h"
 
 #include <stdint.h>
 #include <wchar.h>
@@ -168,48 +169,17 @@ static bool handle_save_folder_selection(HWND hwnd) {
 }
 
 static void open_dir_dialog_for_new_save_location(HWND hwnd) {
-    IFileDialog *pfd = NULL;
-    HRESULT hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, &IID_IFileDialog, (void **)&pfd);
+    PWSTR pszPath = file_dialog_open_folder(hwnd, config.save_path);
+    if (!pszPath) {
+        return;
+    }
+    lstrcpyW(config.save_path, pszPath);
+    CoTaskMemFree(pszPath);
 
-    if (SUCCEEDED(hr)) {
-        /* Set dialog options */
-        DWORD dwOptions;
-        pfd->lpVtbl->GetOptions(pfd, &dwOptions);
-        pfd->lpVtbl->SetOptions(pfd, dwOptions | FOS_PICKFOLDERS);
-
-        /* Set initial folder */
-        IShellItem *psi = NULL;
-        hr = SHCreateItemFromParsingName(config.save_path, NULL, &IID_IShellItem, (void **)&psi);
-        if (SUCCEEDED(hr)) {
-            pfd->lpVtbl->SetFolder(pfd, psi);
-            psi->lpVtbl->Release(psi);
-        }
-
-        /* Show dialog */
-        hr = pfd->lpVtbl->Show(pfd, hwnd);
-        if (SUCCEEDED(hr)) {
-            IShellItem *psiResult = NULL;
-            hr = pfd->lpVtbl->GetResult(pfd, &psiResult);
-            if (SUCCEEDED(hr)) {
-                /* Get selected path */
-                PWSTR pszPath = NULL;
-                hr = psiResult->lpVtbl->GetDisplayName(psiResult, SIGDN_FILESYSPATH, &pszPath);
-                if (SUCCEEDED(hr)) {
-                    lstrcpyW(config.save_path, pszPath);
-                    CoTaskMemFree(pszPath);
-
-                    /* Refresh combo box with new path */
-                    add_folders_to_combo_box();
-                    SendMessageW(combo_box_save_folder, CB_SETCURSEL, 0, 0);
-                    if (handle_save_folder_selection(hwnd)) {
-                        /* Save new path to config */
-                        save_config();
-                    }
-                }
-                psiResult->lpVtbl->Release(psiResult);
-            }
-        }
-        pfd->lpVtbl->Release(pfd);
+    add_folders_to_combo_box();
+    SendMessageW(combo_box_save_folder, CB_SETCURSEL, 0, 0);
+    if (handle_save_folder_selection(hwnd)) {
+        save_config();
     }
 }
 
@@ -332,97 +302,41 @@ static void on_menu_change_language(int idx) {
 
 /* Function to import face data from a file */
 static void import_face_data(HWND hwnd, int item) {
-    /* Create file dialog for importing */
-    IFileDialog *pfd = NULL;
-    HRESULT hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER,
-        &IID_IFileDialog, (void**)&pfd);
-
-    if (SUCCEEDED(hr)) {
-        /* Set dialog options */
-        DWORD dwOptions;
-        pfd->lpVtbl->SetTitle(pfd, locale_str(STR_IMPORT_FACE_DATA));
-        pfd->lpVtbl->GetOptions(pfd, &dwOptions);
-        pfd->lpVtbl->SetOptions(pfd, dwOptions | FOS_FILEMUSTEXIST);
-
-        /* Set file types */
-        COMDLG_FILTERSPEC rgSpec[] = {
-            { locale_str(STR_ALL_FILES), L"*.*" }
-        };
-        pfd->lpVtbl->SetFileTypes(pfd, 1, rgSpec);
-
-        /* Show dialog */
-        hr = pfd->lpVtbl->Show(pfd, hwnd);
-        if (SUCCEEDED(hr)) {
-            IShellItem *psiResult = NULL;
-            hr = pfd->lpVtbl->GetResult(pfd, &psiResult);
-            if (SUCCEEDED(hr)) {
-                /* Get selected path */
-                PWSTR pszPath = NULL;
-                hr = psiResult->lpVtbl->GetDisplayName(psiResult, SIGDN_FILESYSPATH, &pszPath);
-                if (SUCCEEDED(hr)) {
-                    uint8_t *face_data = er_face_data_from_file(pszPath);
-                    if (face_data && er_face_data_import(save_data, item, face_data)) {
-                        uint8_t available, gender;
-                        er_face_data_info(face_data, &available, &gender);
-                        wchar_t body_type[32];
-                        wsprintfW(body_type, L"%s", locale_str(available ? (gender ? STR_TYPE_B : STR_TYPE_A) : STR_EMPTY));
-                        ListView_SetItemText(list_view_faces, item, 1, body_type);
-                        MessageBoxW(hwnd, locale_str(STR_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
-                    } else {
-                        MessageBoxW(hwnd, locale_str(STR_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                    }
-                    er_face_data_free(face_data);
-                    CoTaskMemFree(pszPath);
-                }
-                psiResult->lpVtbl->Release(psiResult);
-            }
+    COMDLG_FILTERSPEC rgSpec[] = {
+        { locale_str(STR_ALL_FILES), L"*.*" }
+    };
+    PWSTR pszPath = file_dialog_open(hwnd, locale_str(STR_IMPORT_FACE_DATA), rgSpec, 1);
+    if (pszPath) {
+        uint8_t *face_data = er_face_data_from_file(pszPath);
+        if (face_data && er_face_data_import(save_data, item, face_data)) {
+            uint8_t available, gender;
+            er_face_data_info(face_data, &available, &gender);
+            wchar_t body_type[32];
+            wsprintfW(body_type, L"%s", locale_str(available ? (gender ? STR_TYPE_B : STR_TYPE_A) : STR_EMPTY));
+            ListView_SetItemText(list_view_faces, item, 1, body_type);
+            MessageBoxW(hwnd, locale_str(STR_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
+        } else {
+            MessageBoxW(hwnd, locale_str(STR_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
         }
-        pfd->lpVtbl->Release(pfd);
+        er_face_data_free(face_data);
+        CoTaskMemFree(pszPath);
     }
 }
 
 /* Function to export face data to a file */
 static void export_face_data(HWND hwnd, int item) {
-    /* Create file dialog for exporting */
-    IFileDialog *pfd = NULL;
-    HRESULT hr = CoCreateInstance(&CLSID_FileSaveDialog, NULL, CLSCTX_INPROC_SERVER,
-        &IID_IFileDialog, (void**)&pfd);
-
-    if (SUCCEEDED(hr)) {
-        /* Set dialog options */
-        DWORD dwOptions;
-        pfd->lpVtbl->SetTitle(pfd, locale_str(STR_EXPORT_FACE_DATA));
-        pfd->lpVtbl->GetOptions(pfd, &dwOptions);
-        pfd->lpVtbl->SetOptions(pfd, dwOptions | FOS_OVERWRITEPROMPT);
-
-        /* Set file types */
-        COMDLG_FILTERSPEC rgSpec[] = {
-            { locale_str(STR_ALL_FILES), L"*.*" }
-        };
-        pfd->lpVtbl->SetFileTypes(pfd, 1, rgSpec);
-
-        /* Show dialog */
-        hr = pfd->lpVtbl->Show(pfd, hwnd);
-        if (SUCCEEDED(hr)) {
-            IShellItem *psiResult = NULL;
-            hr = pfd->lpVtbl->GetResult(pfd, &psiResult);
-            if (SUCCEEDED(hr)) {
-                /* Get selected path */
-                PWSTR pszPath = NULL;
-                hr = psiResult->lpVtbl->GetDisplayName(psiResult, SIGDN_FILESYSPATH, &pszPath);
-                if (SUCCEEDED(hr)) {
-                    const uint8_t *face_data = er_face_data_ref(save_data, item);
-                    if (face_data && er_face_data_to_file(face_data, pszPath)) {
-                        MessageBoxW(hwnd, locale_str(STR_EXPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
-                    } else {
-                        MessageBoxW(hwnd, locale_str(STR_EXPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                    }
-                    CoTaskMemFree(pszPath);
-                }
-                psiResult->lpVtbl->Release(psiResult);
-            }
+    COMDLG_FILTERSPEC rgSpec[] = {
+        { locale_str(STR_ALL_FILES), L"*.*" }
+    };
+    PWSTR pszPath = file_dialog_save(hwnd, locale_str(STR_EXPORT_FACE_DATA), rgSpec, 1);
+    if (pszPath) {
+        const uint8_t *face_data = er_face_data_ref(save_data, item);
+        if (face_data && er_face_data_to_file(face_data, pszPath)) {
+            MessageBoxW(hwnd, locale_str(STR_EXPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
+        } else {
+            MessageBoxW(hwnd, locale_str(STR_EXPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
         }
-        pfd->lpVtbl->Release(pfd);
+        CoTaskMemFree(pszPath);
     }
 }
 
@@ -514,144 +428,88 @@ static void update_detail_panel(int slot) {
 
 /* Function to import character data from a file */
 static void import_char_data(HWND hwnd, int item) {
-    /* Create file dialog for importing */
-    IFileDialog *pfd = NULL;
-    HRESULT hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER,
-        &IID_IFileDialog, (void**)&pfd);
+    COMDLG_FILTERSPEC rgSpec[] = {
+        { locale_str(STR_ALL_FILES), L"*.*" }
+    };
+    PWSTR pszPath = file_dialog_open(hwnd, locale_str(STR_IMPORT_CHARACTER), rgSpec, 1);
+    if (pszPath) {
+        if (is_full_save_file(pszPath)) {
+            er_save_simple_data_t *simple_save_data = er_save_simple_data_load(pszPath);
+            if (simple_save_data) {
+                /* Use TaskDialog to select a character slot for import */
+                TASKDIALOG_BUTTON buttons[10] = {0};
+                int button_count = 0;
+                for (int i = 0; i < 10; i++) {
+                    const wchar_t *name = er_save_simple_data_get_char_name(simple_save_data, i);
+                    if (name == NULL || name[0] == L'\0') {
+                        continue;
+                    }
+                    buttons[button_count].nButtonID = i;
+                    buttons[button_count++].pszButtonText = name;
+                }
+                if (button_count == 0) {
+                    MessageBoxW(hwnd, locale_str(STR_NO_CHARACTER_FOUND), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+                } else {
+                    TASKDIALOGCONFIG task_dialog_config;
+                    ZeroMemory(&task_dialog_config, sizeof(TASKDIALOGCONFIG));
+                    task_dialog_config.cbSize = sizeof(TASKDIALOGCONFIG);
+                    task_dialog_config.pszWindowTitle = locale_str(STR_IMPORT_CHARACTER);
+                    task_dialog_config.pszContent = locale_str(STR_SELECT_CHARACTER_CONTENT);
+                    task_dialog_config.nDefaultButton = IDCANCEL;
+                    task_dialog_config.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
 
-    if (SUCCEEDED(hr)) {
-        /* Set dialog options */
-        DWORD dwOptions;
-        pfd->lpVtbl->SetTitle(pfd, locale_str(STR_IMPORT_CHARACTER));
-        pfd->lpVtbl->GetOptions(pfd, &dwOptions);
-        pfd->lpVtbl->SetOptions(pfd, dwOptions | FOS_FILEMUSTEXIST);
+                    task_dialog_config.pRadioButtons = buttons;
+                    task_dialog_config.cRadioButtons = button_count;
 
-        /* Set file types */
-        COMDLG_FILTERSPEC rgSpec[] = {
-            { locale_str(STR_ALL_FILES), L"*.*" }
-        };
-        pfd->lpVtbl->SetFileTypes(pfd, 1, rgSpec);
-
-        /* Show dialog */
-        hr = pfd->lpVtbl->Show(pfd, hwnd);
-        if (SUCCEEDED(hr)) {
-            IShellItem *psiResult = NULL;
-            hr = pfd->lpVtbl->GetResult(pfd, &psiResult);
-            if (SUCCEEDED(hr)) {
-                /* Get selected path */
-                PWSTR pszPath = NULL;
-                hr = psiResult->lpVtbl->GetDisplayName(psiResult, SIGDN_FILESYSPATH, &pszPath);
-                if (SUCCEEDED(hr)) {
-                    if (is_full_save_file(pszPath)) {
-                        er_save_simple_data_t *simple_save_data = er_save_simple_data_load(pszPath);
-                        if (simple_save_data) {
-                            /* Use TaskDialog to select a character slot for import */
-                            TASKDIALOG_BUTTON buttons[10] = {0};
-                            int button_count = 0;
-                            for (int i = 0; i < 10; i++) {
-                                const wchar_t *name = er_save_simple_data_get_char_name(simple_save_data, i);
-                                if (name == NULL || name[0] == L'\0') {
-                                    continue;
-                                }
-                                buttons[button_count].nButtonID = i;
-                                buttons[button_count++].pszButtonText = name;
-                            }
-                            if (button_count == 0) {
-                                MessageBoxW(hwnd, locale_str(STR_NO_CHARACTER_FOUND), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+                    int button_id = 0, radio_id = 0;
+                    HRESULT hr = TaskDialogIndirect(&task_dialog_config, &button_id, &radio_id, NULL);
+                    if (SUCCEEDED(hr) && button_id == IDOK) {
+                        uint8_t *char_data;
+                        if ((char_data = er_save_simple_data_slot_export(simple_save_data, radio_id)) != NULL) {
+                            if (er_char_data_import_raw(save_data, item, char_data)) {
+                                update_char_list_view(item, er_char_data_ref(save_data, item));
+                                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
                             } else {
-                                TASKDIALOGCONFIG task_dialog_config;
-                                ZeroMemory(&task_dialog_config, sizeof(TASKDIALOGCONFIG));
-                                task_dialog_config.cbSize = sizeof(TASKDIALOGCONFIG);
-                                task_dialog_config.pszWindowTitle = locale_str(STR_IMPORT_CHARACTER);
-                                task_dialog_config.pszContent = locale_str(STR_SELECT_CHARACTER_CONTENT);
-                                task_dialog_config.nDefaultButton = IDCANCEL;
-                                task_dialog_config.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
-
-                                task_dialog_config.pRadioButtons = buttons;
-                                task_dialog_config.cRadioButtons = button_count;
-
-                                int button_id = 0, radio_id = 0;
-                                HRESULT hr = TaskDialogIndirect(&task_dialog_config, &button_id, &radio_id, NULL);
-                                if (SUCCEEDED(hr) && button_id == IDOK) {
-                                    uint8_t *char_data;
-                                    if ((char_data = er_save_simple_data_slot_export(simple_save_data, radio_id)) != NULL) {
-                                        if (er_char_data_import_raw(save_data, item, char_data)) {
-                                            update_char_list_view(item, er_char_data_ref(save_data, item));
-                                            MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
-                                        } else {
-                                            MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                                        }
-                                        er_save_simple_data_slot_free(char_data);
-                                    } else {
-                                        MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                                    }
-                                } else {
-                                    MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                                }
+                                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
                             }
-                            er_save_simple_data_free(simple_save_data);
-                        }
-                    } else {
-                        er_char_data_t *char_data = er_char_data_from_file(pszPath);
-                        if (char_data && er_char_data_import(save_data, item, char_data)) {
-                            update_char_list_view(item, char_data);
-                            MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
+                            er_save_simple_data_slot_free(char_data);
                         } else {
                             MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
                         }
-                        er_char_data_free(char_data);
+                    } else {
+                        MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
                     }
-                    CoTaskMemFree(pszPath);
                 }
-                psiResult->lpVtbl->Release(psiResult);
+                er_save_simple_data_free(simple_save_data);
             }
+        } else {
+            er_char_data_t *char_data = er_char_data_from_file(pszPath);
+            if (char_data && er_char_data_import(save_data, item, char_data)) {
+                update_char_list_view(item, char_data);
+                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
+            } else {
+                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+            }
+            er_char_data_free(char_data);
         }
-        pfd->lpVtbl->Release(pfd);
+        CoTaskMemFree(pszPath);
     }
 }
 
 /* Function to export character data to a file */
 static void export_char_data(HWND hwnd, int item) {
-    /* Create file dialog for exporting */
-    IFileDialog *pfd = NULL;
-    HRESULT hr = CoCreateInstance(&CLSID_FileSaveDialog, NULL, CLSCTX_INPROC_SERVER,
-        &IID_IFileDialog, (void**)&pfd);
-
-    if (SUCCEEDED(hr)) {
-        /* Set dialog options */
-        DWORD dwOptions;
-        pfd->lpVtbl->SetTitle(pfd, locale_str(STR_EXPORT_CHARACTER));
-        pfd->lpVtbl->GetOptions(pfd, &dwOptions);
-        pfd->lpVtbl->SetOptions(pfd, dwOptions | FOS_OVERWRITEPROMPT);
-
-        /* Set file types */
-        COMDLG_FILTERSPEC rgSpec[] = {
-            { locale_str(STR_ALL_FILES), L"*.*" }
-        };
-        pfd->lpVtbl->SetFileTypes(pfd, 1, rgSpec);
-
-        /* Show dialog */
-        hr = pfd->lpVtbl->Show(pfd, hwnd);
-        if (SUCCEEDED(hr)) {
-            IShellItem *psiResult = NULL;
-            hr = pfd->lpVtbl->GetResult(pfd, &psiResult);
-            if (SUCCEEDED(hr)) {
-                /* Get selected path */
-                PWSTR pszPath = NULL;
-                hr = psiResult->lpVtbl->GetDisplayName(psiResult, SIGDN_FILESYSPATH, &pszPath);
-                if (SUCCEEDED(hr)) {
-                    const er_char_data_t *char_data = er_char_data_ref(save_data, item);
-                    if (char_data && er_char_data_to_file(char_data, pszPath)) {
-                        MessageBoxW(hwnd, locale_str(STR_CHARACTER_EXPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
-                    } else {
-                        MessageBoxW(hwnd, locale_str(STR_CHARACTER_EXPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                    }
-                    CoTaskMemFree(pszPath);
-                }
-                psiResult->lpVtbl->Release(psiResult);
-            }
+    COMDLG_FILTERSPEC rgSpec[] = {
+        { locale_str(STR_ALL_FILES), L"*.*" }
+    };
+    PWSTR pszPath = file_dialog_save(hwnd, locale_str(STR_EXPORT_CHARACTER), rgSpec, 1);
+    if (pszPath) {
+        const er_char_data_t *char_data = er_char_data_ref(save_data, item);
+        if (char_data && er_char_data_to_file(char_data, pszPath)) {
+            MessageBoxW(hwnd, locale_str(STR_CHARACTER_EXPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
+        } else {
+            MessageBoxW(hwnd, locale_str(STR_CHARACTER_EXPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
         }
-        pfd->lpVtbl->Release(pfd);
+        CoTaskMemFree(pszPath);
     }
 }
 
