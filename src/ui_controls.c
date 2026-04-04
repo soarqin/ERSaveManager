@@ -305,10 +305,63 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     create_embedded_face_data_menu(hwnd);
 }
 
+/**
+ * @brief Calculate the optimal detail panel width for the current locale
+ * @details Measures all stat label strings (with colon suffix) to determine
+ *          the minimum width that prevents text overflow while avoiding
+ *          excessive whitespace on the left side.
+ * @param hwnd Window handle used to obtain a device context
+ * @param out_label_w Receives the computed label column width in pixels
+ * @return Recommended total width for the detail panel
+ */
+static int calculate_detail_panel_width(HWND hwnd, int *out_label_w) {
+    HDC hdc = GetDC(hwnd);
+    HFONT old_font = (HFONT)SelectObject(hdc, default_font);
+
+    int max_label_w = 0;
+    for (int i = 0; i < STAT_COUNT; i++) {
+        wchar_t text[64];
+        wsprintfW(text, L"%s:", locale_str(stat_str_indices[i]));
+        SIZE sz;
+        GetTextExtentPoint32W(hdc, text, lstrlenW(text), &sz);
+        if (sz.cx > max_label_w) {
+            max_label_w = sz.cx;
+        }
+    }
+
+    /* Also measure the group box title to ensure it fits */
+    const wchar_t *title = locale_str(STR_ATTRIBUTES);
+    SIZE title_sz;
+    GetTextExtentPoint32W(hdc, title, lstrlenW(title), &title_sz);
+
+    SelectObject(hdc, old_font);
+    ReleaseDC(hwnd, hdc);
+
+    /* Layout: [12px pad | label | 8px gap | 50px value | 12px pad] */
+    int label_w = max_label_w + 4;
+    int value_w = 50;
+    int detail_w = 12 + label_w + 8 + value_w + 12;
+
+    /* Ensure group box title fits (title text + frame chrome) */
+    int min_for_title = title_sz.cx + 24;
+    if (detail_w < min_for_title) {
+        detail_w = min_for_title;
+        label_w = detail_w - 12 - 8 - value_w - 12;
+    }
+
+    /* Clamp to reasonable bounds */
+    if (detail_w < 140) detail_w = 140;
+    if (detail_w > 300) detail_w = 300;
+
+    *out_label_w = label_w;
+    return detail_w;
+}
+
 void ui_layout_controls(HWND hwnd, int width, int height) {
     int btn_face_w = 120;
     int gap = 10;
-    int detail_w = 220;
+    int label_w;
+    int detail_w = calculate_detail_panel_width(hwnd, &label_w);
     int detail_x = width - gap - detail_w;
     int list_w = detail_x - gap - gap;
     int content_y = 65;
@@ -356,9 +409,9 @@ void ui_layout_controls(HWND hwnd, int width, int height) {
     /* Stat label/value rows inside the detail panel area */
     int row_h = 24;
     int label_x = detail_x + 12;
-    int label_w = 100;
-    int value_x = detail_x + 118;
-    int value_w = detail_w - 130;
+    /* label_w is computed by calculate_detail_panel_width() above */
+    int value_x = label_x + label_w + 8;
+    int value_w = 50;
     int first_row_y = content_y + 5;
 
     for (int i = 0; i < STAT_COUNT; i++) {
@@ -421,6 +474,11 @@ void ui_refresh_language(void) {
     lvc.iSubItem = 4;
     lvc.pszText = (LPWSTR)locale_str(STR_IN_GAME_TIME);
     ListView_SetColumn(list_view_chars, 4, &lvc);
+
+    /* Force relayout to adapt detail panel width for the new locale */
+    RECT rc;
+    GetClientRect(main_window, &rc);
+    ui_layout_controls(main_window, rc.right, rc.bottom);
 
     if (!save_data) {
         return;
