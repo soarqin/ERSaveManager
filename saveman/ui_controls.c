@@ -18,9 +18,6 @@
 #include <commctrl.h>
 #include <shlwapi.h>
 
-#define VERSION_STR L"1.1.0"
-#define STAT_COUNT 8
-
 /* Globals declared in main.c */
 extern HWND main_window;
 extern HWND button_change_folder;

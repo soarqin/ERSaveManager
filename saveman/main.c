@@ -12,20 +12,15 @@
 #include <stdint.h>
 #include <wchar.h>
 
+#include <windows.h>
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <shobjidl.h>
-#include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
 #include <uxtheme.h>
 
-#define VERSION_STR L"1.1.0"
-
 #define MAIN_WINDOW_CLASS L"ER_SAVE_FACE_MANAGER"
-
-/*** Constants for detail panel ***/
-#define STAT_COUNT 8
 
 /*** Global variables ***/
 
@@ -66,12 +61,6 @@ HFONT default_font;
 /*** Application data ***/
 /** @brief Currently loaded save file data; NULL when no file is loaded */
 er_save_data_t *save_data = NULL;
-
-/* Mapping from stat index to locale string index */
-static const locale_string_index_t stat_str_indices[STAT_COUNT] = {
-    STR_VIGOR, STR_MIND, STR_ENDURANCE, STR_STRENGTH,
-    STR_DEXTERITY, STR_INTELLIGENCE, STR_FAITH, STR_ARCANE
-};
 
 void update_char_list_view(int item, const er_char_data_t *char_data);
 static void update_detail_panel(int slot);
@@ -296,8 +285,13 @@ static void import_char_from_save_file(HWND hwnd, int item, const wchar_t *path)
     int button_id = 0;
     int radio_id = 0;
     HRESULT hr = TaskDialogIndirect(&task_dialog_config, &button_id, &radio_id, NULL);
-    if (!SUCCEEDED(hr) || button_id != IDOK) {
+    if (!SUCCEEDED(hr)) {
         MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        er_save_simple_data_free(simple_save_data);
+        return;
+    }
+    if (button_id != IDOK) {
+        /* User cancelled — silently return */
         er_save_simple_data_free(simple_save_data);
         return;
     }

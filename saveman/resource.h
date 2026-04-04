@@ -1,6 +1,10 @@
 #ifndef RESOURCE_H
 #define RESOURCE_H
 
+/* Application version and shared UI constants */
+#define VERSION_STR L"1.1.0"
+#define STAT_COUNT 8
+
 /* Icon resource ID */
 #define IDI_APP_ICON 101
 

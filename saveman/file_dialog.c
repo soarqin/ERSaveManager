@@ -7,9 +7,9 @@
 
 #include "file_dialog.h"
 
+#include <windows.h>
 #include <shlobj.h>
 #include <shobjidl.h>
-#include <windows.h>
 
 wchar_t *file_dialog_open(HWND hwnd, const wchar_t *title,
                           const COMDLG_FILTERSPEC *filters, UINT filter_count) {

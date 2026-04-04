@@ -41,6 +41,25 @@
 #define ER_FLAGS_SIZE                0x1bf99f   /* Event flags section size */
 #define ER_NET_DATA_SIZE             0x20000    /* Network data section size */
 
+/* parse_character_info padding sizes */
+#define ER_CHAR_POST_GIFT_SIZE          0x1E    /* Data section following the gift field */
+#define ER_CHAR_POST_MATCHMAKING_SIZE   0x35    /* Data section following the matchmaking weapon level field */
+
+/* Inventory entry counts */
+#define ER_INV1_PART1_COUNT             0xA80   /* First inventory section: item slot entry count */
+#define ER_INV1_PART2_COUNT             0x180   /* Second inventory section: item slot entry count */
+#define ER_INV2_PART1_COUNT             0x780   /* Second inventory block, first section: entry count */
+
+/* Item seen list */
+#define ER_ITEM_SEEN_COUNT              7000    /* Item seen list entry count */
+#define ER_ITEM_SEEN_ENTRY_SIZE         0x10    /* Item seen list entry size in bytes */
+
+/* Trailing section sizes */
+#define ER_TUTORIAL_DATA_SIZE           0x408   /* Tutorial data section size */
+
+/* Summary data parsing */
+#define ER_SUMMARY_DATA_LEAD_SIZE       0x140   /* Lead section in summary data after user ID */
+
 /* Structure to hold summary data - Contains face data for all character slots */
 typedef struct er_summary_data_s {
     uint8_t data[ER_SUMMARY_DATA_SIZE]; /* Raw summary data buffer - Stores face data for all slots */
@@ -157,10 +176,10 @@ static bool parse_character_info(er_char_data_t *char_data, const uint8_t **ptr,
     *ptr += 3;
     /* gift */
     *ptr += 1;
-    *ptr += 0x1E;
+    *ptr += ER_CHAR_POST_GIFT_SIZE;
     /* match making weapon level */
     *ptr += 1;
-    *ptr += 0x35;
+    *ptr += ER_CHAR_POST_MATCHMAKING_SIZE;
     /* passwords */
     *ptr += 0x12 * 6;
     *ptr += 0x34;
@@ -200,11 +219,11 @@ static bool parse_inventory(er_char_data_t *char_data, const uint8_t **ptr, cons
     /* count 1 */
     *ptr += 4;
     /* part 1 */
-    *ptr += 0x0C * 0xA80;
+    *ptr += 0x0C * ER_INV1_PART1_COUNT;
     /* count 2 */
     *ptr += 4;
     /* part 2 */
-    *ptr += 0x0C * 0x180;
+    *ptr += 0x0C * ER_INV1_PART2_COUNT;
     /* next_equip_index */
     *ptr += 4;
     /* next_acquisition_sort_id */
@@ -258,7 +277,7 @@ static bool parse_inventory2_and_regions(er_char_data_t *char_data, const uint8_
     (void)char_data;
     /* inventory 2 */
     *ptr += 4;
-    *ptr += 0x0C * 0x780;
+    *ptr += 0x0C * ER_INV2_PART1_COUNT;
     *ptr += 4;
     *ptr += 0x0C * 0x80;
     *ptr += 4;
@@ -290,10 +309,10 @@ static bool parse_trailing_data(er_char_data_t *char_data, const uint8_t **ptr, 
     /* item seen list */
     *ptr += 4;
     *ptr += 4;
-    *ptr += 0x10 * 7000;
+    *ptr += ER_ITEM_SEEN_ENTRY_SIZE * ER_ITEM_SEEN_COUNT;
 
     /* tutorial data */
-    *ptr += 0x408;
+    *ptr += ER_TUTORIAL_DATA_SIZE;
 
     *ptr += 0x1d;
 
@@ -387,7 +406,7 @@ static bool read_summary_slot(er_summary_data_t *summary_data, HANDLE file) {
     const uint8_t *ptr = summary_data->data + 4;
     /* userid */
     ptr += 8;
-    ptr += 0x140 + 4;
+    ptr += ER_SUMMARY_DATA_LEAD_SIZE + 4;
     const uint32_t sz = read_uint32(&ptr);
     const uint8_t *ptr2 = ptr + 4;
     if (read_uint32(&ptr2) != ER_SUMMARY_FACE_SECTION_SIZE) {
@@ -711,23 +730,23 @@ bool er_char_data_set_name(er_save_data_t *save_data, int slot, const wchar_t *n
         return false;
     }
     er_char_data_t *char_data = &save_data->char_data[slot];
-    ZeroMemory(char_data->profile, 0x22);
-    lstrcpynW((wchar_t *)(char_data->profile + 0x22), name, 0x11);
-    ZeroMemory(char_data->data + char_data->stats_offset + 4 * 37, 0x22);
-    lstrcpynW((wchar_t *)(char_data->data + char_data->stats_offset + 4 * 37), name, 0x11);
-    ZeroMemory(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot, 0x22);
-    lstrcpynW((wchar_t *)(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot), name, 0x11);
+    ZeroMemory(char_data->profile, ER_CHAR_NAME_SIZE);
+    lstrcpynW((wchar_t *)(char_data->profile + ER_CHAR_NAME_SIZE), name, ER_CHAR_NAME_SIZE / sizeof(wchar_t));
+    ZeroMemory(char_data->data + char_data->stats_offset + 4 * 37, ER_CHAR_NAME_SIZE);
+    lstrcpynW((wchar_t *)(char_data->data + char_data->stats_offset + 4 * 37), name, ER_CHAR_NAME_SIZE / sizeof(wchar_t));
+    ZeroMemory(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot, ER_CHAR_NAME_SIZE);
+    lstrcpynW((wchar_t *)(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot), name, ER_CHAR_NAME_SIZE / sizeof(wchar_t));
 
     uint8_t md5[0x10];
     md5_buffer(char_data->data, sizeof(char_data->data), md5);
     bool ok = write_at(file, char_data->slot_offset, md5, sizeof(md5));
     ok = ok && write_at(file, char_data->slot_offset + ER_SLOT_HEADER_SIZE + char_data->stats_offset + 4 * 37,
-                        char_data->data + char_data->stats_offset + 4 * 37, 0x22);
+                        char_data->data + char_data->stats_offset + 4 * 37, ER_CHAR_NAME_SIZE);
 
     md5_buffer(summary_data->data, sizeof(summary_data->data), md5);
     ok = ok && write_at(file, summary_data->slot_offset, md5, sizeof(md5));
     ok = ok && write_at(file, summary_data->slot_offset + ER_SLOT_HEADER_SIZE + summary_data->profile_offset + ER_PROFILE_SIZE * slot,
-                        summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot, 0x22);
+                        summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot, ER_CHAR_NAME_SIZE);
 
     CloseHandle(file);
     return ok;
@@ -749,7 +768,7 @@ bool er_char_data_info(const er_char_data_t *char_data, uint32_t *in_game_time, 
     const uint32_t *stats_ptr = (const uint32_t *)(char_data->data + char_data->stats_offset + 4 * 13);
     CopyMemory(stats, stats_ptr, 32);
     *level = *(uint32_t *)(char_data->data + char_data->stats_offset + 4 * 24);
-    *body_type = *(char_data->data + char_data->stats_offset + 0x94 + 0x22);
+    *body_type = *(char_data->data + char_data->stats_offset + ER_STATS_SECTION_SIZE + ER_CHAR_NAME_SIZE);
     return true;
 }
 
