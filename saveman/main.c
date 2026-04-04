@@ -6,8 +6,6 @@
 
 #include "embedded_face_data.h"
 
-#include <ini.h>
-
 #include <stdint.h>
 #include <wchar.h>
 
@@ -22,16 +20,9 @@
 #define VERSION_STR L"1.1.0"
 
 #define MAIN_WINDOW_CLASS L"ER_SAVE_FACE_MANAGER"
-#define IDM_IMPORT_FACE 1001
-#define IDM_EXPORT_FACE 1002
-#define IDM_IMPORT_CHAR 1003
-#define IDM_EXPORT_CHAR 1004
-#define IDM_RENAME_CHAR 1005
-#define IDC_BUTTON_CHANGE_FOLDER 1
-#define IDC_COMBO_SAVE_FOLDER 2
-#define IDC_BUTTON_MANAGE_FACES 3
-#define IDM_EMBEDDED_FACE_DATA_START 1100 /* Start ID for embedded face data menu items, range: 1100-1299 */
-#define IDM_LOCALE_START 1300  /* Start ID for locale menu items, range: 1300-1399 */
+
+/*** Constants for detail panel ***/
+#define STAT_COUNT 8
 
 /*** Global variables ***/
 HWND button_change_folder, combo_box_save_folder, list_view_faces, list_view_chars;
@@ -41,8 +32,19 @@ HMENU menu_bar = NULL, embedded_face_data_menu = NULL;
 HFONT default_font;  /* font handle */
 er_save_data_t *save_data = NULL;
 HWND label_chars;  /* Label handle for characters ListView */
+HWND detail_group;  /* GroupBox for attribute details panel */
+HWND detail_stat_labels[STAT_COUNT];  /* Static labels for attribute names */
+HWND detail_stat_values[STAT_COUNT];  /* Static labels for attribute values */
+
+/* Mapping from stat index to locale string index */
+static const locale_string_index_t stat_str_indices[STAT_COUNT] = {
+    STR_VIGOR, STR_MIND, STR_ENDURANCE, STR_STRENGTH,
+    STR_DEXTERITY, STR_INTELLIGENCE, STR_FAITH, STR_ARCANE
+};
 
 static void update_char_list_view(int item, const er_char_data_t *char_data);
+static void set_stat_label_text(int idx);
+static void update_detail_panel(int slot);
 
 static void add_folders_to_combo_box(void) {
     /* Clear the combo box */
@@ -282,6 +284,12 @@ static void on_menu_change_language(int idx) {
     SetWindowTextW(button_manage_faces, locale_str(STR_MANAGE_FACES));
     SetWindowTextW(label_chars, locale_str(STR_CHARACTERS));
 
+    /* Update detail panel labels */
+    SetWindowTextW(detail_group, locale_str(STR_ATTRIBUTES));
+    for (int i = 0; i < STAT_COUNT; i++) {
+        set_stat_label_text(i);
+    }
+
     /* Update menu title */
     HMENU locale_menu = GetSubMenu(menu_bar, 0);
     ModifyMenuW(menu_bar, 0, MF_BYPOSITION | MF_POPUP, (UINT_PTR)locale_menu, locale_str(STR_LANGUAGE));
@@ -461,9 +469,44 @@ static void update_char_list_view(int item, const er_char_data_t *char_data) {
         wsprintfW(text, L"%02d:%02d:%02d", in_game_time / 3600, (in_game_time % 3600) / 60, in_game_time % 60);
     }
     ListView_SetItemText(list_view_chars, item, 4, text);
+}
 
-    wsprintfW(text, L"%d/%d/%d/%d/%d/%d/%d/%d", stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], stats[6], stats[7]);
-    ListView_SetItemText(list_view_chars, item, 5, text);
+/* Helper to set stat label text with colon suffix */
+static void set_stat_label_text(int idx) {
+    wchar_t text[64];
+    wsprintfW(text, L"%s:", locale_str(stat_str_indices[idx]));
+    SetWindowTextW(detail_stat_labels[idx], text);
+}
+
+/* Update the detail panel with attribute info for the selected character slot */
+static void update_detail_panel(int slot) {
+    if (slot < 0 || !save_data) {
+        /* Clear all values */
+        for (int i = 0; i < STAT_COUNT; i++) {
+            SetWindowTextW(detail_stat_values[i], L"");
+        }
+        return;
+    }
+
+    const er_char_data_t *char_data = er_char_data_ref(save_data, slot);
+    if (!char_data) {
+        for (int i = 0; i < STAT_COUNT; i++) {
+            SetWindowTextW(detail_stat_values[i], L"-");
+        }
+        return;
+    }
+
+    uint32_t in_game_time = 0;
+    uint8_t gender = 0;
+    int level = 0;
+    int stats[STAT_COUNT] = {0};
+    er_char_data_info(char_data, &in_game_time, &gender, &level, stats);
+
+    wchar_t text[16];
+    for (int i = 0; i < STAT_COUNT; i++) {
+        wsprintfW(text, L"%d", stats[i]);
+        SetWindowTextW(detail_stat_values[i], text);
+    }
 }
 
 /* Function to import character data from a file */
@@ -728,10 +771,34 @@ static void create_controls(HWND hwnd, HMODULE module) {
     lvc.pszText = (LPWSTR)locale_str(STR_IN_GAME_TIME);
     ListView_InsertColumn(list_view_chars, 4, &lvc);
 
-    lvc.iSubItem = 5;
-    lvc.cx = 160;
-    lvc.pszText = (LPWSTR)locale_str(STR_ATTRIBUTES);
-    ListView_InsertColumn(list_view_chars, 5, &lvc);
+    /* Create detail panel group box for attributes */
+    detail_group = CreateWindowW(
+        L"BUTTON", locale_str(STR_ATTRIBUTES),
+        WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+        0, 0, 220, 250,
+        hwnd, NULL, module, NULL
+    );
+    SendMessage(detail_group, WM_SETFONT, (WPARAM)default_font, TRUE);
+
+    /* Create stat label/value pairs inside detail panel */
+    for (int i = 0; i < STAT_COUNT; i++) {
+        detail_stat_labels[i] = CreateWindowW(
+            L"STATIC", L"",
+            WS_CHILD | WS_VISIBLE | SS_RIGHT,
+            0, 0, 90, 18,
+            hwnd, NULL, module, NULL
+        );
+        SendMessage(detail_stat_labels[i], WM_SETFONT, (WPARAM)default_font, TRUE);
+        set_stat_label_text(i);
+
+        detail_stat_values[i] = CreateWindowW(
+            L"STATIC", L"",
+            WS_CHILD | WS_VISIBLE | SS_LEFT,
+            0, 0, 60, 18,
+            hwnd, NULL, module, NULL
+        );
+        SendMessage(detail_stat_values[i], WM_SETFONT, (WPARAM)default_font, TRUE);
+    }
 
     /* Create Manage Faces Button */
     button_manage_faces = CreateWindowW(
@@ -976,31 +1043,52 @@ static LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam
 
 /* Function to layout controls */
 static void layout_controls(HWND hwnd, int width, int height) {
-    /* Allocate space for 5 controls */
-    HDWP hdwp = BeginDeferWindowPos(5);
-
     int btn_face_w = 120;
     int gap = 10;
+    int detail_w = 220;
+    int detail_x = width - gap - detail_w;
+    int list_w = detail_x - gap - gap;
+    int content_y = 65;
+    int content_h = height - 75;
 
-    /* Resize Button */
+    /* 5 base controls + group box + 8 label/value pairs = 22 */
+    HDWP hdwp = BeginDeferWindowPos(5 + 1 + STAT_COUNT * 2);
+
+    /* Top row */
     hdwp = DeferWindowPos(hdwp, button_change_folder, NULL,
-        10, 10, 160, 25, SWP_NOZORDER);
-
-    /* Resize ComboBox (leave room for manage faces button) */
+        gap, 10, 160, 25, SWP_NOZORDER);
     hdwp = DeferWindowPos(hdwp, combo_box_save_folder, NULL,
         170, 10, width - 180 - btn_face_w - gap, 25, SWP_NOZORDER);
-
-    /* Resize Manage Faces Button */
     hdwp = DeferWindowPos(hdwp, button_manage_faces, NULL,
-        width - 10 - btn_face_w, 10, btn_face_w, 25, SWP_NOZORDER);
+        width - gap - btn_face_w, 10, btn_face_w, 25, SWP_NOZORDER);
 
-    /* Resize Characters Label (full width) */
+    /* Characters label (above list only) */
     hdwp = DeferWindowPos(hdwp, label_chars, NULL,
-        10, 45, width - 20, 20, SWP_NOZORDER);
+        gap, 45, list_w, 20, SWP_NOZORDER);
 
-    /* Resize Characters ListView (full width) */
+    /* Characters ListView (left side) */
     hdwp = DeferWindowPos(hdwp, list_view_chars, NULL,
-        10, 65, width - 20, height - 75, SWP_NOZORDER);
+        gap, content_y, list_w, content_h, SWP_NOZORDER);
+
+    /* Detail panel group box (right side) */
+    hdwp = DeferWindowPos(hdwp, detail_group, NULL,
+        detail_x, 45, detail_w, content_h + 20, SWP_NOZORDER);
+
+    /* Stat label/value rows inside the detail panel area */
+    int row_h = 24;
+    int label_x = detail_x + 12;
+    int label_w = 100;
+    int value_x = detail_x + 118;
+    int value_w = detail_w - 130;
+    int first_row_y = content_y + 5;
+
+    for (int i = 0; i < STAT_COUNT; i++) {
+        int row_y = first_row_y + i * row_h;
+        hdwp = DeferWindowPos(hdwp, detail_stat_labels[i], NULL,
+            label_x, row_y, label_w, 18, SWP_NOZORDER);
+        hdwp = DeferWindowPos(hdwp, detail_stat_values[i], NULL,
+            value_x, row_y, value_w, 18, SWP_NOZORDER);
+    }
 
     /* Apply all window position changes at once */
     EndDeferWindowPos(hdwp);
@@ -1040,6 +1128,26 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
             return 0;
         }
 
+        case WM_NOTIFY: {
+            NMHDR *nmhdr = (NMHDR *)lparam;
+            if (nmhdr->hwndFrom == list_view_chars && nmhdr->code == LVN_ITEMCHANGED) {
+                NMLISTVIEW *nmlv = (NMLISTVIEW *)lparam;
+                if (nmlv->uChanged & LVIF_STATE) {
+                    if (nmlv->uNewState & LVIS_SELECTED) {
+                        /* Item selected - update detail panel */
+                        update_detail_panel(nmlv->iItem);
+                    } else if ((nmlv->uOldState & LVIS_SELECTED) && !(nmlv->uNewState & LVIS_SELECTED)) {
+                        /* Item deselected - clear detail panel if nothing else selected */
+                        int sel = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
+                        if (sel == -1) {
+                            update_detail_panel(-1);
+                        }
+                    }
+                }
+            }
+            return 0;
+        }
+
         case WM_CONTEXTMENU: {
             if ((HWND)wparam == list_view_chars) {
                 list_view_chars_popup_menu(hwnd, wparam, lparam);
@@ -1073,6 +1181,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                     int item = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
                     if (item == -1) return 0;
                     import_char_data(hwnd, item);
+                    update_detail_panel(item);
                     break;
                 }
 
@@ -1142,7 +1251,7 @@ static HWND create_window(HINSTANCE instance, int cmd_show) {
         /* Use default position and size */
         hwnd = CreateWindowW(
             MAIN_WINDOW_CLASS, window_title, WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT, CW_USEDEFAULT, 650, 480,
+            CW_USEDEFAULT, CW_USEDEFAULT, 750, 480,
             NULL, NULL, instance, NULL);
     }
 

@@ -8,8 +8,23 @@
 #define IDD_RENAME_CHARACTER 201
 #define IDD_FACE_DATA 202
 
-/* Dialog control IDs */
+/* Dialog control IDs — used in .rc dialog templates */
+/* NOTE: IDC_STATIC_CHARACTER_NAME and IDM_IMPORT_FACE both use value 1001.
+ * This is intentional: they occupy different Win32 ID namespaces
+ * (dialog control vs. menu command), so there is no conflict. */
 #define IDC_STATIC_CHARACTER_NAME 1001
 #define IDC_EDIT_CHARACTER_NAME 1002
+
+/* Menu command IDs and main-window control IDs */
+#define IDM_IMPORT_FACE 1001
+#define IDM_EXPORT_FACE 1002
+#define IDM_IMPORT_CHAR 1003
+#define IDM_EXPORT_CHAR 1004
+#define IDM_RENAME_CHAR 1005
+#define IDC_BUTTON_CHANGE_FOLDER 1
+#define IDC_COMBO_SAVE_FOLDER 2
+#define IDC_BUTTON_MANAGE_FACES 3
+#define IDM_EMBEDDED_FACE_DATA_START 1100 /* Start ID for embedded face data menu items, range: 1100-1299 */
+#define IDM_LOCALE_START 1300  /* Start ID for locale menu items, range: 1300-1399 */
 
 #endif /* RESOURCE_H */
