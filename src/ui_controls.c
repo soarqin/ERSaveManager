@@ -31,6 +31,10 @@ extern HWND button_rename_char;
 extern HWND detail_group;
 extern HWND detail_stat_labels[];
 extern HWND detail_stat_values[];
+extern HWND detail_runes_label;
+extern HWND detail_runes_value;
+extern HWND detail_deaths_label;
+extern HWND detail_deaths_value;
 extern HMENU menu_bar;
 extern HMENU embedded_face_data_menu;
 extern HFONT default_font;
@@ -46,11 +50,24 @@ static const locale_string_index_t stat_str_indices[STAT_COUNT] = {
     STR_DEXTERITY, STR_INTELLIGENCE, STR_FAITH, STR_ARCANE
 };
 
+/* Extra detail labels (runes held, death count) shown below the stat rows */
+static const locale_string_index_t extra_detail_str_indices[] = {
+    STR_RUNES_HELD, STR_DEATH_COUNT
+};
+#define EXTRA_DETAIL_COUNT (sizeof(extra_detail_str_indices) / sizeof(extra_detail_str_indices[0]))
+
 /* Helper to set stat label text with colon suffix */
 static void set_stat_label_text(int idx) {
     wchar_t text[64];
     wsprintfW(text, L"%s:", locale_str(stat_str_indices[idx]));
     SetWindowTextW(detail_stat_labels[idx], text);
+}
+
+/* Helper to set extra detail label text with colon suffix */
+static void set_extra_detail_label_text(HWND label, locale_string_index_t str_idx) {
+    wchar_t text[64];
+    wsprintfW(text, L"%s:", locale_str(str_idx));
+    SetWindowTextW(label, text);
 }
 
 /* Function to create embedded face data menu */
@@ -240,6 +257,41 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
         SendMessage(detail_stat_values[i], WM_SETFONT, (WPARAM)default_font, TRUE);
     }
 
+    /* Create extra detail label/value pairs (runes held, death count) */
+    detail_runes_label = CreateWindowW(
+        L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_RIGHT,
+        0, 0, 90, 18,
+        hwnd, NULL, module, NULL
+    );
+    SendMessage(detail_runes_label, WM_SETFONT, (WPARAM)default_font, TRUE);
+    set_extra_detail_label_text(detail_runes_label, STR_RUNES_HELD);
+
+    detail_runes_value = CreateWindowW(
+        L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 60, 18,
+        hwnd, NULL, module, NULL
+    );
+    SendMessage(detail_runes_value, WM_SETFONT, (WPARAM)default_font, TRUE);
+
+    detail_deaths_label = CreateWindowW(
+        L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_RIGHT,
+        0, 0, 90, 18,
+        hwnd, NULL, module, NULL
+    );
+    SendMessage(detail_deaths_label, WM_SETFONT, (WPARAM)default_font, TRUE);
+    set_extra_detail_label_text(detail_deaths_label, STR_DEATH_COUNT);
+
+    detail_deaths_value = CreateWindowW(
+        L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 60, 18,
+        hwnd, NULL, module, NULL
+    );
+    SendMessage(detail_deaths_value, WM_SETFONT, (WPARAM)default_font, TRUE);
+
     /* Create character action buttons below the ListView (initially disabled) */
     button_import_char = CreateWindowW(
         L"BUTTON", locale_str(STR_IMPORT_CHARACTER),
@@ -328,6 +380,16 @@ static int calculate_detail_panel_width(HWND hwnd, int *out_label_w) {
             max_label_w = sz.cx;
         }
     }
+    /* Also measure extra detail labels (runes held, death count) */
+    for (int i = 0; i < (int)EXTRA_DETAIL_COUNT; i++) {
+        wchar_t text[64];
+        wsprintfW(text, L"%s:", locale_str(extra_detail_str_indices[i]));
+        SIZE sz;
+        GetTextExtentPoint32W(hdc, text, lstrlenW(text), &sz);
+        if (sz.cx > max_label_w) {
+            max_label_w = sz.cx;
+        }
+    }
 
     /* Also measure the group box title to ensure it fits */
     const wchar_t *title = locale_str(STR_ATTRIBUTES);
@@ -375,8 +437,8 @@ void ui_layout_controls(HWND hwnd, int width, int height) {
     int btn_gap = 5;
     int btn_w = (list_w - btn_gap * 2) / 3;
 
-    /* 5 base + 3 char buttons + group box + 8 label/value pairs = 25 */
-    HDWP hdwp = BeginDeferWindowPos(5 + 3 + 1 + STAT_COUNT * 2);
+    /* 5 base + 3 char buttons + group box + 8 stat pairs + 4 extra detail = 29 */
+    HDWP hdwp = BeginDeferWindowPos(5 + 3 + 1 + STAT_COUNT * 2 + 4);
 
     /* Top row */
     hdwp = DeferWindowPos(hdwp, button_change_folder, NULL,
@@ -422,6 +484,17 @@ void ui_layout_controls(HWND hwnd, int width, int height) {
             value_x, row_y, value_w, 18, SWP_NOZORDER);
     }
 
+    /* Extra detail rows (runes held, death count) below the stat rows with a small gap */
+    int extra_y = first_row_y + STAT_COUNT * row_h + 4;
+    hdwp = DeferWindowPos(hdwp, detail_runes_label, NULL,
+        label_x, extra_y, label_w, 18, SWP_NOZORDER);
+    hdwp = DeferWindowPos(hdwp, detail_runes_value, NULL,
+        value_x, extra_y, value_w, 18, SWP_NOZORDER);
+    hdwp = DeferWindowPos(hdwp, detail_deaths_label, NULL,
+        label_x, extra_y + row_h, label_w, 18, SWP_NOZORDER);
+    hdwp = DeferWindowPos(hdwp, detail_deaths_value, NULL,
+        value_x, extra_y + row_h, value_w, 18, SWP_NOZORDER);
+
     /* Apply all window position changes at once */
     EndDeferWindowPos(hdwp);
 }
@@ -431,7 +504,7 @@ void ui_refresh_language(void) {
     create_embedded_face_data_menu(main_window);
 
     wchar_t window_title[64];
-    wsprintfW(window_title, L"%s v%s", locale_str(STR_APP_TITLE), VERSION_STR);
+    wsprintfW(window_title, L"%s", locale_str(STR_APP_TITLE));
     SetWindowTextW(main_window, window_title);
     SetWindowTextW(button_change_folder, locale_str(STR_CHANGE_SAVE_FOLDER));
     SetWindowTextW(button_manage_faces, locale_str(STR_MANAGE_FACES));
@@ -445,6 +518,8 @@ void ui_refresh_language(void) {
     for (int i = 0; i < STAT_COUNT; i++) {
         set_stat_label_text(i);
     }
+    set_extra_detail_label_text(detail_runes_label, STR_RUNES_HELD);
+    set_extra_detail_label_text(detail_deaths_label, STR_DEATH_COUNT);
 
     /* Update menu title */
     HMENU locale_menu = GetSubMenu(menu_bar, 0);

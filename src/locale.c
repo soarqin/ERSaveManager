@@ -80,6 +80,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Intelligence",
         L"Faith",
         L"Arcane",
+        L"Runes Held",
+        L"Deaths",
     },
     /* French strings */
     {
@@ -135,6 +137,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Intelligence",
         L"Foi",
         L"Ésotérisme",
+        L"Runes possédées",
+        L"Morts",
     },
     /* German strings */
     {
@@ -190,6 +194,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Weisheit",
         L"Glaube",
         L"Arkanenergie",
+        L"Vorhandene Runen",
+        L"Tode",
     },
     /* Italian strings */
     {
@@ -245,6 +251,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Intelligenza",
         L"Fede",
         L"Arcano",
+        L"Rune in possesso",
+        L"Morti",
     },
     /* Spanish strings */
     {
@@ -300,6 +308,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Inteligencia",
         L"Fe",
         L"Arcano",
+        L"N.º runas",
+        L"Muertes",
     },
     /* Portuguese strings */
     {
@@ -355,6 +365,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Inteligência",
         L"Fé",
         L"Arcano",
+        L"Runas carregadas",
+        L"Mortes",
     },
     /* Russian strings */
     {
@@ -410,6 +422,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Мудрость",
         L"Вера",
         L"Колдовство",
+        L"Ваши руны",
+        L"Смерти",
     },
     /* Japanese strings */
     {
@@ -465,6 +479,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"知力",
         L"信仰",
         L"神秘",
+        L"所持ルーン",
+        L"死亡回数",
     },
     /* Korean strings */
     {
@@ -520,6 +536,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"지력",
         L"신앙",
         L"신비",
+        L"소지 룬",
+        L"사망 횟수",
     },
     /* Simplified Chinese strings */
     {
@@ -575,6 +593,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"智力",
         L"信仰",
         L"感应",
+        L"持有卢恩",
+        L"死亡次数",
     },
     /* Traditional Chinese strings */
     {
@@ -630,6 +650,8 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"智力",
         L"信仰",
         L"感應",
+        L"持有盧恩",
+        L"死亡次數",
     }
 };
 

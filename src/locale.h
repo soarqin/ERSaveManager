@@ -65,6 +65,8 @@ typedef enum locale_string_index_e {
     STR_INTELLIGENCE, /* "Intelligence" */
     STR_FAITH, /* "Faith" */
     STR_ARCANE, /* "Arcane" */
+    STR_RUNES_HELD, /* "Runes Held" */
+    STR_DEATH_COUNT, /* "Deaths" */
     STR_MAX /* Total number of strings */
 } locale_string_index_t;
 

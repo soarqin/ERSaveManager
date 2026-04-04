@@ -16,6 +16,19 @@ typedef struct er_save_simple_data_s er_save_simple_data_t;
 typedef struct er_char_data_s er_char_data_t;
 
 /**
+ * @brief Character info output structure returned by er_char_data_info
+ * @details Groups all character metadata into a single struct for easier extension.
+ */
+typedef struct er_char_info_s {
+    uint32_t in_game_time; /* In-game play time in milliseconds */
+    uint8_t body_type;     /* Body type (0 = Type B, 1 = Type A) */
+    int level;             /* Character level */
+    int stats[8];          /* Attribute stats: Vigor, Mind, Endurance, Strength, Dexterity, Intelligence, Faith, Arcane */
+    int runes_held;        /* Current runes held */
+    int death_count;       /* Number of times the character has died */
+} er_char_info_t;
+
+/**
  * @brief Loads save data from a file
  * @param path Path to the save file
  * @return Pointer to loaded save data structure, or NULL if loading fails
@@ -123,13 +136,10 @@ const wchar_t *er_char_data_get_name(const er_char_data_t *char_data);
 /**
  * @brief Gets information about a character data structure
  * @param char_data Pointer to character data structure
- * @param in_game_time Pointer to store in-game time
- * @param body_type Pointer to store body type
- * @param level Pointer to store level
- * @param stats Pointer to store stats
+ * @param info Pointer to er_char_info_t structure to fill with character info
  * @return true if information retrieval successful, false otherwise
  */
-bool er_char_data_info(const er_char_data_t *char_data, uint32_t *in_game_time, uint8_t *body_type, int *level, int stats[8]);
+bool er_char_data_info(const er_char_data_t *char_data, er_char_info_t *info);
 
 /**
  * @brief Loads character data from a file

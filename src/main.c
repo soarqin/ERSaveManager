@@ -54,6 +54,14 @@ HWND detail_group;
 HWND detail_stat_labels[STAT_COUNT];
 /** @brief Static labels showing attribute values */
 HWND detail_stat_values[STAT_COUNT];
+/** @brief Static label showing "Runes Held" text */
+HWND detail_runes_label;
+/** @brief Static label showing runes held value */
+HWND detail_runes_value;
+/** @brief Static label showing "Deaths" text */
+HWND detail_deaths_label;
+/** @brief Static label showing death count value */
+HWND detail_deaths_value;
 
 /*** Menu handles ***/
 HMENU menu_bar = NULL;
@@ -203,19 +211,16 @@ void update_char_list_view(int item, const er_char_data_t *char_data) {
     wsprintfW(text, L"%s", er_char_data_get_name(char_data));
     ListView_SetItemText(list_view_chars, item, 1, text);
 
-    uint32_t in_game_time = 0;
-    uint8_t gender = 0;
-    int level = 0;
-    int stats[8] = {0};
-    er_char_data_info(char_data, &in_game_time, &gender, &level, stats);
+    er_char_info_t info = {0};
+    er_char_data_info(char_data, &info);
 
-    wsprintfW(text, L"%s", locale_str(gender ? STR_TYPE_A : STR_TYPE_B));
+    wsprintfW(text, L"%s", locale_str(info.body_type ? STR_TYPE_A : STR_TYPE_B));
     ListView_SetItemText(list_view_chars, item, 2, text);
 
-    wsprintfW(text, L"%d", level);
+    wsprintfW(text, L"%d", info.level);
     ListView_SetItemText(list_view_chars, item, 3, text);
 
-    in_game_time /= 1000;
+    uint32_t in_game_time = info.in_game_time / 1000;
     if (in_game_time < 3600) {
         wsprintfW(text, L"%02d:%02d", in_game_time / 60, in_game_time % 60);
     } else {
@@ -231,6 +236,8 @@ static void update_detail_panel(int slot) {
         for (int i = 0; i < STAT_COUNT; i++) {
             SetWindowTextW(detail_stat_values[i], L"");
         }
+        SetWindowTextW(detail_runes_value, L"");
+        SetWindowTextW(detail_deaths_value, L"");
         return;
     }
 
@@ -239,20 +246,25 @@ static void update_detail_panel(int slot) {
         for (int i = 0; i < STAT_COUNT; i++) {
             SetWindowTextW(detail_stat_values[i], L"-");
         }
+        SetWindowTextW(detail_runes_value, L"-");
+        SetWindowTextW(detail_deaths_value, L"-");
         return;
     }
 
-    uint32_t in_game_time = 0;
-    uint8_t gender = 0;
-    int level = 0;
-    int stats[STAT_COUNT] = {0};
-    er_char_data_info(char_data, &in_game_time, &gender, &level, stats);
+    er_char_info_t info = {0};
+    er_char_data_info(char_data, &info);
 
     wchar_t text[16];
     for (int i = 0; i < STAT_COUNT; i++) {
-        wsprintfW(text, L"%d", stats[i]);
+        wsprintfW(text, L"%d", info.stats[i]);
         SetWindowTextW(detail_stat_values[i], text);
     }
+
+    wsprintfW(text, L"%d", info.runes_held);
+    SetWindowTextW(detail_runes_value, text);
+
+    wsprintfW(text, L"%d", info.death_count);
+    SetWindowTextW(detail_deaths_value, text);
 }
 
 static void import_char_from_save_file(HWND hwnd, int item, const wchar_t *path) {
@@ -592,7 +604,7 @@ static HWND create_window(HINSTANCE instance, int cmd_show) {
     RegisterClassExW(&wc);
 
     wchar_t window_title[64];
-    wsprintfW(window_title, L"%s v%s", locale_str(STR_APP_TITLE), VERSION_STR);
+    wsprintfW(window_title, L"%s", locale_str(STR_APP_TITLE));
 
     /* Create main window with saved position and size if available */
     HWND hwnd;

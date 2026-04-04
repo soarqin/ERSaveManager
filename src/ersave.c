@@ -55,7 +55,7 @@
 #define ER_ITEM_SEEN_ENTRY_SIZE         0x10    /* Item seen list entry size in bytes */
 
 /* Trailing section sizes */
-#define ER_TUTORIAL_DATA_SIZE           0x408   /* Tutorial data section size */
+#define ER_TUTORIAL_DATA_SIZE           0x40B   /* Tutorial data section size */
 
 /* Summary data parsing */
 #define ER_SUMMARY_DATA_LEAD_SIZE       0x140   /* Lead section in summary data after user ID */
@@ -76,6 +76,7 @@ typedef struct er_char_data_s {
     uint32_t userid_offset; /* Offset to userid in data buffer - Points to user identification data */
     uint32_t stats_offset; /* Offset to stats in data buffer - Points to character statistics */
     uint32_t face_offset; /* Offset to face data in data buffer - Points to character face data */
+    uint32_t death_count_offset; /* Offset to death count in data buffer - Points to character death count data */
     uint8_t data[ER_CHAR_DATA_SIZE]; /* Raw character data buffer - Stores complete character data */
     uint8_t profile[ER_PROFILE_SIZE]; /* Raw profile data buffer - Stores profile data */
 } er_char_data_t;
@@ -314,7 +315,9 @@ static bool parse_trailing_data(er_char_data_t *char_data, const uint8_t **ptr, 
     /* tutorial data */
     *ptr += ER_TUTORIAL_DATA_SIZE;
 
-    *ptr += 0x1d;
+    char_data->death_count_offset = (uint32_t)(*ptr - char_data->data);
+
+    *ptr += 0x1A;
 
     /* flags */
     *ptr += ER_FLAGS_SIZE;
@@ -760,15 +763,17 @@ const wchar_t *er_char_data_get_name(const er_char_data_t *char_data) {
     return (const wchar_t *)(char_data->data + char_data->stats_offset + 4 * 37);
 }
 
-bool er_char_data_info(const er_char_data_t *char_data, uint32_t *in_game_time, uint8_t *body_type, int *level, int stats[8]) {
-    if (!char_data) {
+bool er_char_data_info(const er_char_data_t *char_data, er_char_info_t *info) {
+    if (!char_data || !info) {
         return false;
     }
-    *in_game_time = *(uint32_t *)(char_data->data + 8);
+    info->in_game_time = *(uint32_t *)(char_data->data + 8);
+    info->body_type = *(char_data->data + char_data->stats_offset + ER_STATS_SECTION_SIZE + ER_CHAR_NAME_SIZE);
+    info->level = *(uint32_t *)(char_data->data + char_data->stats_offset + 4 * 24);
     const uint32_t *stats_ptr = (const uint32_t *)(char_data->data + char_data->stats_offset + 4 * 13);
-    CopyMemory(stats, stats_ptr, 32);
-    *level = *(uint32_t *)(char_data->data + char_data->stats_offset + 4 * 24);
-    *body_type = *(char_data->data + char_data->stats_offset + ER_STATS_SECTION_SIZE + ER_CHAR_NAME_SIZE);
+    CopyMemory(info->stats, stats_ptr, sizeof(info->stats));
+    info->runes_held = *(uint32_t *)(char_data->data + char_data->stats_offset + 4 * 25);
+    info->death_count = *(uint32_t *)(char_data->data + char_data->death_count_offset);
     return true;
 }
 
