@@ -1,4 +1,5 @@
 #include "resource.h"
+#include "version.h"
 
 #include "config.h"
 #include "ersave.h"
@@ -603,8 +604,8 @@ static HWND create_window(HINSTANCE instance, int cmd_show) {
     wc.hIconSm = LoadIconW(instance, MAKEINTRESOURCEW(IDI_APP_ICON));
     RegisterClassExW(&wc);
 
-    wchar_t window_title[64];
-    wsprintfW(window_title, L"%s", locale_str(STR_APP_TITLE));
+    wchar_t window_title[128];
+    wsprintfW(window_title, L"%s v%s", locale_str(STR_APP_TITLE), VERSION_STR_W);
 
     /* Create main window with saved position and size if available */
     HWND hwnd;

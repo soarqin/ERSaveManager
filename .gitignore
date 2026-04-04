@@ -3,6 +3,15 @@ build/
 out/
 cmake-build-*/
 
+# Agent directories
+.sisyphus/
+.cache/
+.agent/
+.claude/
+.codex/
+.gemini/
+.opencode/
+
 # Compiled objects and binaries
 *.obj
 *.o

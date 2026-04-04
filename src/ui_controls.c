@@ -7,6 +7,7 @@
  */
 
 #include "ui_controls.h"
+#include "version.h"
 #include "ersave.h"
 #include "locale.h"
 #include "config.h"
@@ -503,8 +504,8 @@ void ui_refresh_language(void) {
     /* Rebuild embedded face data menu for the new locale */
     create_embedded_face_data_menu(main_window);
 
-    wchar_t window_title[64];
-    wsprintfW(window_title, L"%s", locale_str(STR_APP_TITLE));
+    wchar_t window_title[128];
+    wsprintfW(window_title, L"%s v%s", locale_str(STR_APP_TITLE), VERSION_STR_W);
     SetWindowTextW(main_window, window_title);
     SetWindowTextW(button_change_folder, locale_str(STR_CHANGE_SAVE_FOLDER));
     SetWindowTextW(button_manage_faces, locale_str(STR_MANAGE_FACES));

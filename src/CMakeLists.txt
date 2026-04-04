@@ -21,6 +21,12 @@ add_project(saveman WIN32
     OUTPUT_NAME "ERSaveManager"
 )
 
+# Generate version header from CMake project version
+configure_file(version.h.in "${CMAKE_CURRENT_BINARY_DIR}/version.h" @ONLY)
+
+# Add build directory to include path for the generated version header
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+
 # Enable Unicode character set
 target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE _UNICODE)
 
@@ -32,11 +38,12 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE _UNICODE)
 # - uxtheme: Theme API
 target_link_libraries(${PROJECT_NAME} PRIVATE md5 inih shlwapi comctl32 uxtheme)
 
-# Recompile app.rc when app.manifest changes
+# Recompile app.rc when dependent headers or assets change
 set_property(SOURCE app.rc PROPERTY OBJECT_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/app.manifest"
     "${CMAKE_CURRENT_SOURCE_DIR}/app.ico"
     "${CMAKE_CURRENT_SOURCE_DIR}/resource.h"
+    "${CMAKE_CURRENT_BINARY_DIR}/version.h"
 )
 
 if (MSVC)
@@ -45,6 +52,11 @@ if (MSVC)
         LINK_FLAGS "/MANIFEST:NO"
     )
 else ()
-    # Enable Unicode entry point for MinGW
+    # Enable Unicode entry point for MinGW/Clang
     target_link_options(${PROJECT_NAME} PRIVATE -municode)
+    # CMake's Clang link rule hardcodes -Xlinker /MANIFEST:EMBED after user flags,
+    # conflicting with the manifest embedded in app.rc. Override the link template
+    # to suppress automatic manifest generation.
+    string(REPLACE "-Xlinker /MANIFEST:EMBED" "-Xlinker /MANIFEST:NO"
+        CMAKE_C_LINK_EXECUTABLE "${CMAKE_C_LINK_EXECUTABLE}")
 endif ()
