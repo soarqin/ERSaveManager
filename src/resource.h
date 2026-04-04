@@ -28,6 +28,12 @@
 #define IDC_BUTTON_CHANGE_FOLDER 1
 #define IDC_COMBO_SAVE_FOLDER 2
 #define IDC_BUTTON_MANAGE_FACES 3
+#define IDC_BUTTON_IMPORT_CHAR 10
+#define IDC_BUTTON_EXPORT_CHAR 11
+#define IDC_BUTTON_RENAME_CHAR 12
+#define IDC_BUTTON_IMPORT_FACE 13
+#define IDC_BUTTON_EXPORT_FACE 14
+#define IDC_BUTTON_NPC_FACE 15
 #define IDM_EMBEDDED_FACE_DATA_START 1100 /* Start ID for embedded face data menu items, range: 1100-1299 */
 #define IDM_LOCALE_START 1300  /* Start ID for locale menu items, range: 1300-1399 */
 

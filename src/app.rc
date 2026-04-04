@@ -20,7 +20,7 @@ BEGIN
 END
 
 /* Face data management dialog (resizable, content created programmatically) */
-IDD_FACE_DATA DIALOG 0, 0, 180, 250
+IDD_FACE_DATA DIALOG 0, 0, 270, 250
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "Face Data"
 FONT 9, "MS Shell Dlg"

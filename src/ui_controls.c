@@ -25,6 +25,9 @@ extern HWND combo_box_save_folder;
 extern HWND button_manage_faces;
 extern HWND list_view_chars;
 extern HWND label_chars;
+extern HWND button_import_char;
+extern HWND button_export_char;
+extern HWND button_rename_char;
 extern HWND detail_group;
 extern HWND detail_stat_labels[];
 extern HWND detail_stat_values[];
@@ -237,6 +240,31 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
         SendMessage(detail_stat_values[i], WM_SETFONT, (WPARAM)default_font, TRUE);
     }
 
+    /* Create character action buttons below the ListView (initially disabled) */
+    button_import_char = CreateWindowW(
+        L"BUTTON", locale_str(STR_IMPORT_CHARACTER),
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
+        0, 0, 100, 25,
+        hwnd, (HMENU)IDC_BUTTON_IMPORT_CHAR, module, NULL
+    );
+    SendMessage(button_import_char, WM_SETFONT, (WPARAM)default_font, TRUE);
+
+    button_export_char = CreateWindowW(
+        L"BUTTON", locale_str(STR_EXPORT_CHARACTER),
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
+        0, 0, 100, 25,
+        hwnd, (HMENU)IDC_BUTTON_EXPORT_CHAR, module, NULL
+    );
+    SendMessage(button_export_char, WM_SETFONT, (WPARAM)default_font, TRUE);
+
+    button_rename_char = CreateWindowW(
+        L"BUTTON", locale_str(STR_RENAME_CHARACTER),
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
+        0, 0, 100, 25,
+        hwnd, (HMENU)IDC_BUTTON_RENAME_CHAR, module, NULL
+    );
+    SendMessage(button_rename_char, WM_SETFONT, (WPARAM)default_font, TRUE);
+
     /* Create Manage Faces Button */
     button_manage_faces = CreateWindowW(
         L"BUTTON", locale_str(STR_MANAGE_FACES),
@@ -286,8 +314,16 @@ void ui_layout_controls(HWND hwnd, int width, int height) {
     int content_y = 65;
     int content_h = height - 75;
 
-    /* 5 base controls + group box + 8 label/value pairs = 22 */
-    HDWP hdwp = BeginDeferWindowPos(5 + 1 + STAT_COUNT * 2);
+    /* Reserve space for character action buttons below the ListView */
+    int btn_bar_h = 30;  /* 25px button + 5px gap */
+    int list_h = content_h - btn_bar_h;
+    int btn_y = content_y + list_h + 5;
+    int btn_h = 25;
+    int btn_gap = 5;
+    int btn_w = (list_w - btn_gap * 2) / 3;
+
+    /* 5 base + 3 char buttons + group box + 8 label/value pairs = 25 */
+    HDWP hdwp = BeginDeferWindowPos(5 + 3 + 1 + STAT_COUNT * 2);
 
     /* Top row */
     hdwp = DeferWindowPos(hdwp, button_change_folder, NULL,
@@ -301,9 +337,17 @@ void ui_layout_controls(HWND hwnd, int width, int height) {
     hdwp = DeferWindowPos(hdwp, label_chars, NULL,
         gap, 45, list_w, 20, SWP_NOZORDER);
 
-    /* Characters ListView (left side) */
+    /* Characters ListView (left side, shortened for button bar) */
     hdwp = DeferWindowPos(hdwp, list_view_chars, NULL,
-        gap, content_y, list_w, content_h, SWP_NOZORDER);
+        gap, content_y, list_w, list_h, SWP_NOZORDER);
+
+    /* Character action buttons (below ListView) */
+    hdwp = DeferWindowPos(hdwp, button_import_char, NULL,
+        gap, btn_y, btn_w, btn_h, SWP_NOZORDER);
+    hdwp = DeferWindowPos(hdwp, button_export_char, NULL,
+        gap + btn_w + btn_gap, btn_y, btn_w, btn_h, SWP_NOZORDER);
+    hdwp = DeferWindowPos(hdwp, button_rename_char, NULL,
+        gap + (btn_w + btn_gap) * 2, btn_y, btn_w, btn_h, SWP_NOZORDER);
 
     /* Detail panel group box (right side) */
     hdwp = DeferWindowPos(hdwp, detail_group, NULL,
@@ -339,6 +383,9 @@ void ui_refresh_language(void) {
     SetWindowTextW(button_change_folder, locale_str(STR_CHANGE_SAVE_FOLDER));
     SetWindowTextW(button_manage_faces, locale_str(STR_MANAGE_FACES));
     SetWindowTextW(label_chars, locale_str(STR_CHARACTERS));
+    SetWindowTextW(button_import_char, locale_str(STR_IMPORT_CHARACTER));
+    SetWindowTextW(button_export_char, locale_str(STR_EXPORT_CHARACTER));
+    SetWindowTextW(button_rename_char, locale_str(STR_RENAME_CHARACTER));
 
     /* Update detail panel labels */
     SetWindowTextW(detail_group, locale_str(STR_ATTRIBUTES));
@@ -384,6 +431,18 @@ void ui_refresh_language(void) {
         const er_char_data_t *char_data = er_char_data_ref(save_data, i);
         update_char_list_view(i, char_data);
     }
+}
+
+void ui_update_char_buttons(void) {
+    int sel = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
+    bool has_selection = (sel >= 0 && save_data != NULL);
+    bool has_char = false;
+    if (has_selection) {
+        has_char = er_char_data_ref(save_data, sel) != NULL;
+    }
+    EnableWindow(button_import_char, has_selection);
+    EnableWindow(button_export_char, has_char);
+    EnableWindow(button_rename_char, has_char);
 }
 
 void ui_cleanup(void) {

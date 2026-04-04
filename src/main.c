@@ -40,6 +40,12 @@ HWND button_manage_faces;
 HWND label_chars;
 /** @brief ListView displaying all 10 character slots */
 HWND list_view_chars;
+/** @brief "Import" button below the characters ListView */
+HWND button_import_char;
+/** @brief "Export" button below the characters ListView */
+HWND button_export_char;
+/** @brief "Rename" button below the characters ListView */
+HWND button_rename_char;
 
 /*** Detail panel (right side) — per-character attribute display ***/
 /** @brief Group box enclosing the attribute detail panel */
@@ -475,14 +481,16 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                 NMLISTVIEW *nmlv = (NMLISTVIEW *)lparam;
                 if (nmlv->uChanged & LVIF_STATE) {
                     if (nmlv->uNewState & LVIS_SELECTED) {
-                        /* Item selected - update detail panel */
+                        /* Item selected - update detail panel and button state */
                         update_detail_panel(nmlv->iItem);
+                        ui_update_char_buttons();
                     } else if ((nmlv->uOldState & LVIS_SELECTED) && !(nmlv->uNewState & LVIS_SELECTED)) {
                         /* Item deselected - clear detail panel if nothing else selected */
                         int sel = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
                         if (sel == -1) {
                             update_detail_panel(-1);
                         }
+                        ui_update_char_buttons();
                     }
                 }
             }
@@ -517,15 +525,18 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                     break;
                 }
 
+                case IDC_BUTTON_IMPORT_CHAR:
                 case IDM_IMPORT_CHAR: {
                     /* Get selected item */
                     int item = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
                     if (item == -1) return 0;
                     import_char_data(hwnd, item);
                     update_detail_panel(item);
+                    ui_update_char_buttons();
                     break;
                 }
 
+                case IDC_BUTTON_EXPORT_CHAR:
                 case IDM_EXPORT_CHAR: {
                     /* Get selected item */
                     int item = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
@@ -534,11 +545,13 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                     break;
                 }
 
+                case IDC_BUTTON_RENAME_CHAR:
                 case IDM_RENAME_CHAR: {
                     /* Get selected item */
                     int item = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
                     if (item == -1) return 0;
                     rename_char_data(hwnd, item);
+                    ui_update_char_buttons();
                     break;
                 }
 

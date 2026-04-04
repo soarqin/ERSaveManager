@@ -22,6 +22,38 @@ extern HMENU embedded_face_data_menu;
 /* ListView handle for the face data dialog — local to this module */
 static HWND list_view_faces = NULL;
 
+/* Button handles for the face data dialog */
+static HWND button_import_face = NULL;
+static HWND button_export_face = NULL;
+static HWND button_npc_face = NULL;
+
+/* Update enabled state of face action buttons based on ListView selection */
+static void update_face_buttons(void) {
+    int sel = ListView_GetNextItem(list_view_faces, -1, LVNI_SELECTED);
+    BOOL enabled = (sel >= 0);
+    EnableWindow(button_import_face, enabled);
+    EnableWindow(button_export_face, enabled);
+    EnableWindow(button_npc_face, enabled);
+}
+
+/* Lay out ListView and buttons to fit the dialog client area */
+static void layout_face_dialog(HWND hwnd) {
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+
+    int btn_h = 25;
+    int btn_gap = 5;
+    int btn_bar_h = btn_h + btn_gap;
+    int list_h = rc.bottom - btn_bar_h;
+    int btn_w = (rc.right - btn_gap * 4) / 3;
+    int btn_y = list_h + btn_gap;
+
+    MoveWindow(list_view_faces, 0, 0, rc.right, list_h, TRUE);
+    MoveWindow(button_import_face, btn_gap, btn_y, btn_w, btn_h, TRUE);
+    MoveWindow(button_export_face, btn_gap * 2 + btn_w, btn_y, btn_w, btn_h, TRUE);
+    MoveWindow(button_npc_face, btn_gap * 3 + btn_w * 2, btn_y, btn_w, btn_h, TRUE);
+}
+
 static void on_import_embedded_face_data(HWND hwnd, int idx, int item) {
     if (idx < 0 || idx >= embedded_face_data_count) {
         return;
@@ -141,14 +173,39 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
 
             lvc.iSubItem = 0;
-            lvc.cx = 80;
+            lvc.cx = 100;
             lvc.pszText = (LPWSTR)locale_str(STR_SLOT);
             ListView_InsertColumn(list_view_faces, 0, &lvc);
 
             lvc.iSubItem = 1;
-            lvc.cx = 80;
+            lvc.cx = 100;
             lvc.pszText = (LPWSTR)locale_str(STR_BODY_TYPE);
             ListView_InsertColumn(list_view_faces, 1, &lvc);
+
+            /* Create face action buttons below the ListView (initially disabled) */
+            button_import_face = CreateWindowW(
+                L"BUTTON", locale_str(STR_IMPORT_FACE_DATA),
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
+                0, 0, 100, 25,
+                hwnd, (HMENU)IDC_BUTTON_IMPORT_FACE, module, NULL
+            );
+            SendMessage(button_import_face, WM_SETFONT, (WPARAM)default_font, TRUE);
+
+            button_export_face = CreateWindowW(
+                L"BUTTON", locale_str(STR_EXPORT_FACE_DATA),
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
+                0, 0, 100, 25,
+                hwnd, (HMENU)IDC_BUTTON_EXPORT_FACE, module, NULL
+            );
+            SendMessage(button_export_face, WM_SETFONT, (WPARAM)default_font, TRUE);
+
+            button_npc_face = CreateWindowW(
+                L"BUTTON", locale_str(STR_IMPORT_NPC_FACE_DATA),
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
+                0, 0, 100, 25,
+                hwnd, (HMENU)IDC_BUTTON_NPC_FACE, module, NULL
+            );
+            SendMessage(button_npc_face, WM_SETFONT, (WPARAM)default_font, TRUE);
 
             /* Populate face data from current save */
             if (save_data) {
@@ -174,19 +231,23 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 }
             }
 
-            /* Resize ListView to fill the dialog client area */
-            RECT rc;
-            GetClientRect(hwnd, &rc);
-            MoveWindow(list_view_faces, 0, 0, rc.right, rc.bottom, TRUE);
+            /* Layout ListView and buttons to fit the dialog */
+            layout_face_dialog(hwnd);
 
             return TRUE;
         }
 
         case WM_SIZE: {
             if (list_view_faces) {
-                int width = LOWORD(lparam);
-                int height = HIWORD(lparam);
-                MoveWindow(list_view_faces, 0, 0, width, height, TRUE);
+                layout_face_dialog(hwnd);
+            }
+            return TRUE;
+        }
+
+        case WM_NOTIFY: {
+            NMHDR *nmhdr = (NMHDR *)lparam;
+            if (nmhdr->hwndFrom == list_view_faces && nmhdr->code == LVN_ITEMCHANGED) {
+                update_face_buttons();
             }
             return TRUE;
         }
@@ -200,6 +261,7 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         case WM_COMMAND: {
             switch (LOWORD(wparam)) {
+                case IDC_BUTTON_IMPORT_FACE:
                 case IDM_IMPORT_FACE: {
                     int item = ListView_GetNextItem(list_view_faces, -1, LVNI_SELECTED);
                     if (item == -1) return TRUE;
@@ -207,6 +269,7 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     break;
                 }
 
+                case IDC_BUTTON_EXPORT_FACE:
                 case IDM_EXPORT_FACE: {
                     int item = ListView_GetNextItem(list_view_faces, -1, LVNI_SELECTED);
                     if (item == -1) return TRUE;
@@ -214,9 +277,24 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     break;
                 }
 
+                case IDC_BUTTON_NPC_FACE: {
+                    /* Show the NPC face data popup menu below the button */
+                    int item = ListView_GetNextItem(list_view_faces, -1, LVNI_SELECTED);
+                    if (item == -1) break;
+                    RECT rc;
+                    GetWindowRect(button_npc_face, &rc);
+                    TrackPopupMenu(embedded_face_data_menu,
+                        TPM_LEFTALIGN | TPM_TOPALIGN,
+                        rc.left, rc.bottom, 0, hwnd, NULL);
+                    break;
+                }
+
                 case IDCANCEL: {
                     /* Handle Escape key */
                     list_view_faces = NULL;
+                    button_import_face = NULL;
+                    button_export_face = NULL;
+                    button_npc_face = NULL;
                     EndDialog(hwnd, 0);
                     return TRUE;
                 }
@@ -236,6 +314,9 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         case WM_CLOSE: {
             list_view_faces = NULL;
+            button_import_face = NULL;
+            button_export_face = NULL;
+            button_npc_face = NULL;
             EndDialog(hwnd, 0);
             return TRUE;
         }

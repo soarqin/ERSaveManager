@@ -12,4 +12,4 @@ include(ProjectMacros)
 project(ERSaveManager)
 
 add_subdirectory(deps)
-add_subdirectory(saveman)
+add_subdirectory(src)

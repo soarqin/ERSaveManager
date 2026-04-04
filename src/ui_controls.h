@@ -33,6 +33,13 @@ void ui_layout_controls(HWND hwnd, int width, int height);
 void ui_refresh_language(void);
 
 /**
+ * @brief Update enabled state of character action buttons
+ * @details Enables/disables Import, Export, Rename buttons based on
+ *          the current ListView selection and character data availability.
+ */
+void ui_update_char_buttons(void);
+
+/**
  * @brief Release UI resources (font)
  */
 void ui_cleanup(void);
