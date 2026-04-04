@@ -9,6 +9,8 @@ add_project(saveman WIN32
 
     file_dialog.c file_dialog.h
 
+    ui_controls.c ui_controls.h
+
     resource.h
     app.rc
     FOLDER "app"

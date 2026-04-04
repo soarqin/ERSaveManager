@@ -6,6 +6,7 @@
 
 #include "embedded_face_data.h"
 #include "file_dialog.h"
+#include "ui_controls.h"
 
 #include <stdint.h>
 #include <wchar.h>
@@ -75,66 +76,13 @@ static const locale_string_index_t stat_str_indices[STAT_COUNT] = {
     STR_DEXTERITY, STR_INTELLIGENCE, STR_FAITH, STR_ARCANE
 };
 
-static void update_char_list_view(int item, const er_char_data_t *char_data);
-static void set_stat_label_text(int idx);
+void update_char_list_view(int item, const er_char_data_t *char_data);
 static void update_detail_panel(int slot);
 
-static void add_folders_to_combo_box(void) {
-    /* Clear the combo box */
-    SendMessageW(combo_box_save_folder, CB_RESETCONTENT, 0, 0);
+/* add_folders_to_combo_box is defined in ui_controls.c */
+extern void add_folders_to_combo_box(void);
 
-    /* Get user's AppData\Roaming path */
-    wchar_t search_path[MAX_PATH];
-    if (config.save_path[0] == L'\0') return;
-
-    /* Create search pattern for subdirectories */
-    lstrcpyW(search_path, config.save_path);
-    PathAppendW(search_path, L"\\*");
-    WIN32_FIND_DATAW find_data;
-    HANDLE find = FindFirstFileW(search_path, &find_data);
-
-    if (find != INVALID_HANDLE_VALUE) {
-        do {
-            /* Skip "." and ".." directories */
-            if (find_data.cFileName[0] == L'.' && (find_data.cFileName[1] == L'\0' || (find_data.cFileName[1] == L'.' && find_data.cFileName[2] == L'\0'))) {
-                continue;
-            }
-
-            /* Skip non-directory entries */
-            if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                continue;
-            }
-
-            /* Check if SteamID is valid */
-            wchar_t *endptr;
-            uint64_t steam_id = wcstoull(find_data.cFileName, &endptr, 10);
-            /* Steam ID = (Universe << 56) | (Type << 52) | (Instance << 32) | AccountID
-                *  Universe: 0-3
-                *  Type: 1-10
-                *  Instance: usually 1
-                * So SteamID is always greater than 0x10000000000000ULL */
-            if (*endptr != L'\0' || steam_id < 0x10000000000000ULL) {
-                continue;
-            }
-
-            /* Check if ER0000.sl2 exists in the directory */
-            wchar_t save_path[MAX_PATH];
-            lstrcpyW(save_path, config.save_path);
-            PathAppendW(save_path, find_data.cFileName);
-            PathAppendW(save_path, L"\\ER0000.sl2");
-
-            if (!PathFileExistsW(save_path)) {
-                continue;
-            }
-
-            SendMessageW(combo_box_save_folder, CB_ADDSTRING, 0, (LPARAM)find_data.cFileName);
-        } while (FindNextFileW(find, &find_data));
-
-        FindClose(find);
-    }
-}
-
-static bool handle_save_folder_selection(HWND hwnd) {
+bool handle_save_folder_selection(HWND hwnd) {
     /* Get selected Steam ID */
     int index = SendMessageW(combo_box_save_folder, CB_GETCURSEL, 0, 0);
     if (index == CB_ERR) {
@@ -215,33 +163,6 @@ static void open_dir_dialog_for_new_save_location(HWND hwnd) {
     }
 }
 
-/* Function to create embedded face data menu */
-static void create_embedded_face_data_menu(HWND hwnd) {
-    if (embedded_face_data_menu) {
-        DestroyMenu(embedded_face_data_menu);
-    }
-    /* Create embedded face data menu */
-    embedded_face_data_menu = CreatePopupMenu();
-
-    HMENU popup_menus[4] = {
-        CreatePopupMenu(),
-        CreatePopupMenu(),
-        CreatePopupMenu(),
-        CreatePopupMenu(),
-    };
-
-    int locale_idx = get_current_locale();
-    /* Add embedded face data menu to menu bar */
-    for (int i = 0; i < embedded_face_data_count; i++) {
-        AppendMenuW(popup_menus[embedded_face_data[i].category], MF_STRING, IDM_EMBEDDED_FACE_DATA_START + i, embedded_face_data[i].name[locale_idx]);
-    }
-
-    AppendMenuW(embedded_face_data_menu, MF_POPUP, (UINT_PTR)popup_menus[0], locale_str(STR_NPC_BASE));
-    AppendMenuW(embedded_face_data_menu, MF_POPUP, (UINT_PTR)popup_menus[1], locale_str(STR_NPC_BASE_NON_INTERACTABLE));
-    AppendMenuW(embedded_face_data_menu, MF_POPUP, (UINT_PTR)popup_menus[2], locale_str(STR_NPC_DLC));
-    AppendMenuW(embedded_face_data_menu, MF_POPUP, (UINT_PTR)popup_menus[3], locale_str(STR_NPC_DLC_NON_INTERACTABLE));
-}
-
 static void on_import_embedded_face_data(HWND hwnd, int idx, int item) {
     if (idx < 0 || idx >= embedded_face_data_count) {
         return;
@@ -270,66 +191,14 @@ static void on_menu_change_language(int idx) {
     /* Locale menu item selected */
     set_current_locale(idx);
 
-    /* Tick menu item*/
+    /* Tick menu item */
     CheckMenuItem(menu_bar, IDM_LOCALE_START + idx, MF_CHECKED);
 
     /* Save new language to config */
     save_config();
 
-    /* Update UI strings */
-    create_embedded_face_data_menu(main_window);
-
-    wchar_t window_title[64];
-    wsprintfW(window_title, L"%s v%s", locale_str(STR_APP_TITLE), VERSION_STR);
-    SetWindowTextW(main_window, window_title);
-    SetWindowTextW(button_change_folder, locale_str(STR_CHANGE_SAVE_FOLDER));
-    SetWindowTextW(button_manage_faces, locale_str(STR_MANAGE_FACES));
-    SetWindowTextW(label_chars, locale_str(STR_CHARACTERS));
-
-    /* Update detail panel labels */
-    SetWindowTextW(detail_group, locale_str(STR_ATTRIBUTES));
-    for (int i = 0; i < STAT_COUNT; i++) {
-        set_stat_label_text(i);
-    }
-
-    /* Update menu title */
-    HMENU locale_menu = GetSubMenu(menu_bar, 0);
-    ModifyMenuW(menu_bar, 0, MF_BYPOSITION | MF_POPUP, (UINT_PTR)locale_menu, locale_str(STR_LANGUAGE));
-    DrawMenuBar(main_window);
-
-    /* Update characters ListView columns */
-    LVCOLUMNW lvc;
-    lvc.mask = LVCF_TEXT;
-
-    lvc.iSubItem = 0;
-    lvc.pszText = (LPWSTR)locale_str(STR_SLOT);
-    ListView_SetColumn(list_view_chars, 0, &lvc);
-
-    lvc.iSubItem = 1;
-    lvc.pszText = (LPWSTR)locale_str(STR_NAME);
-    ListView_SetColumn(list_view_chars, 1, &lvc);
-
-    lvc.iSubItem = 2;
-    lvc.pszText = (LPWSTR)locale_str(STR_BODY_TYPE);
-    ListView_SetColumn(list_view_chars, 2, &lvc);
-
-    lvc.iSubItem = 3;
-    lvc.pszText = (LPWSTR)locale_str(STR_LEVEL);
-    ListView_SetColumn(list_view_chars, 3, &lvc);
-
-    lvc.iSubItem = 4;
-    lvc.pszText = (LPWSTR)locale_str(STR_IN_GAME_TIME);
-    ListView_SetColumn(list_view_chars, 4, &lvc);
-
-    if (!save_data) {
-        return;
-    };
-
-    /* Update characters ListView items */
-    for (int i = 0; i < 10; i++) {
-        const er_char_data_t *char_data = er_char_data_ref(save_data, i);
-        update_char_list_view(i, char_data);
-    }
+    /* Refresh all UI strings for the new locale */
+    ui_refresh_language();
 }
 
 /* Function to import face data from a file */
@@ -387,7 +256,7 @@ static bool is_full_save_file(const wchar_t *path) {
     return bytes_read == 4 && RtlCompareMemory(tag, "BND4", 4) == 4;
 }
 
-static void update_char_list_view(int item, const er_char_data_t *char_data) {
+void update_char_list_view(int item, const er_char_data_t *char_data) {
     wchar_t text[64];
 
     if (!char_data) {
@@ -418,13 +287,6 @@ static void update_char_list_view(int item, const er_char_data_t *char_data) {
         wsprintfW(text, L"%02d:%02d:%02d", in_game_time / 3600, (in_game_time % 3600) / 60, in_game_time % 60);
     }
     ListView_SetItemText(list_view_chars, item, 4, text);
-}
-
-/* Helper to set stat label text with colon suffix */
-static void set_stat_label_text(int idx) {
-    wchar_t text[64];
-    wsprintfW(text, L"%s:", locale_str(stat_str_indices[idx]));
-    SetWindowTextW(detail_stat_labels[idx], text);
 }
 
 /* Update the detail panel with attribute info for the selected character slot */
@@ -586,151 +448,6 @@ static void rename_char_data(HWND hwnd, int item) {
     if (char_data) {
         DialogBoxParamW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(IDD_RENAME_CHARACTER), hwnd, (DLGPROC)rename_char_data_dialog_proc, (LPARAM)er_char_data_get_name(char_data));
     }
-}
-
-/* Function to create all controls */
-static void create_controls(HWND hwnd, HMODULE module) {
-    /* Get system default font */
-    NONCLIENTMETRICSW ncm = { sizeof(NONCLIENTMETRICSW) };
-    SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICSW), &ncm, 0);
-    default_font = CreateFontIndirectW(&ncm.lfMessageFont);
-
-    /* Create Button */
-    button_change_folder = CreateWindowW(
-        L"BUTTON", locale_str(STR_CHANGE_SAVE_FOLDER),
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        10, 10, 160, 25,
-        hwnd, (HMENU)IDC_BUTTON_CHANGE_FOLDER, module, NULL
-    );
-    SendMessage(button_change_folder, WM_SETFONT, (WPARAM)default_font, TRUE);
-
-    /* Create ComboBox */
-    combo_box_save_folder = CreateWindowW(
-        L"COMBOBOX", L"",
-        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST,
-        170, 10, 200, 25,
-        hwnd, (HMENU)IDC_COMBO_SAVE_FOLDER, module, NULL
-    );
-    SendMessage(combo_box_save_folder, WM_SETFONT, (WPARAM)default_font, TRUE);
-
-    /* Create Characters Label */
-    label_chars = CreateWindowW(
-        L"STATIC", locale_str(STR_CHARACTERS),
-        WS_CHILD | WS_VISIBLE | SS_LEFT,
-        10, 45, 200, 20,
-        hwnd, (HMENU)6, module, NULL
-    );
-    SendMessage(label_chars, WM_SETFONT, (WPARAM)default_font, TRUE);
-
-    /* Create Characters ListView */
-    list_view_chars = CreateWindowExW(
-        WS_EX_CLIENTEDGE,
-        WC_LISTVIEW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SINGLESEL,
-        10, 65, 200, 280,
-        hwnd, (HMENU)4, module, NULL
-    );
-    ListView_SetExtendedListViewStyleEx(list_view_chars,
-        LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_BORDERSELECT,
-        LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_BORDERSELECT);
-    SendMessage(list_view_chars, WM_SETFONT, (WPARAM)default_font, TRUE);
-
-    /* Add columns to Characters ListView */
-    LVCOLUMNW lvc;
-    lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-
-    lvc.iSubItem = 0;
-    lvc.cx = 40;
-    lvc.pszText = (LPWSTR)locale_str(STR_SLOT);
-    ListView_InsertColumn(list_view_chars, 0, &lvc);
-
-    lvc.iSubItem = 1;
-    lvc.cx = 120;
-    lvc.pszText = (LPWSTR)locale_str(STR_NAME);
-    ListView_InsertColumn(list_view_chars, 1, &lvc);
-
-    lvc.iSubItem = 2;
-    lvc.cx = 80;
-    lvc.pszText = (LPWSTR)locale_str(STR_BODY_TYPE);
-    ListView_InsertColumn(list_view_chars, 2, &lvc);
-
-    lvc.iSubItem = 3;
-    lvc.cx = 60;
-    lvc.pszText = (LPWSTR)locale_str(STR_LEVEL);
-    ListView_InsertColumn(list_view_chars, 3, &lvc);
-
-    lvc.iSubItem = 4;
-    lvc.cx = 95;
-    lvc.pszText = (LPWSTR)locale_str(STR_IN_GAME_TIME);
-    ListView_InsertColumn(list_view_chars, 4, &lvc);
-
-    /* Create detail panel group box for attributes */
-    detail_group = CreateWindowW(
-        L"BUTTON", locale_str(STR_ATTRIBUTES),
-        WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        0, 0, 220, 250,
-        hwnd, NULL, module, NULL
-    );
-    SendMessage(detail_group, WM_SETFONT, (WPARAM)default_font, TRUE);
-
-    /* Create stat label/value pairs inside detail panel */
-    for (int i = 0; i < STAT_COUNT; i++) {
-        detail_stat_labels[i] = CreateWindowW(
-            L"STATIC", L"",
-            WS_CHILD | WS_VISIBLE | SS_RIGHT,
-            0, 0, 90, 18,
-            hwnd, NULL, module, NULL
-        );
-        SendMessage(detail_stat_labels[i], WM_SETFONT, (WPARAM)default_font, TRUE);
-        set_stat_label_text(i);
-
-        detail_stat_values[i] = CreateWindowW(
-            L"STATIC", L"",
-            WS_CHILD | WS_VISIBLE | SS_LEFT,
-            0, 0, 60, 18,
-            hwnd, NULL, module, NULL
-        );
-        SendMessage(detail_stat_values[i], WM_SETFONT, (WPARAM)default_font, TRUE);
-    }
-
-    /* Create Manage Faces Button */
-    button_manage_faces = CreateWindowW(
-        L"BUTTON", locale_str(STR_MANAGE_FACES),
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        380, 10, 120, 25,
-        hwnd, (HMENU)IDC_BUTTON_MANAGE_FACES, module, NULL
-    );
-    SendMessage(button_manage_faces, WM_SETFONT, (WPARAM)default_font, TRUE);
-
-    add_folders_to_combo_box();
-
-    /* Set initial ComboBox selection */
-    if (config.save_subfolder[0] == L'\0') {
-        SendMessageW(combo_box_save_folder, CB_SETCURSEL, 0, 0);
-    } else {
-        int idx = SendMessageW(combo_box_save_folder, CB_FINDSTRING, -1, (LPARAM)config.save_subfolder);
-        SendMessageW(combo_box_save_folder, CB_SETCURSEL, idx == CB_ERR ? 0 : idx, 0);
-    }
-    handle_save_folder_selection(hwnd);
-
-    /* Create menu bar */
-    menu_bar = CreateMenu();
-    HMENU locale_menu = CreatePopupMenu();
-
-    /* Add locale options */
-    int locale_cnt = locale_count();
-    for (int i = 0; i < locale_cnt; i++) {
-        AppendMenuW(locale_menu, MF_STRING, IDM_LOCALE_START + i, locale_name(i));
-    }
-
-    /* Add locale menu to menu bar */
-    AppendMenuW(menu_bar, MF_POPUP, (UINT_PTR)locale_menu, locale_str(STR_LANGUAGE));
-    SetMenu(hwnd, menu_bar);
-
-    /* Tick menu item */
-    CheckMenuItem(menu_bar, IDM_LOCALE_START + get_current_locale(), MF_CHECKED);
-
-    create_embedded_face_data_menu(hwnd);
 }
 
 /* Function to handle characters ListView popup menu */
@@ -934,66 +651,13 @@ static LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam
     return FALSE;
 }
 
-/* Function to layout controls */
-static void layout_controls(HWND hwnd, int width, int height) {
-    int btn_face_w = 120;
-    int gap = 10;
-    int detail_w = 220;
-    int detail_x = width - gap - detail_w;
-    int list_w = detail_x - gap - gap;
-    int content_y = 65;
-    int content_h = height - 75;
-
-    /* 5 base controls + group box + 8 label/value pairs = 22 */
-    HDWP hdwp = BeginDeferWindowPos(5 + 1 + STAT_COUNT * 2);
-
-    /* Top row */
-    hdwp = DeferWindowPos(hdwp, button_change_folder, NULL,
-        gap, 10, 160, 25, SWP_NOZORDER);
-    hdwp = DeferWindowPos(hdwp, combo_box_save_folder, NULL,
-        170, 10, width - 180 - btn_face_w - gap, 25, SWP_NOZORDER);
-    hdwp = DeferWindowPos(hdwp, button_manage_faces, NULL,
-        width - gap - btn_face_w, 10, btn_face_w, 25, SWP_NOZORDER);
-
-    /* Characters label (above list only) */
-    hdwp = DeferWindowPos(hdwp, label_chars, NULL,
-        gap, 45, list_w, 20, SWP_NOZORDER);
-
-    /* Characters ListView (left side) */
-    hdwp = DeferWindowPos(hdwp, list_view_chars, NULL,
-        gap, content_y, list_w, content_h, SWP_NOZORDER);
-
-    /* Detail panel group box (right side) */
-    hdwp = DeferWindowPos(hdwp, detail_group, NULL,
-        detail_x, 45, detail_w, content_h + 20, SWP_NOZORDER);
-
-    /* Stat label/value rows inside the detail panel area */
-    int row_h = 24;
-    int label_x = detail_x + 12;
-    int label_w = 100;
-    int value_x = detail_x + 118;
-    int value_w = detail_w - 130;
-    int first_row_y = content_y + 5;
-
-    for (int i = 0; i < STAT_COUNT; i++) {
-        int row_y = first_row_y + i * row_h;
-        hdwp = DeferWindowPos(hdwp, detail_stat_labels[i], NULL,
-            label_x, row_y, label_w, 18, SWP_NOZORDER);
-        hdwp = DeferWindowPos(hdwp, detail_stat_values[i], NULL,
-            value_x, row_y, value_w, 18, SWP_NOZORDER);
-    }
-
-    /* Apply all window position changes at once */
-    EndDeferWindowPos(hdwp);
-}
-
 /* Function to handle window resize */
 static void on_window_resize(HWND hwnd, WPARAM wparam, LPARAM lparam) {
     /* Get window dimensions */
     int width = LOWORD(lparam);
     int height = HIWORD(lparam);
 
-    layout_controls(hwnd, width, height);
+    ui_layout_controls(hwnd, width, height);
 }
 
 /* Window procedure */
@@ -1003,7 +667,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
             HMODULE module = GetModuleHandle(NULL);
 
             /* Create all controls */
-            create_controls(hwnd, module);
+            ui_create_controls(hwnd, module);
 
             return 0;
         }
@@ -1109,7 +773,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
             /* Save configuration before exiting */
             save_config();
             DestroyMenu(embedded_face_data_menu);
-            DeleteObject(default_font);  /* Clean up the font */
+            ui_cleanup();  /* Release shared UI resources */
             PostQuitMessage(0);
             return 0;
     }
