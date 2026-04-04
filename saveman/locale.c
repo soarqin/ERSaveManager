@@ -72,6 +72,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Select a character to import data from.",
         L"No character found",
         L"Face Data...",
+        L"Vigor",
+        L"Mind",
+        L"Endurance",
+        L"Strength",
+        L"Dexterity",
+        L"Intelligence",
+        L"Faith",
+        L"Arcane",
     },
     /* French strings */
     {
@@ -119,6 +127,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Sélectionnez un personnage pour importer des données.",
         L"Aucun personnage trouvé",
         L"Données de Visage...",
+        L"Vigueur",
+        L"Esprit",
+        L"Endurance",
+        L"Force",
+        L"Dextérité",
+        L"Intelligence",
+        L"Foi",
+        L"Ésotérisme",
     },
     /* German strings */
     {
@@ -166,6 +182,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Wählen Sie einen Charakter aus, um Daten auszugleichen.",
         L"Kein Charakter gefunden",
         L"Gesichtsdaten...",
+        L"Kraft",
+        L"Geist",
+        L"Kondition",
+        L"Stärke",
+        L"Geschick",
+        L"Weisheit",
+        L"Glaube",
+        L"Arkanenergie",
     },
     /* Italian strings */
     {
@@ -213,6 +237,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Seleziona un personaggio per importare dati da.",
         L"Nessun personaggio trovato",
         L"Dati Viso...",
+        L"Vitalità",
+        L"Mente",
+        L"Tempra",
+        L"Forza",
+        L"Destrezza",
+        L"Intelligenza",
+        L"Fede",
+        L"Arcano",
     },
     /* Spanish strings */
     {
@@ -260,6 +292,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Seleccione un personaje para importar datos de.",
         L"No se encontró ningún personaje",
         L"Datos de Rostro...",
+        L"Vigor",
+        L"Mente",
+        L"Aguante",
+        L"Fuerza",
+        L"Destreza",
+        L"Inteligencia",
+        L"Fe",
+        L"Arcano",
     },
     /* Portuguese strings */
     {
@@ -307,6 +347,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Selecione um personagem para importar dados de.",
         L"Nenhum personagem encontrado",
         L"Dados de Rosto...",
+        L"Vitalidade",
+        L"Mente",
+        L"Fortitude",
+        L"Força",
+        L"Destreza",
+        L"Inteligência",
+        L"Fé",
+        L"Arcano",
     },
     /* Russian strings */
     {
@@ -354,6 +402,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Выберите персонажа для импорта данных.",
         L"Нет персонажа найдено",
         L"Данные лица...",
+        L"Жизненная сила",
+        L"Интеллект",
+        L"Стойкость",
+        L"Сила",
+        L"Ловкость",
+        L"Мудрость",
+        L"Вера",
+        L"Колдовство",
     },
     /* Japanese strings */
     {
@@ -401,6 +457,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"データをインポートするキャラクターを選択してください。",
         L"キャラクターが見つかりません",
         L"顔データ...",
+        L"生命力",
+        L"精神力",
+        L"持久力",
+        L"筋力",
+        L"技量",
+        L"知力",
+        L"信仰",
+        L"神秘",
     },
     /* Korean strings */
     {
@@ -448,6 +512,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"데이터를 가져올 캐릭터를 선택하세요.",
         L"캐릭터를 찾을 수 없습니다",
         L"얼굴 데이터...",
+        L"생명력",
+        L"정신력",
+        L"지구력",
+        L"근력",
+        L"기량",
+        L"지력",
+        L"신앙",
+        L"신비",
     },
     /* Simplified Chinese strings */
     {
@@ -495,6 +567,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"选择一个角色数据来导入",
         L"没有找到角色",
         L"捏脸数据...",
+        L"生命力",
+        L"集中力",
+        L"耐力",
+        L"力气",
+        L"灵巧",
+        L"智力",
+        L"信仰",
+        L"感应",
     },
     /* Traditional Chinese strings */
     {
@@ -542,6 +622,14 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"選擇一個角色數據來導入",
         L"沒有找到角色",
         L"捏臉數據...",
+        L"生命力",
+        L"集中力",
+        L"耐力",
+        L"力氣",
+        L"靈巧",
+        L"智力",
+        L"信仰",
+        L"感應",
     }
 };
 

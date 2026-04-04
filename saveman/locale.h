@@ -57,6 +57,14 @@ typedef enum locale_string_index_e {
     STR_SELECT_CHARACTER_CONTENT, /* "Select a character to import data from." */
     STR_NO_CHARACTER_FOUND, /* "No character found" */
     STR_MANAGE_FACES, /* "Face Data..." */
+    STR_VIGOR, /* "Vigor" */
+    STR_MIND, /* "Mind" */
+    STR_ENDURANCE, /* "Endurance" */
+    STR_STRENGTH, /* "Strength" */
+    STR_DEXTERITY, /* "Dexterity" */
+    STR_INTELLIGENCE, /* "Intelligence" */
+    STR_FAITH, /* "Faith" */
+    STR_ARCANE, /* "Arcane" */
     STR_MAX /* Total number of strings */
 } locale_string_index_t;
 
