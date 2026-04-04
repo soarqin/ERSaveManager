@@ -26,16 +26,48 @@
 #define STAT_COUNT 8
 
 /*** Global variables ***/
-HWND button_change_folder, combo_box_save_folder, list_view_faces, list_view_chars;
-HWND button_manage_faces;  /* Button to open face management window */
+
+/** @brief Global window handle for the main application window */
 HWND main_window;
-HMENU menu_bar = NULL, embedded_face_data_menu = NULL;
-HFONT default_font;  /* font handle */
+
+/*** Top-row controls ***/
+/** @brief "Change Folder" button — opens folder picker dialog */
+HWND button_change_folder;
+/** @brief ComboBox showing available Steam save subfolders */
+HWND combo_box_save_folder;
+/** @brief "Manage Faces" button — opens face data dialog */
+HWND button_manage_faces;
+
+/*** Characters panel (left side) ***/
+/** @brief Section label above the characters ListView */
+HWND label_chars;
+/** @brief ListView displaying all 10 character slots */
+HWND list_view_chars;
+
+/*** Faces panel (right side) ***/
+/** @brief ListView displaying face data for the selected character */
+HWND list_view_faces;
+
+/*** Detail panel (right side) — per-character attribute display ***/
+/** @brief Group box enclosing the attribute detail panel */
+HWND detail_group;
+/** @brief Static labels showing attribute names (Vigor, Mind, …) */
+HWND detail_stat_labels[STAT_COUNT];
+/** @brief Static labels showing attribute values */
+HWND detail_stat_values[STAT_COUNT];
+
+/*** Menu handles ***/
+HMENU menu_bar = NULL;
+/** @brief Dynamically built submenu for built-in NPC face presets */
+HMENU embedded_face_data_menu = NULL;
+
+/*** Shared resources ***/
+/** @brief Default message font used by all controls */
+HFONT default_font;
+
+/*** Application data ***/
+/** @brief Currently loaded save file data; NULL when no file is loaded */
 er_save_data_t *save_data = NULL;
-HWND label_chars;  /* Label handle for characters ListView */
-HWND detail_group;  /* GroupBox for attribute details panel */
-HWND detail_stat_labels[STAT_COUNT];  /* Static labels for attribute names */
-HWND detail_stat_values[STAT_COUNT];  /* Static labels for attribute values */
 
 /* Mapping from stat index to locale string index */
 static const locale_string_index_t stat_str_indices[STAT_COUNT] = {
