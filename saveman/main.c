@@ -260,74 +260,88 @@ static void update_detail_panel(int slot) {
     }
 }
 
+static void import_char_from_save_file(HWND hwnd, int item, const wchar_t *path) {
+    er_save_simple_data_t *simple_save_data = er_save_simple_data_load(path);
+    if (!simple_save_data) {
+        return;
+    }
+
+    TASKDIALOG_BUTTON buttons[10] = {0};
+    int button_count = 0;
+    for (int i = 0; i < 10; i++) {
+        const wchar_t *name = er_save_simple_data_get_char_name(simple_save_data, i);
+        if (name == NULL || name[0] == L'\0') {
+            continue;
+        }
+        buttons[button_count].nButtonID = i;
+        buttons[button_count++].pszButtonText = name;
+    }
+
+    if (button_count == 0) {
+        MessageBoxW(hwnd, locale_str(STR_NO_CHARACTER_FOUND), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        er_save_simple_data_free(simple_save_data);
+        return;
+    }
+
+    TASKDIALOGCONFIG task_dialog_config;
+    ZeroMemory(&task_dialog_config, sizeof(TASKDIALOGCONFIG));
+    task_dialog_config.cbSize = sizeof(TASKDIALOGCONFIG);
+    task_dialog_config.pszWindowTitle = locale_str(STR_IMPORT_CHARACTER);
+    task_dialog_config.pszContent = locale_str(STR_SELECT_CHARACTER_CONTENT);
+    task_dialog_config.nDefaultButton = IDCANCEL;
+    task_dialog_config.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
+    task_dialog_config.pRadioButtons = buttons;
+    task_dialog_config.cRadioButtons = button_count;
+
+    int button_id = 0;
+    int radio_id = 0;
+    HRESULT hr = TaskDialogIndirect(&task_dialog_config, &button_id, &radio_id, NULL);
+    if (!SUCCEEDED(hr) || button_id != IDOK) {
+        MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        er_save_simple_data_free(simple_save_data);
+        return;
+    }
+
+    uint8_t *char_data = er_save_simple_data_slot_export(simple_save_data, radio_id);
+    if (char_data && er_char_data_import_raw(save_data, item, char_data)) {
+        update_char_list_view(item, er_char_data_ref(save_data, item));
+        MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
+    } else {
+        MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+    }
+
+    er_save_simple_data_slot_free(char_data);
+    er_save_simple_data_free(simple_save_data);
+}
+
+static void import_char_from_file(HWND hwnd, int item, const wchar_t *path) {
+    er_char_data_t *char_data = er_char_data_from_file(path);
+    if (char_data && er_char_data_import(save_data, item, char_data)) {
+        update_char_list_view(item, char_data);
+        MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
+    } else {
+        MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+    }
+    er_char_data_free(char_data);
+}
+
 /* Function to import character data from a file */
 static void import_char_data(HWND hwnd, int item) {
     COMDLG_FILTERSPEC rgSpec[] = {
         { locale_str(STR_ALL_FILES), L"*.*" }
     };
     PWSTR pszPath = file_dialog_open(hwnd, locale_str(STR_IMPORT_CHARACTER), rgSpec, 1);
-    if (pszPath) {
-        if (is_full_save_file(pszPath)) {
-            er_save_simple_data_t *simple_save_data = er_save_simple_data_load(pszPath);
-            if (simple_save_data) {
-                /* Use TaskDialog to select a character slot for import */
-                TASKDIALOG_BUTTON buttons[10] = {0};
-                int button_count = 0;
-                for (int i = 0; i < 10; i++) {
-                    const wchar_t *name = er_save_simple_data_get_char_name(simple_save_data, i);
-                    if (name == NULL || name[0] == L'\0') {
-                        continue;
-                    }
-                    buttons[button_count].nButtonID = i;
-                    buttons[button_count++].pszButtonText = name;
-                }
-                if (button_count == 0) {
-                    MessageBoxW(hwnd, locale_str(STR_NO_CHARACTER_FOUND), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                } else {
-                    TASKDIALOGCONFIG task_dialog_config;
-                    ZeroMemory(&task_dialog_config, sizeof(TASKDIALOGCONFIG));
-                    task_dialog_config.cbSize = sizeof(TASKDIALOGCONFIG);
-                    task_dialog_config.pszWindowTitle = locale_str(STR_IMPORT_CHARACTER);
-                    task_dialog_config.pszContent = locale_str(STR_SELECT_CHARACTER_CONTENT);
-                    task_dialog_config.nDefaultButton = IDCANCEL;
-                    task_dialog_config.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
-
-                    task_dialog_config.pRadioButtons = buttons;
-                    task_dialog_config.cRadioButtons = button_count;
-
-                    int button_id = 0, radio_id = 0;
-                    HRESULT hr = TaskDialogIndirect(&task_dialog_config, &button_id, &radio_id, NULL);
-                    if (SUCCEEDED(hr) && button_id == IDOK) {
-                        uint8_t *char_data;
-                        if ((char_data = er_save_simple_data_slot_export(simple_save_data, radio_id)) != NULL) {
-                            if (er_char_data_import_raw(save_data, item, char_data)) {
-                                update_char_list_view(item, er_char_data_ref(save_data, item));
-                                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
-                            } else {
-                                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                            }
-                            er_save_simple_data_slot_free(char_data);
-                        } else {
-                            MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                        }
-                    } else {
-                        MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-                    }
-                }
-                er_save_simple_data_free(simple_save_data);
-            }
-        } else {
-            er_char_data_t *char_data = er_char_data_from_file(pszPath);
-            if (char_data && er_char_data_import(save_data, item, char_data)) {
-                update_char_list_view(item, char_data);
-                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
-            } else {
-                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-            }
-            er_char_data_free(char_data);
-        }
-        CoTaskMemFree(pszPath);
+    if (!pszPath) {
+        return;
     }
+
+    if (is_full_save_file(pszPath)) {
+        import_char_from_save_file(hwnd, item, pszPath);
+    } else {
+        import_char_from_file(hwnd, item, pszPath);
+    }
+
+    CoTaskMemFree(pszPath);
 }
 
 /* Function to export character data to a file */
