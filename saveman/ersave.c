@@ -579,6 +579,9 @@ bool er_save_resign_userid(er_save_data_t *save_data, uint64_t user_id) {
 }
 
 const er_char_data_t *er_char_data_ref(const er_save_data_t *save_data, int slot) {
+    if (!save_data) {
+        return NULL;
+    }
     if (slot < 0 || slot >= 10) {
         return NULL;
     }
@@ -703,8 +706,7 @@ er_char_data_t *er_char_data_from_file(const wchar_t *path) {
         return NULL;
     }
     DWORD bytes_read;
-    ReadFile(file, char_data->data, sizeof(char_data->data), &bytes_read, NULL);
-    if (bytes_read != sizeof(char_data->data)) {
+    if (!ReadFile(file, char_data->data, sizeof(char_data->data), &bytes_read, NULL) || bytes_read != sizeof(char_data->data)) {
         LocalFree(char_data);
         CloseHandle(file);
         return NULL;
@@ -714,12 +716,12 @@ er_char_data_t *er_char_data_from_file(const wchar_t *path) {
         CloseHandle(file);
         return NULL;
     }
-    ReadFile(file, char_data->profile, 0x24C, &bytes_read, NULL);
-    CloseHandle(file);
-    if (bytes_read != 0x24C) {
+    if (!ReadFile(file, char_data->profile, 0x24C, &bytes_read, NULL) || bytes_read != 0x24C) {
         LocalFree(char_data);
+        CloseHandle(file);
         return NULL;
     }
+    CloseHandle(file);
 
     return char_data;
 }
@@ -757,6 +759,9 @@ void er_char_data_free(er_char_data_t *char_data) {
 }
 
 const uint8_t *er_face_data_ref(const er_save_data_t *save_data, int slot) {
+    if (!save_data) {
+        return NULL;
+    }
     if (slot < 0 || slot >= 15) {
         return NULL;
     }
@@ -785,6 +790,9 @@ bool er_face_data_import(er_save_data_t *save_data, int slot, const uint8_t *fac
 }
 
 void er_face_data_info(const uint8_t *face_data, uint8_t *available, uint8_t *gender) {
+    if (!face_data) {
+        return;
+    }
     *available = face_data[0x0];
     *gender = face_data[0x1];
 }
@@ -800,12 +808,12 @@ uint8_t *er_face_data_from_file(const wchar_t *path) {
         return NULL;
     }
     DWORD bytes_read;
-    ReadFile(file, face_data, 0x130, &bytes_read, NULL);
-    CloseHandle(file);
-    if (bytes_read != 0x130) {
+    if (!ReadFile(file, face_data, 0x130, &bytes_read, NULL) || bytes_read != 0x130) {
         LocalFree(face_data);
+        CloseHandle(file);
         return NULL;
     }
+    CloseHandle(file);
     if (!validate_face_data(face_data)) {
         LocalFree(face_data);
         return NULL;

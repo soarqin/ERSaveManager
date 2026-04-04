@@ -433,7 +433,10 @@ static bool is_full_save_file(const wchar_t *path) {
     }
     char tag[4];
     DWORD bytes_read;
-    ReadFile(file, tag, 4, &bytes_read, NULL);
+    if (!ReadFile(file, tag, 4, &bytes_read, NULL)) {
+        CloseHandle(file);
+        return false;
+    }
     CloseHandle(file);
     return bytes_read == 4 && RtlCompareMemory(tag, "BND4", 4) == 4;
 }
