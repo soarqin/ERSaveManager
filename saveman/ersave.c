@@ -11,9 +11,39 @@
 
 #include <windows.h>
 
+/* BND4 save file format constants */
+/* Data buffer sizes */
+#define ER_SUMMARY_DATA_SIZE         0x60000    /* Summary slot data buffer size */
+#define ER_CHAR_DATA_SIZE            0x280000   /* Character slot data buffer size */
+#define ER_PROFILE_SIZE              0x24C      /* Character profile data size */
+#define ER_FACE_DATA_SIZE            0x130      /* Face data entry size */
+#define ER_FILE_HEADER_SIZE          0x300      /* BND4 file header read size */
+#define ER_SUMMARY_FACE_SECTION_SIZE 0x11D0     /* Size of face data section within summary */
+
+/* Slot file sizes (data + 0x10 header prefix) */
+#define ER_SUMMARY_SLOT_FILE_SIZE    0x60010    /* Summary slot: ER_SUMMARY_DATA_SIZE + header */
+#define ER_CHAR_SLOT_FILE_SIZE       0x280010   /* Char slot: ER_CHAR_DATA_SIZE + header */
+#define ER_SLOT_HEADER_SIZE          0x10       /* Slot header prefix size (MD5 hash) */
+
+/* BND4 file header field offsets */
+#define ER_HEADER_SLOT_COUNT_OFFSET  0x0C       /* Slot count field offset */
+#define ER_HEADER_SLOT_SIZE_BASE     0x48       /* Base offset of slot size array */
+#define ER_HEADER_SLOT_OFFSET_BASE   0x50       /* Base offset of slot offset array */
+#define ER_HEADER_SLOT_STRIDE        0x20       /* Stride between slot entries */
+
+/* parse_char_slot section sizes and counts */
+#define ER_CHAR_INITIAL_OFFSET       0x20       /* Initial data offset in char buffer */
+#define ER_ITEM_LIST_COUNT           0x1400     /* Number of item list entries */
+#define ER_STATS_SECTION_SIZE        0x94       /* Stats section size */
+#define ER_CHAR_NAME_SIZE            0x22       /* Character name field byte size */
+#define ER_FACE_SECTION_SIZE         0x120      /* Face data section size within char data */
+#define ER_MENU_PROFILE_SIZE         0x1008     /* Menu profile save/load section size */
+#define ER_FLAGS_SIZE                0x1bf99f   /* Event flags section size */
+#define ER_NET_DATA_SIZE             0x20000    /* Network data section size */
+
 /* Structure to hold summary data - Contains face data for all character slots */
 typedef struct er_summary_data_s {
-    uint8_t data[0x60000]; /* Raw summary data buffer - Stores face data for all slots */
+    uint8_t data[ER_SUMMARY_DATA_SIZE]; /* Raw summary data buffer - Stores face data for all slots */
     uint32_t slot_offset; /* Offset to summary slot in file - Used for file operations */
     uint32_t face_offset; /* Offset to face data in summary data buffer - Points to start of face data section */
     uint32_t available_offset; /* Offset to available slot in summary data buffer - Points to start of available slot data section */
@@ -27,8 +57,8 @@ typedef struct er_char_data_s {
     uint32_t userid_offset; /* Offset to userid in data buffer - Points to user identification data */
     uint32_t stats_offset; /* Offset to stats in data buffer - Points to character statistics */
     uint32_t face_offset; /* Offset to face data in data buffer - Points to character face data */
-    uint8_t data[0x280000]; /* Raw character data buffer - Stores complete character data */
-    uint8_t profile[0x24C]; /* Raw profile data buffer - Stores profile data */
+    uint8_t data[ER_CHAR_DATA_SIZE]; /* Raw character data buffer - Stores complete character data */
+    uint8_t profile[ER_PROFILE_SIZE]; /* Raw profile data buffer - Stores profile data */
 } er_char_data_t;
 
 /* Structure to hold complete save data - Contains all character slots and summary data */
@@ -95,10 +125,10 @@ static bool parse_char_slot(er_char_data_t *char_data) {
     char_data->userid_offset = 0;
     char_data->stats_offset = 0;
     char_data->face_offset = 0;
-    const uint8_t *ptr = char_data->data + 0x20;
+    const uint8_t *ptr = char_data->data + ER_CHAR_INITIAL_OFFSET;
     const uint8_t *end = char_data->data + sizeof(char_data->data);
     /* item list */
-    for (size_t i = 0; i < 0x1400; i++) {
+    for (size_t i = 0; i < ER_ITEM_LIST_COUNT; i++) {
         ptr += 4;
         const uint32_t itemId = read_uint32(&ptr);
         if (itemId == 0 || itemId == 0xFFFFFFFFu) continue;
@@ -116,9 +146,9 @@ static bool parse_char_slot(er_char_data_t *char_data) {
     if (ptr > end) return false;
     char_data->stats_offset = (uint32_t)(ptr - char_data->data);
     /* character data */
-    ptr += 0x94;
+    ptr += ER_STATS_SECTION_SIZE;
     /* charname */
-    ptr += 0x22;
+    ptr += ER_CHAR_NAME_SIZE;
     /* gender */
     ptr += 1;
     /* birth job */
@@ -204,7 +234,7 @@ static bool parse_char_slot(er_char_data_t *char_data) {
 
     char_data->face_offset = (uint32_t)(ptr - char_data->data);
     /* face data */
-    ptr += 0x120;
+    ptr += ER_FACE_SECTION_SIZE;
 
     ptr += 0x0B;
 
@@ -231,7 +261,7 @@ static bool parse_char_slot(er_char_data_t *char_data) {
     ptr += 0x4D;
 
     /* menu profile save load */
-    ptr += 0x1008;
+    ptr += ER_MENU_PROFILE_SIZE;
 
     /* trophy equip data */
     ptr += 0x34;
@@ -247,7 +277,7 @@ static bool parse_char_slot(er_char_data_t *char_data) {
     ptr += 0x1d;
 
     /* flags */
-    ptr += 0x1bf99f;
+    ptr += ER_FLAGS_SIZE;
 
     ptr += 1;
 
@@ -272,7 +302,7 @@ static bool parse_char_slot(er_char_data_t *char_data) {
     ptr += 4;
 
     /* net data */
-    ptr += 0x20000;
+    ptr += ER_NET_DATA_SIZE;
 
     /* weather info */
     ptr += 4 * 6;
@@ -301,7 +331,7 @@ static bool parse_char_slot(er_char_data_t *char_data) {
  * @return true if read successful, false otherwise
  */
 static bool read_char_slot(er_char_data_t *char_data, HANDLE file) {
-    if (SetFilePointer(file, char_data->slot_offset + 0x10, NULL, FILE_BEGIN) != char_data->slot_offset + 0x10) {
+    if (SetFilePointer(file, char_data->slot_offset + ER_SLOT_HEADER_SIZE, NULL, FILE_BEGIN) != char_data->slot_offset + ER_SLOT_HEADER_SIZE) {
         return false;
     }
     DWORD bytes_read;
@@ -318,7 +348,7 @@ static bool read_char_slot(er_char_data_t *char_data, HANDLE file) {
  * @return true if read successful, false otherwise
  */
 static bool read_summary_slot(er_summary_data_t *summary_data, HANDLE file) {
-    if (SetFilePointer(file, summary_data->slot_offset + 0x10, NULL, FILE_BEGIN) != summary_data->slot_offset + 0x10) {
+    if (SetFilePointer(file, summary_data->slot_offset + ER_SLOT_HEADER_SIZE, NULL, FILE_BEGIN) != summary_data->slot_offset + ER_SLOT_HEADER_SIZE) {
         return false;
     }
     DWORD bytes_read;
@@ -332,11 +362,11 @@ static bool read_summary_slot(er_summary_data_t *summary_data, HANDLE file) {
     ptr += 0x140 + 4;
     const uint32_t sz = read_uint32(&ptr);
     const uint8_t *ptr2 = ptr + 4;
-    if (read_uint32(&ptr2) != 0x11D0) {
+    if (read_uint32(&ptr2) != ER_SUMMARY_FACE_SECTION_SIZE) {
         return false;
     }
     summary_data->face_offset = (uint32_t)(ptr2 - summary_data->data);
-    ptr2 += 0x11D0;
+    ptr2 += ER_SUMMARY_FACE_SECTION_SIZE;
     ptr2 += 8;
     summary_data->active_offset = (uint32_t)(ptr2 - summary_data->data);
     ptr += sz;
@@ -365,27 +395,27 @@ er_save_data_t *er_save_data_load(const wchar_t *path) {
         CloseHandle(file);
         return NULL;
     }
-    uint8_t header[0x300];
+    uint8_t header[ER_FILE_HEADER_SIZE];
     SetFilePointer(file, 0, NULL, FILE_BEGIN);
     if (!ReadFile(file, header, sizeof(header), &bytes_read, NULL) || bytes_read != sizeof(header)) {
         LocalFree(save_data);
         CloseHandle(file);
         return NULL;
     }
-    int save_slot_count = *(int *)&header[0x0C];
+    int save_slot_count = *(int *)&header[ER_HEADER_SLOT_COUNT_OFFSET];
     if (save_slot_count < 12) {
         LocalFree(save_data);
         CloseHandle(file);
         return NULL;
     }
 
-    uint32_t save_slot_size = *(uint32_t *)(&header[0x48 + 10 * 0x20]);
-    if (save_slot_size != 0x60010) {
+    uint32_t save_slot_size = *(uint32_t *)(&header[ER_HEADER_SLOT_SIZE_BASE + 10 * ER_HEADER_SLOT_STRIDE]);
+    if (save_slot_size != ER_SUMMARY_SLOT_FILE_SIZE) {
         LocalFree(save_data);
         CloseHandle(file);
         return NULL;
     }
-    save_data->summary_data.slot_offset = *(uint32_t *)(&header[0x50 + 10 * 0x20]);
+    save_data->summary_data.slot_offset = *(uint32_t *)(&header[ER_HEADER_SLOT_OFFSET_BASE + 10 * ER_HEADER_SLOT_STRIDE]);
     if (!read_summary_slot(&save_data->summary_data, file)) {
         LocalFree(save_data);
         CloseHandle(file);
@@ -394,20 +424,20 @@ er_save_data_t *er_save_data_load(const wchar_t *path) {
 
     for (int i = 0; i < 10; i++) {
         ZeroMemory(&save_data->char_data[i], sizeof(er_char_data_t));
-        save_slot_size = *(uint32_t *)(&header[0x48 + i * 0x20]);
-        if (save_slot_size != 0x280010) {
+        save_slot_size = *(uint32_t *)(&header[ER_HEADER_SLOT_SIZE_BASE + i * ER_HEADER_SLOT_STRIDE]);
+        if (save_slot_size != ER_CHAR_SLOT_FILE_SIZE) {
             LocalFree(save_data);
             CloseHandle(file);
             return NULL;
         }
-        save_data->char_data[i].slot_offset = *(uint32_t *)(&header[0x50 + i * 0x20]);
+        save_data->char_data[i].slot_offset = *(uint32_t *)(&header[ER_HEADER_SLOT_OFFSET_BASE + i * ER_HEADER_SLOT_STRIDE]);
         if (save_data->summary_data.data[save_data->summary_data.available_offset + i]) {
             if (!read_char_slot(&save_data->char_data[i], file)) {
                 LocalFree(save_data);
                 CloseHandle(file);
                 return NULL;
             }
-            CopyMemory(save_data->char_data[i].profile, save_data->summary_data.data + save_data->summary_data.profile_offset + 0x24C * i, 0x24C);
+            CopyMemory(save_data->char_data[i].profile, save_data->summary_data.data + save_data->summary_data.profile_offset + ER_PROFILE_SIZE * i, ER_PROFILE_SIZE);
         }
     }
 
@@ -440,14 +470,14 @@ er_save_simple_data_t *er_save_simple_data_load(const wchar_t *path) {
         CloseHandle(file);
         return NULL;
     }
-    uint8_t header[0x300];
+    uint8_t header[ER_FILE_HEADER_SIZE];
     SetFilePointer(file, 0, NULL, FILE_BEGIN);
     if (!ReadFile(file, header, sizeof(header), &bytes_read, NULL) || bytes_read != sizeof(header)) {
         LocalFree(save_data);
         CloseHandle(file);
         return NULL;
     }
-    int save_slot_count = *(int *)&header[0x0C];
+    int save_slot_count = *(int *)&header[ER_HEADER_SLOT_COUNT_OFFSET];
     if (save_slot_count < 12) {
         LocalFree(save_data);
         CloseHandle(file);
@@ -455,17 +485,17 @@ er_save_simple_data_t *er_save_simple_data_load(const wchar_t *path) {
     }
 
     for (int i = 0; i < 10; i++) {
-        save_data->slot_offset[i] = *(uint32_t *)(&header[0x50 + i * 0x20]);
+        save_data->slot_offset[i] = *(uint32_t *)(&header[ER_HEADER_SLOT_OFFSET_BASE + i * ER_HEADER_SLOT_STRIDE]);
     }
 
-    uint32_t save_slot_size = *(uint32_t *)(&header[0x48 + 10 * 0x20]);
-    if (save_slot_size != 0x60010) {
+    uint32_t save_slot_size = *(uint32_t *)(&header[ER_HEADER_SLOT_SIZE_BASE + 10 * ER_HEADER_SLOT_STRIDE]);
+    if (save_slot_size != ER_SUMMARY_SLOT_FILE_SIZE) {
         LocalFree(save_data);
         CloseHandle(file);
         return NULL;
     }
     er_summary_data_t summary_data;
-    summary_data.slot_offset = save_data->summary_slot_offset = *(uint32_t *)(&header[0x50 + 10 * 0x20]);
+    summary_data.slot_offset = save_data->summary_slot_offset = *(uint32_t *)(&header[ER_HEADER_SLOT_OFFSET_BASE + 10 * ER_HEADER_SLOT_STRIDE]);
     if (!read_summary_slot(&summary_data, file)) {
         LocalFree(save_data);
         CloseHandle(file);
@@ -475,7 +505,7 @@ er_save_simple_data_t *er_save_simple_data_load(const wchar_t *path) {
     const uint8_t *available_ptr = summary_data.data + summary_data.available_offset;
     for (int i = 0; i < 10; i++) {
         if (available_ptr[i]) {
-            lstrcpyW(save_data->char_name[i], (wchar_t *)(summary_data.data + summary_data.profile_offset + 0x24C * i));
+            lstrcpyW(save_data->char_name[i], (wchar_t *)(summary_data.data + summary_data.profile_offset + ER_PROFILE_SIZE * i));
         } else {
             save_data->char_name[i][0] = 0;
         }
@@ -507,28 +537,28 @@ uint8_t *er_save_simple_data_slot_export(const er_save_simple_data_t *save_data,
     if (file == INVALID_HANDLE_VALUE) {
         return NULL;
     }
-    uint8_t *slot_data = LocalAlloc(LMEM_FIXED, 0x280000 + 0x24C);
+    uint8_t *slot_data = LocalAlloc(LMEM_FIXED, ER_CHAR_DATA_SIZE + ER_PROFILE_SIZE);
     if (!slot_data) {
         CloseHandle(file);
         return NULL;
     }
-    if (SetFilePointer(file, save_data->slot_offset[slot] + 0x10, NULL, FILE_BEGIN) != save_data->slot_offset[slot] + 0x10) {
+    if (SetFilePointer(file, save_data->slot_offset[slot] + ER_SLOT_HEADER_SIZE, NULL, FILE_BEGIN) != save_data->slot_offset[slot] + ER_SLOT_HEADER_SIZE) {
         LocalFree(slot_data);
         CloseHandle(file);
         return NULL;
     }
     DWORD bytes_read;
-    if (!ReadFile(file, slot_data, 0x280000, &bytes_read, NULL) || bytes_read != 0x280000) {
+    if (!ReadFile(file, slot_data, ER_CHAR_DATA_SIZE, &bytes_read, NULL) || bytes_read != ER_CHAR_DATA_SIZE) {
         LocalFree(slot_data);
         CloseHandle(file);
         return NULL;
     }
-    if (SetFilePointer(file, save_data->summary_slot_offset + 0x10 + save_data->summary_profile_offset + 0x24C * slot, NULL, FILE_BEGIN) != save_data->summary_slot_offset + 0x10 + save_data->summary_profile_offset + 0x24C * slot) {
+    if (SetFilePointer(file, save_data->summary_slot_offset + ER_SLOT_HEADER_SIZE + save_data->summary_profile_offset + ER_PROFILE_SIZE * slot, NULL, FILE_BEGIN) != save_data->summary_slot_offset + ER_SLOT_HEADER_SIZE + save_data->summary_profile_offset + ER_PROFILE_SIZE * slot) {
         LocalFree(slot_data);
         CloseHandle(file);
         return NULL;
     }
-    if (!ReadFile(file, slot_data + 0x280000, 0x24C, &bytes_read, NULL) || bytes_read != 0x24C) {
+    if (!ReadFile(file, slot_data + ER_CHAR_DATA_SIZE, ER_PROFILE_SIZE, &bytes_read, NULL) || bytes_read != ER_PROFILE_SIZE) {
         LocalFree(slot_data);
         CloseHandle(file);
         return NULL;
@@ -568,12 +598,12 @@ bool er_save_resign_userid(er_save_data_t *save_data, uint64_t user_id) {
         *(uint64_t *)(char_data->data + char_data->userid_offset) = user_id;
         md5_buffer(char_data->data, sizeof(char_data->data), md5);
         ok = ok && write_at(file, char_data->slot_offset, md5, sizeof(md5));
-        ok = ok && write_at(file, char_data->slot_offset + 0x10 + char_data->userid_offset, &user_id, sizeof(user_id));
+        ok = ok && write_at(file, char_data->slot_offset + ER_SLOT_HEADER_SIZE + char_data->userid_offset, &user_id, sizeof(user_id));
     }
     *(uint64_t *)(save_data->summary_data.data + 4) = user_id;
     md5_buffer(save_data->summary_data.data, sizeof(save_data->summary_data.data), md5);
     ok = ok && write_at(file, save_data->summary_data.slot_offset, md5, sizeof(md5));
-    ok = ok && write_at(file, save_data->summary_data.slot_offset + 0x10 + 0x04, &user_id, sizeof(user_id));
+    ok = ok && write_at(file, save_data->summary_data.slot_offset + ER_SLOT_HEADER_SIZE + 0x04, &user_id, sizeof(user_id));
     CloseHandle(file);
     return ok;
 }
@@ -606,7 +636,7 @@ bool er_char_data_import(er_save_data_t *save_data, int slot, const er_char_data
     uint32_t slot_offset = data->slot_offset;
     CopyMemory(data, char_data, sizeof(er_char_data_t));
     data->slot_offset = slot_offset;
-    CopyMemory(summary_data->data + summary_data->profile_offset + 0x24C * slot, char_data->profile, 0x24C);
+    CopyMemory(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot, char_data->profile, ER_PROFILE_SIZE);
     *(summary_data->data + summary_data->available_offset + slot) = 1;
 
     /* Update userid */
@@ -615,13 +645,13 @@ bool er_char_data_import(er_save_data_t *save_data, int slot, const er_char_data
     uint8_t md5[0x10];
     md5_buffer(data->data, sizeof(data->data), md5);
     bool ok = write_at(file, data->slot_offset, md5, sizeof(md5));
-    ok = ok && write_at(file, data->slot_offset + 0x10, data->data, sizeof(data->data));
+    ok = ok && write_at(file, data->slot_offset + ER_SLOT_HEADER_SIZE, data->data, sizeof(data->data));
 
     md5_buffer(summary_data->data, sizeof(summary_data->data), md5);
     ok = ok && write_at(file, summary_data->slot_offset, md5, sizeof(md5));
-    ok = ok && write_at(file, summary_data->slot_offset + 0x10 + summary_data->profile_offset + 0x24C * slot, char_data->profile, 0x24C);
+    ok = ok && write_at(file, summary_data->slot_offset + ER_SLOT_HEADER_SIZE + summary_data->profile_offset + ER_PROFILE_SIZE * slot, char_data->profile, ER_PROFILE_SIZE);
     const uint8_t byte_avail = 1;
-    ok = ok && write_at(file, summary_data->slot_offset + 0x10 + summary_data->available_offset + slot, &byte_avail, sizeof(byte_avail));
+    ok = ok && write_at(file, summary_data->slot_offset + ER_SLOT_HEADER_SIZE + summary_data->available_offset + slot, &byte_avail, sizeof(byte_avail));
 
     CloseHandle(file);
     return ok;
@@ -657,19 +687,19 @@ bool er_char_data_set_name(er_save_data_t *save_data, int slot, const wchar_t *n
     lstrcpynW((wchar_t *)(char_data->profile + 0x22), name, 0x11);
     ZeroMemory(char_data->data + char_data->stats_offset + 4 * 37, 0x22);
     lstrcpynW((wchar_t *)(char_data->data + char_data->stats_offset + 4 * 37), name, 0x11);
-    ZeroMemory(summary_data->data + summary_data->profile_offset + 0x24C * slot, 0x22);
-    lstrcpynW((wchar_t *)(summary_data->data + summary_data->profile_offset + 0x24C * slot), name, 0x11);
+    ZeroMemory(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot, 0x22);
+    lstrcpynW((wchar_t *)(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot), name, 0x11);
 
     uint8_t md5[0x10];
     md5_buffer(char_data->data, sizeof(char_data->data), md5);
     bool ok = write_at(file, char_data->slot_offset, md5, sizeof(md5));
-    ok = ok && write_at(file, char_data->slot_offset + 0x10 + char_data->stats_offset + 4 * 37,
+    ok = ok && write_at(file, char_data->slot_offset + ER_SLOT_HEADER_SIZE + char_data->stats_offset + 4 * 37,
                         char_data->data + char_data->stats_offset + 4 * 37, 0x22);
 
     md5_buffer(summary_data->data, sizeof(summary_data->data), md5);
     ok = ok && write_at(file, summary_data->slot_offset, md5, sizeof(md5));
-    ok = ok && write_at(file, summary_data->slot_offset + 0x10 + summary_data->profile_offset + 0x24C * slot,
-                        summary_data->data + summary_data->profile_offset + 0x24C * slot, 0x22);
+    ok = ok && write_at(file, summary_data->slot_offset + ER_SLOT_HEADER_SIZE + summary_data->profile_offset + ER_PROFILE_SIZE * slot,
+                        summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot, 0x22);
 
     CloseHandle(file);
     return ok;
@@ -716,7 +746,7 @@ er_char_data_t *er_char_data_from_file(const wchar_t *path) {
         CloseHandle(file);
         return NULL;
     }
-    if (!ReadFile(file, char_data->profile, 0x24C, &bytes_read, NULL) || bytes_read != 0x24C) {
+    if (!ReadFile(file, char_data->profile, ER_PROFILE_SIZE, &bytes_read, NULL) || bytes_read != ER_PROFILE_SIZE) {
         LocalFree(char_data);
         CloseHandle(file);
         return NULL;
@@ -731,12 +761,12 @@ er_char_data_t *er_char_data_from_memory(const uint8_t *data) {
     if (!char_data) {
         return NULL;
     }
-    CopyMemory(char_data->data, data, 0x280000);
+    CopyMemory(char_data->data, data, ER_CHAR_DATA_SIZE);
     if (!parse_char_slot(char_data)) {
         LocalFree(char_data);
         return NULL;
     }
-    CopyMemory(char_data->profile, data + 0x280000, 0x24C);
+    CopyMemory(char_data->profile, data + ER_CHAR_DATA_SIZE, ER_PROFILE_SIZE);
     return char_data;
 }
 
@@ -747,7 +777,7 @@ bool er_char_data_to_file(const er_char_data_t *char_data, const wchar_t *path) 
     }
     DWORD written;
     bool ok = WriteFile(file, char_data->data, sizeof(char_data->data), &written, NULL) && written == sizeof(char_data->data);
-    ok = ok && WriteFile(file, char_data->profile, 0x24C, &written, NULL) && written == 0x24C;
+    ok = ok && WriteFile(file, char_data->profile, ER_PROFILE_SIZE, &written, NULL) && written == ER_PROFILE_SIZE;
     CloseHandle(file);
     return ok;
 }
@@ -766,7 +796,7 @@ const uint8_t *er_face_data_ref(const er_save_data_t *save_data, int slot) {
         return NULL;
     }
     const er_summary_data_t *summary_data = &save_data->summary_data;
-    return summary_data->data + summary_data->face_offset + 0x130 * slot;
+    return summary_data->data + summary_data->face_offset + ER_FACE_DATA_SIZE * slot;
 }
 
 bool er_face_data_import(er_save_data_t *save_data, int slot, const uint8_t *face_data) {
@@ -774,7 +804,7 @@ bool er_face_data_import(er_save_data_t *save_data, int slot, const uint8_t *fac
         return false;
     }
     er_summary_data_t *summary_data = &save_data->summary_data;
-    CopyMemory(summary_data->data + summary_data->face_offset + 0x130 * slot, face_data, 0x130);
+    CopyMemory(summary_data->data + summary_data->face_offset + ER_FACE_DATA_SIZE * slot, face_data, ER_FACE_DATA_SIZE);
     uint8_t md5[0x10];
     md5_buffer(summary_data->data, sizeof(summary_data->data), md5);
 
@@ -783,8 +813,8 @@ bool er_face_data_import(er_save_data_t *save_data, int slot, const uint8_t *fac
         return false;
     }
     bool ok = write_at(file, summary_data->slot_offset, md5, sizeof(md5));
-    ok = ok && write_at(file, summary_data->slot_offset + 0x10 + summary_data->face_offset + 0x130 * slot,
-                        summary_data->data + summary_data->face_offset + 0x130 * slot, 0x130);
+    ok = ok && write_at(file, summary_data->slot_offset + ER_SLOT_HEADER_SIZE + summary_data->face_offset + ER_FACE_DATA_SIZE * slot,
+                        summary_data->data + summary_data->face_offset + ER_FACE_DATA_SIZE * slot, ER_FACE_DATA_SIZE);
     CloseHandle(file);
     return ok;
 }
@@ -798,7 +828,7 @@ void er_face_data_info(const uint8_t *face_data, uint8_t *available, uint8_t *ge
 }
 
 uint8_t *er_face_data_from_file(const wchar_t *path) {
-    uint8_t *face_data = LocalAlloc(LMEM_FIXED, 0x130);
+    uint8_t *face_data = LocalAlloc(LMEM_FIXED, ER_FACE_DATA_SIZE);
     if (!face_data) {
         return NULL;
     }
@@ -808,7 +838,7 @@ uint8_t *er_face_data_from_file(const wchar_t *path) {
         return NULL;
     }
     DWORD bytes_read;
-    if (!ReadFile(file, face_data, 0x130, &bytes_read, NULL) || bytes_read != 0x130) {
+    if (!ReadFile(file, face_data, ER_FACE_DATA_SIZE, &bytes_read, NULL) || bytes_read != ER_FACE_DATA_SIZE) {
         LocalFree(face_data);
         CloseHandle(file);
         return NULL;
@@ -827,7 +857,7 @@ bool er_face_data_to_file(const uint8_t *face_data, const wchar_t *path) {
         return false;
     }
     DWORD written;
-    bool ok = WriteFile(file, face_data, 0x130, &written, NULL) && written == 0x130;
+    bool ok = WriteFile(file, face_data, ER_FACE_DATA_SIZE, &written, NULL) && written == ER_FACE_DATA_SIZE;
     CloseHandle(file);
     return ok;
 }
