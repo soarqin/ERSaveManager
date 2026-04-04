@@ -121,207 +121,235 @@ static bool write_at(HANDLE file, uint32_t offset, const void *data, DWORD size)
     return true;
 }
 
+static bool parse_item_list(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
+    (void)char_data; /* no offset to record */
+    for (size_t i = 0; i < ER_ITEM_LIST_COUNT; i++) {
+        *ptr += 4;
+        const uint32_t itemId = read_uint32(ptr);
+        if (itemId == 0 || itemId == 0xFFFFFFFFu) continue;
+        switch (itemId >> 28) {
+            case 0:
+                *ptr += 13;
+                break;
+            case 1:
+                *ptr += 8;
+                break;
+            default:
+                break;
+        }
+    }
+    if (*ptr > end) return false;
+    char_data->stats_offset = (uint32_t)(*ptr - char_data->data);
+    return true;
+}
+
+static bool parse_character_info(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
+    (void)char_data;
+    (void)end;
+    /* character data */
+    *ptr += ER_STATS_SECTION_SIZE;
+    /* charname */
+    *ptr += ER_CHAR_NAME_SIZE;
+    /* gender */
+    *ptr += 1;
+    /* birth job */
+    *ptr += 1;
+    *ptr += 3;
+    /* gift */
+    *ptr += 1;
+    *ptr += 0x1E;
+    /* match making weapon level */
+    *ptr += 1;
+    *ptr += 0x35;
+    /* passwords */
+    *ptr += 0x12 * 6;
+    *ptr += 0x34;
+
+    *ptr += 0xd0;
+    return true;
+}
+
+static bool parse_equipment(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
+    (void)char_data;
+    (void)end;
+    /* equip data */
+    /* weapons */
+    *ptr += 4 * 6;
+    /* arrows and bolts */
+    *ptr += 4 * 4;
+    *ptr += 4 * 2;
+    /* armors */
+    *ptr += 4 * 4;
+    *ptr += 4;
+    /* accessories */
+    *ptr += 4 * 4;
+    *ptr += 4;
+
+    /* ChrAsm */
+    *ptr += 4 * 29;
+
+    /* ChrAsm2 */
+    *ptr += 4 * 22;
+    return true;
+}
+
+static bool parse_inventory(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
+    (void)char_data;
+    (void)end;
+    /* inventory 1 */
+    /* count 1 */
+    *ptr += 4;
+    /* part 1 */
+    *ptr += 0x0C * 0xA80;
+    /* count 2 */
+    *ptr += 4;
+    /* part 2 */
+    *ptr += 0x0C * 0x180;
+    /* next_equip_index */
+    *ptr += 4;
+    /* next_acquisition_sort_id */
+    *ptr += 4;
+
+    /* spells */
+    *ptr += 8 * 14;
+    /* current spell slot */
+    *ptr += 4;
+
+    /* quick item slot: item_id + equipment_index */
+    *ptr += 8 * 10;
+    /* current quick slot */
+    *ptr += 4;
+    /* pouch item slot */
+    *ptr += 8 * 6;
+    *ptr += 8;
+
+    /* Equipped gestures */
+    *ptr += 4 * 6;
+    return true;
+}
+
+static bool parse_projectiles_and_face(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
+    /* Projectile */
+    /* count */
+    if (*ptr + 4 > end) return false;
+    const uint32_t projectile_count = read_uint32(ptr);
+    if (projectile_count > (uint32_t)(end - *ptr) / 8) return false;
+    *ptr += 8 * projectile_count;
+
+    /* equipped items */
+    *ptr += 4 * 39;
+
+    /* equip physics */
+    *ptr += 4 * 2;
+
+    *ptr += 4;
+
+    *ptr += 4;
+
+    char_data->face_offset = (uint32_t)(*ptr - char_data->data);
+    /* face data */
+    *ptr += ER_FACE_SECTION_SIZE;
+
+    *ptr += 0x0B;
+    return true;
+}
+
+static bool parse_inventory2_and_regions(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
+    (void)char_data;
+    /* inventory 2 */
+    *ptr += 4;
+    *ptr += 0x0C * 0x780;
+    *ptr += 4;
+    *ptr += 0x0C * 0x80;
+    *ptr += 4;
+    *ptr += 4;
+
+    /* gestures */
+    *ptr += 4 * 0x40;
+
+    /* regions */
+    if (*ptr + 4 > end) return false;
+    const uint32_t region_count = read_uint32(ptr);
+    if (region_count > (uint32_t)(end - *ptr) / 4) return false;
+    *ptr += 4 * region_count;
+
+    /* rides */
+    *ptr += 0x28;
+
+    *ptr += 0x4D;
+    return true;
+}
+
+static bool parse_trailing_data(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
+    /* menu profile save load */
+    *ptr += ER_MENU_PROFILE_SIZE;
+
+    /* trophy equip data */
+    *ptr += 0x34;
+
+    /* item seen list */
+    *ptr += 4;
+    *ptr += 4;
+    *ptr += 0x10 * 7000;
+
+    /* tutorial data */
+    *ptr += 0x408;
+
+    *ptr += 0x1d;
+
+    /* flags */
+    *ptr += ER_FLAGS_SIZE;
+
+    *ptr += 1;
+
+    for (int i = 0; i < 5; i++) {
+        if (*ptr + 4 > end) return false;
+        const uint32_t sz = read_uint32(ptr);
+        if (sz > (uint32_t)(end - *ptr)) return false;
+        *ptr += sz;
+    }
+
+    /* player coords */
+    /* position (x, y, z, map_id) */
+    *ptr += 0x10;
+    *ptr += 0x11;
+    /* position2 (x, y, z) */
+    *ptr += 0xC;
+    *ptr += 0x10;
+
+    *ptr += 0xF;
+
+    /* account active  2=active  0=empty */
+    *ptr += 4;
+
+    /* net data */
+    *ptr += ER_NET_DATA_SIZE;
+
+    /* weather info */
+    *ptr += 4 * 6;
+
+    *ptr += 0x10;
+
+    char_data->userid_offset = (uint32_t)(*ptr - char_data->data);
+
+    /* all rest data */
+    return true;
+}
+
 static bool parse_char_slot(er_char_data_t *char_data) {
     char_data->userid_offset = 0;
     char_data->stats_offset = 0;
     char_data->face_offset = 0;
     const uint8_t *ptr = char_data->data + ER_CHAR_INITIAL_OFFSET;
     const uint8_t *end = char_data->data + sizeof(char_data->data);
-    /* item list */
-    for (size_t i = 0; i < ER_ITEM_LIST_COUNT; i++) {
-        ptr += 4;
-        const uint32_t itemId = read_uint32(&ptr);
-        if (itemId == 0 || itemId == 0xFFFFFFFFu) continue;
-        switch (itemId >> 28) {
-            case 0:
-                ptr += 13;
-                break;
-            case 1:
-                ptr += 8;
-                break;
-            default:
-                break;
-        }
-    }
-    if (ptr > end) return false;
-    char_data->stats_offset = (uint32_t)(ptr - char_data->data);
-    /* character data */
-    ptr += ER_STATS_SECTION_SIZE;
-    /* charname */
-    ptr += ER_CHAR_NAME_SIZE;
-    /* gender */
-    ptr += 1;
-    /* birth job */
-    ptr += 1;
-    ptr += 3;
-    /* gift */
-    ptr += 1;
-    ptr += 0x1E;
-    /* match making weapn level */
-    ptr += 1;
-    ptr += 0x35;
-    /* passwords */
-    ptr += 0x12 * 6;
-    ptr += 0x34;
 
-    ptr += 0xd0;
-
-    /* equip data */
-    /* weapons */
-    ptr += 4 * 6;
-    /* arrows and bolts */
-    ptr += 4 * 4;
-    ptr += 4 * 2;
-    /* armors */
-    ptr += 4 * 4;
-    ptr += 4;
-    /* accessories */
-    ptr += 4 * 4;
-    ptr += 4;
-
-    /* ChrAsm */
-    ptr += 4 * 29;
-
-    /* ChrAsm2 */
-    ptr += 4 * 22;
-
-    /* inventory 1 */
-    /* count 1 */
-    ptr += 4;
-    /* part 1 */
-    ptr += 0x0C * 0xA80;
-    /* count 2 */
-    ptr += 4;
-    /* part 2 */
-    ptr += 0x0C * 0x180;
-    /* next_equip_index */
-    ptr += 4;
-    /* next_acquisition_sort_id */
-    ptr += 4;
-
-    /* spells */
-    ptr += 8 * 14;
-    /* current spell slot */
-    ptr += 4;
-
-    /* quick item slot: item_id + equipment_index */
-    ptr += 8 * 10;
-    /* current quick slot */
-    ptr += 4;
-    /* pouch item slot */
-    ptr += 8 * 6;
-    ptr += 8;
-
-    /* Equpped geastures */
-    ptr += 4 * 6;
-
-    /* Projectile */
-    /* count */
-    if (ptr + 4 > end) return false;
-    const uint32_t projectile_count = read_uint32(&ptr);
-    if (projectile_count > (uint32_t)(end - ptr) / 8) return false;
-    ptr += 8 * projectile_count;
-
-    /* equipped items */
-    ptr += 4 * 39;
-
-    /* equip physics */
-    ptr += 4 * 2;
-
-    ptr += 4;
-
-    ptr += 4;
-
-    char_data->face_offset = (uint32_t)(ptr - char_data->data);
-    /* face data */
-    ptr += ER_FACE_SECTION_SIZE;
-
-    ptr += 0x0B;
-
-    /* inventory 2 */
-    ptr += 4;
-    ptr += 0x0C * 0x780;
-    ptr += 4;
-    ptr += 0x0C * 0x80;
-    ptr += 4;
-    ptr += 4;
-
-    /* geastures */
-    ptr += 4 * 0x40;
-
-    /* regions */
-    if (ptr + 4 > end) return false;
-    const uint32_t region_count = read_uint32(&ptr);
-    if (region_count > (uint32_t)(end - ptr) / 4) return false;
-    ptr += 4 * region_count;
-
-    /* rides */
-    ptr += 0x28;
-
-    ptr += 0x4D;
-
-    /* menu profile save load */
-    ptr += ER_MENU_PROFILE_SIZE;
-
-    /* trophy equip data */
-    ptr += 0x34;
-
-    /* item seen list */
-    ptr += 4;
-    ptr += 4;
-    ptr += 0x10 * 7000;
-
-    /* tutorial data */
-    ptr += 0x408;
-
-    ptr += 0x1d;
-
-    /* flags */
-    ptr += ER_FLAGS_SIZE;
-
-    ptr += 1;
-
-    for (int i = 0; i < 5; i++) {
-        if (ptr + 4 > end) return false;
-        const uint32_t sz = read_uint32(&ptr);
-        if (sz > (uint32_t)(end - ptr)) return false;
-        ptr += sz;
-    }
-
-    /* player coords */
-    /* position (x, y, z, map_id) */
-    ptr += 0x10;
-    ptr += 0x11;
-    /* position2 (x, y, z) */
-    ptr += 0xC;
-    ptr += 0x10;
-
-    ptr += 0xF;
-
-    /* account active  2=active  0=empty */
-    ptr += 4;
-
-    /* net data */
-    ptr += ER_NET_DATA_SIZE;
-
-    /* weather info */
-    ptr += 4 * 6;
-
-    ptr += 0x10;
-
-    char_data->userid_offset = (uint32_t)(ptr - char_data->data);
-
-    /* CPS5Activity #1#
-
-    ptr += 0x20;
-     * dlc data #1#
-    ptr += 0x32;
-
-    ptr += 0x80;
-    */
-
-    /* all rest data */
-    return true;
+    return parse_item_list(char_data, &ptr, end)
+        && parse_character_info(char_data, &ptr, end)
+        && parse_equipment(char_data, &ptr, end)
+        && parse_inventory(char_data, &ptr, end)
+        && parse_projectiles_and_face(char_data, &ptr, end)
+        && parse_inventory2_and_regions(char_data, &ptr, end)
+        && parse_trailing_data(char_data, &ptr, end);
 }
 
 /**
