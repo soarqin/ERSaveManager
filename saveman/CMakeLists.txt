@@ -7,6 +7,8 @@ add_project(saveman WIN32
 
     embedded_face_data.c embedded_face_data.h
 
+    face_dialog.c face_dialog.h
+
     file_dialog.c file_dialog.h
 
     ui_controls.c ui_controls.h
