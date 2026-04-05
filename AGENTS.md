@@ -14,6 +14,12 @@ face data and character slots, re-signing Steam IDs, and multi-locale UI.
 ```
 ERSaveManager/
 ├── CMakeLists.txt          # Root: sets C++ standard to C23 (C std follows toolchain default)
+├── README.md               # Project documentation (English)
+├── CHANGELOG.md            # Keep a Changelog format
+├── LICENSE                 # MIT License
+├── .github/
+│   └── workflows/
+│       └── release.yml     # CI: build + GitHub Release on v* tags
 ├── cmake/
 │   ├── CustomCompilerOptions.cmake   # /utf-8 flag, strip/LTO/static-CRT options
 │   ├── GlobalOptions.cmake           # Visibility presets, export compile commands
@@ -21,12 +27,17 @@ ERSaveManager/
 ├── deps/
 │   ├── inih/               # INI file parser (inih library)
 │   └── md5/                # MD5 hash library
-└── saveman/                # Main application source
-    ├── main.c              # WinMain entry, window proc, all UI logic
+├── msg/                    # External locale message files (*.txt per language)
+└── src/                    # Main application source
+    ├── main.c              # WinMain entry, window proc, command handling
     ├── ersave.c / .h       # Save-file parsing and I/O (pure data layer)
     ├── config.c / .h       # INI-based config load/save
-    ├── locale.c / .h       # Multi-language string tables
+    ├── locale.c / .h       # Multi-language string tables (11 languages)
     ├── embedded_face_data.c / .h  # Built-in NPC face presets
+    ├── face_dialog.c / .h  # Face data management dialog
+    ├── file_dialog.c / .h  # Open/save file dialog wrappers (IFileDialog COM)
+    ├── ui_controls.c / .h  # Control creation, layout, and refresh helpers
+    ├── version.h.in        # CMake-configured version header template
     └── resource.h / app.rc / app.manifest / app.ico
 ```
 
@@ -50,8 +61,7 @@ cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
 ```powershell
 cmake --build build --config Release
-# Output: build/bin/Release/ERSaveManager.exe  (MSVC)
-# Output: build/bin/ERSaveManager.exe           (Ninja)
+# Output: build/bin/ERSaveManager.exe
 ```
 
 ### Build (Debug)
