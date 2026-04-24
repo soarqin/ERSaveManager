@@ -347,11 +347,13 @@ static void import_char_data(HWND hwnd, int item) {
 
     ersm_format_t fmt = detect_import_format(pszPath);
     if (fmt == ERSM_FMT_ERSM_CONTAINER) {
+        EnableWindow(hwnd, FALSE);
         SetCursor(LoadCursor(NULL, IDC_WAIT));
         size_t payload_size = 0;
         uint8_t data_type = 0;
         uint8_t *payload = ersm_decompress_from_file(pszPath, &payload_size, &data_type);
         SetCursor(LoadCursor(NULL, IDC_ARROW));
+        EnableWindow(hwnd, TRUE);
         if (!payload) {
             MessageBoxW(hwnd, locale_str(STR_DECOMPRESSION_ERROR), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
         } else if (data_type == ERSM_TYPE_CHAR_SLOT && payload_size == 0x28024Cu) {
@@ -366,9 +368,11 @@ static void import_char_data(HWND hwnd, int item) {
             LocalFree(payload);
             wchar_t temp_path[MAX_PATH];
             uint8_t dummy_type = 0;
+            EnableWindow(hwnd, FALSE);
             SetCursor(LoadCursor(NULL, IDC_WAIT));
             bool ok = ersm_decompress_to_temp_file(pszPath, temp_path, &dummy_type);
             SetCursor(LoadCursor(NULL, IDC_ARROW));
+            EnableWindow(hwnd, TRUE);
             if (ok) {
                 import_char_from_save_file(hwnd, item, temp_path);
                 DeleteFileW(temp_path);
@@ -418,9 +422,11 @@ static void export_char_data(HWND hwnd, int item) {
         return;
     }
 
+    EnableWindow(hwnd, FALSE);
     SetCursor(LoadCursor(NULL, IDC_WAIT));
     bool ok = ersm_compress_to_file(pszPath, buf, 0x28024C, ERSM_TYPE_CHAR_SLOT, config.compression_level);
     SetCursor(LoadCursor(NULL, IDC_ARROW));
+    EnableWindow(hwnd, TRUE);
     LocalFree(buf);
     MessageBoxW(hwnd, locale_str(ok ? STR_CHARACTER_EXPORT_SUCCESS : STR_CHARACTER_EXPORT_FAILED),
                 locale_str(ok ? STR_SUCCESS : STR_ERROR),
