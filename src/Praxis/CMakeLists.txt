@@ -4,6 +4,8 @@ add_project(praxis WIN32
     config.h
     locale.c
     locale.h
+    save_tree.c
+    save_tree.h
     game_backend.h
     backend_registry.c
     backend_registry.h
@@ -25,7 +27,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}"
 target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE _UNICODE)
 
 # Link against required libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE ersave_common uxtheme)
+target_link_libraries(${PROJECT_NAME} PRIVATE ersave_common uxtheme shell32)
 
 # Recompile app.rc when dependent headers or assets change
 set_property(SOURCE app.rc PROPERTY OBJECT_DEPENDS

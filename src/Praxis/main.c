@@ -7,6 +7,7 @@
 #include "backend_registry.h"
 #include "locale.h"
 #include "resource.h"
+#include "save_tree.h"
 
 #include "ersave.h"
 #include "save_compress.h"
@@ -26,6 +27,7 @@
 
 /** @brief Global main window handle (set on WM_CREATE). */
 static HWND g_main_window = NULL;
+static save_tree_t *g_save_tree = NULL;
 
 /** @brief Log file handle opened via --log-file flag (for Gate I testing). */
 static HANDLE g_log_file = INVALID_HANDLE_VALUE;
@@ -75,12 +77,32 @@ static void st_printf(const wchar_t *fmt, ...) {
 static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_CREATE:
+        {
+            CREATESTRUCTW *cs = (CREATESTRUCTW *)lp;
+
+            g_save_tree = save_tree_create(hwnd, cs->hInstance, IDC_TREE_VIEW);
+            if (!g_save_tree) {
+                return -1;
+            }
+        }
         g_main_window = hwnd;
         return 0;
 
     case WM_SIZE:
-        /* Layout placeholder — TreeView added in T19 */
+        if (g_save_tree && save_tree_get_hwnd(g_save_tree)) {
+            MoveWindow(save_tree_get_hwnd(g_save_tree), 0, 0, LOWORD(lp), HIWORD(lp), TRUE);
+        }
         return 0;
+
+    case WM_NOTIFY:
+        if (g_save_tree) {
+            LRESULT notify_result = 0;
+
+            if (save_tree_handle_notify(g_save_tree, (LPNMHDR)lp, &notify_result)) {
+                return notify_result;
+            }
+        }
+        break;
 
     case WM_COMMAND:
         switch (LOWORD(wp)) {
@@ -117,6 +139,8 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         return 0;
 
     case WM_DESTROY:
+        save_tree_destroy(g_save_tree);
+        g_save_tree = NULL;
         if (g_log_file != INVALID_HANDLE_VALUE) {
             CloseHandle(g_log_file);
             g_log_file = INVALID_HANDLE_VALUE;
@@ -256,6 +280,77 @@ static int run_selftest(void) {
                 result = 1;
             } else {
                 result = b->restore_full(argv[3], argv[4]) ? 0 : 1;
+            }
+        }
+    } else if (wcscmp(sub, L"tree-populate") == 0) {
+        if (argc < 4) {
+            result = 2;
+        } else {
+            save_tree_t *t = save_tree_create(NULL, NULL, 0);
+
+            if (!t) {
+                result = 1;
+            } else {
+                save_tree_set_root(t, argv[3]);
+                st_printf(L"items=%d\n", save_tree_item_count(t));
+                save_tree_destroy(t);
+                result = 0;
+            }
+        }
+    } else if (wcscmp(sub, L"tree-rename") == 0) {
+        if (argc < 6) {
+            result = 2;
+        } else {
+            save_tree_t *t = save_tree_create(NULL, NULL, 0);
+
+            if (!t) {
+                result = 1;
+            } else {
+                save_tree_set_root(t, argv[3]);
+                result = save_tree_rename(t, argv[4], argv[5]) ? 0 : 1;
+                save_tree_destroy(t);
+            }
+        }
+    } else if (wcscmp(sub, L"tree-delete") == 0) {
+        if (argc < 5) {
+            result = 2;
+        } else {
+            save_tree_t *t = save_tree_create(NULL, NULL, 0);
+
+            if (!t) {
+                result = 1;
+            } else {
+                save_tree_set_root(t, argv[3]);
+                result = save_tree_delete(t, argv[4]) ? 0 : 1;
+                save_tree_destroy(t);
+            }
+        }
+    } else if (wcscmp(sub, L"tree-new-folder") == 0) {
+        if (argc < 6) {
+            result = 2;
+        } else {
+            save_tree_t *t = save_tree_create(NULL, NULL, 0);
+
+            if (!t) {
+                result = 1;
+            } else {
+                save_tree_set_root(t, argv[3]);
+                result = save_tree_new_folder(t, argv[4], argv[5]) ? 0 : 1;
+                save_tree_destroy(t);
+            }
+        }
+    } else if (wcscmp(sub, L"tree-move") == 0) {
+        if (argc < 6) {
+            result = 2;
+        } else {
+            save_tree_t *t = save_tree_create(NULL, NULL, 0);
+
+            if (!t) {
+                result = 1;
+            } else {
+                save_tree_set_root(t, argv[3]);
+                result = save_tree_move(t, argv[4], argv[5]) ? 0 : 1;
+                save_tree_destroy(t);
             }
         }
     } else {
