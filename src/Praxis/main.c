@@ -7,6 +7,8 @@
 #include "backend_registry.h"
 #include "locale.h"
 #include "resource.h"
+#include "ring_backup.h"
+#include "restore_safe.h"
 #include "save_tree.h"
 
 #include "ersave.h"
@@ -352,6 +354,29 @@ static int run_selftest(void) {
                 result = save_tree_move(t, argv[4], argv[5]) ? 0 : 1;
                 save_tree_destroy(t);
             }
+        }
+    } else if (wcscmp(sub, L"ring-snapshot") == 0) {
+        if (argc < 6) { result = 2; }
+        else {
+            const game_backend_t *b = backend_registry_get_default();
+            ring_backup_init(argv[3], 5);
+            wchar_t out[MAX_PATH];
+            result = ring_backup_snapshot(b, argv[4], argv[5], 5, out, MAX_PATH) ? 0 : 1;
+            if (result == 0) st_printf(L"ring_path=%ls\n", out);
+        }
+    } else if (wcscmp(sub, L"restore-with-safety") == 0) {
+        if (argc < 6) { result = 2; }
+        else {
+            const game_backend_t *b = backend_registry_get_default();
+            ring_backup_init(argv[3], 5);
+            result = restore_with_safety(b, argv[4], argv[5], argv[3], 5, false, 0) ? 0 : 1;
+        }
+    } else if (wcscmp(sub, L"undo-last-restore") == 0) {
+        if (argc < 4) { result = 2; }
+        else {
+            const game_backend_t *b = backend_registry_get_default();
+            ring_backup_init(argv[3], 5);
+            result = undo_last_restore(b, argv[3], 5) ? 0 : 1;
         }
     } else {
         /* Placeholder subcommands added in T18, T20-T22, T23, T25, T26, T29. */

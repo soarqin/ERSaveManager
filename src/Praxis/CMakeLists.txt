@@ -9,6 +9,10 @@ add_project(praxis WIN32
     game_backend.h
     backend_registry.c
     backend_registry.h
+    ring_backup.c
+    ring_backup.h
+    restore_safe.c
+    restore_safe.h
     backends/er_backend.c
     resource.h
     app.rc
