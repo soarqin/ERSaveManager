@@ -222,3 +222,20 @@ bool er_face_data_to_file(const uint8_t *face_data, const wchar_t *path);
  * @param face_data Pointer to face data structure to free
  */
 void er_face_data_free(uint8_t *face_data);
+
+/**
+ * @brief Returns the byte value at summary_data.data[active_offset] (0-255),
+ *        or -1 if save is NULL or active_offset is out of bounds.
+ */
+int er_save_debug_get_active_slot_byte(const er_save_data_t *save);
+
+/**
+ * @brief Returns active_offset (byte offset into summary_data.data), or 0 if save is NULL.
+ */
+uint32_t er_save_debug_get_active_offset(const er_save_data_t *save);
+
+/**
+ * @brief Writes value to summary_data.data[active_offset], recomputes summary MD5,
+ *        persists the update to persist_path. Returns true on success.
+ */
+bool er_save_debug_set_active_slot_byte(er_save_data_t *save, uint8_t value, const wchar_t *persist_path);

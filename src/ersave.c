@@ -658,6 +658,48 @@ bool er_save_resign_userid(er_save_data_t *save_data, uint64_t user_id) {
     return ok;
 }
 
+int er_save_debug_get_active_slot_byte(const er_save_data_t *save) {
+    if (!save) {
+        return -1;
+    }
+    if (save->summary_data.active_offset >= ER_SUMMARY_DATA_SIZE) {
+        return -1;
+    }
+    return (int)save->summary_data.data[save->summary_data.active_offset];
+}
+
+uint32_t er_save_debug_get_active_offset(const er_save_data_t *save) {
+    if (!save) {
+        return 0;
+    }
+    return save->summary_data.active_offset;
+}
+
+bool er_save_debug_set_active_slot_byte(er_save_data_t *save, uint8_t value, const wchar_t *persist_path) {
+    if (!save || !persist_path) {
+        return false;
+    }
+    if (save->summary_data.active_offset >= ER_SUMMARY_DATA_SIZE) {
+        return false;
+    }
+
+    save->summary_data.data[save->summary_data.active_offset] = value;
+
+    HANDLE file = CreateFileW(persist_path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    uint8_t md5[0x10];
+    md5_buffer(save->summary_data.data, sizeof(save->summary_data.data), md5);
+
+    bool ok = write_at(file, save->summary_data.slot_offset, md5, sizeof(md5));
+    ok = ok && write_at(file, save->summary_data.slot_offset + ER_SLOT_HEADER_SIZE + save->summary_data.active_offset, &value, 1);
+
+    CloseHandle(file);
+    return ok;
+}
+
 const er_char_data_t *er_char_data_ref(const er_save_data_t *save_data, int slot) {
     if (!save_data) {
         return NULL;

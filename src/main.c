@@ -14,6 +14,7 @@
 #include <md5.h>
 
 #include <stdarg.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <wchar.h>
@@ -940,6 +941,7 @@ static bool make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
     const uint32_t summary_offset = slot0_offset + 10u * char_slot_size;
     const uint32_t index_offset   = summary_offset + summary_slot_size;
     const uint32_t total_size     = index_offset + summary_slot_size;
+    const uint32_t summary_layout_size = face_section_size + 0x14u;
 
     uint8_t *file_data = LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, total_size);
     if (!file_data) {
@@ -965,7 +967,8 @@ static bool make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
     uint8_t *summary_payload = file_data + summary_offset + 0x10;
     /* user_id at payload offset 0x04 */
     *(uint64_t *)(summary_payload + 0x04) = user_id;
-    /* sz field at payload offset 0x150 stays 0 */
+    /* sz field at payload offset 0x150 spans face data, active slot, and padding before availability bytes */
+    *(uint32_t *)(summary_payload + 0x150) = summary_layout_size;
     /* face-section size marker at payload offset 0x158 */
     *(uint32_t *)(summary_payload + 0x158) = face_section_size;
 
@@ -1177,6 +1180,50 @@ static int run_selftest(LPWSTR cmd_line) {
             result = 2;
         } else {
             result = selftest_provision_save_folder(argv[3]);
+        }
+    } else if (wcscmp(sub, L"dump-active-slot") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest dump-active-slot <sl2_path>\n");
+            result = 2;
+        } else {
+            er_save_data_t *save = er_save_data_load(argv[3]);
+            if (!save) {
+                st_printf(L"dump-active-slot: failed to load save\n");
+                result = 1;
+            } else {
+                int byte_val = er_save_debug_get_active_slot_byte(save);
+                uint32_t offset = er_save_debug_get_active_offset(save);
+                if (byte_val < 0) {
+                    st_printf(L"dump-active-slot: active_offset out of bounds\n");
+                    er_save_data_free(save);
+                    result = 1;
+                } else {
+                    st_printf(L"active_slot_byte=0x%02X active_offset=0x%04X\n", (unsigned)byte_val, (unsigned)offset);
+                    er_save_data_free(save);
+                    result = 0;
+                }
+            }
+        }
+    } else if (wcscmp(sub, L"write-active-slot") == 0) {
+        if (argc < 5) {
+            st_printf(L"usage: --selftest write-active-slot <sl2_path> <slot>\n");
+            result = 2;
+        } else {
+            int slot = _wtoi(argv[4]);
+            if (slot < 0 || slot > 9) {
+                st_printf(L"write-active-slot: slot must be 0..9\n");
+                result = 2;
+            } else {
+                er_save_data_t *save = er_save_data_load(argv[3]);
+                if (!save) {
+                    st_printf(L"write-active-slot: failed to load save\n");
+                    result = 1;
+                } else {
+                    bool ok = er_save_debug_set_active_slot_byte(save, (uint8_t)slot, argv[3]);
+                    er_save_data_free(save);
+                    result = ok ? 0 : 1;
+                }
+            }
         }
     } else {
         st_printf(L"usage: --selftest <subcommand> [args...]\n");
