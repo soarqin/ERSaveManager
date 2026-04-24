@@ -24,6 +24,7 @@ extern HWND main_window;
 extern HWND button_change_folder;
 extern HWND combo_box_save_folder;
 extern HWND button_manage_faces;
+extern HWND combo_box_compression;
 extern HWND list_view_chars;
 extern HWND label_chars;
 extern HWND button_import_char;
@@ -327,6 +328,22 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     );
     SendMessage(button_manage_faces, WM_SETFONT, (WPARAM)default_font, TRUE);
 
+    /* Create compression level combo box */
+    combo_box_compression = CreateWindowW(
+        L"COMBOBOX", L"",
+        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST,
+        0, 0, 140, 25,
+        hwnd, (HMENU)IDC_COMBO_COMPRESSION_LEVEL, module, NULL);
+    SendMessage(combo_box_compression, WM_SETFONT, (WPARAM)default_font, TRUE);
+    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_FAST));
+    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_NORMAL));
+    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_MAX));
+    /* Map stored level to combo index: 0..2 = Fast, 3..6 = Normal, 7..9 = Max */
+    {
+        int idx = (config.compression_level <= 2) ? 0 : (config.compression_level <= 6 ? 1 : 2);
+        SendMessageW(combo_box_compression, CB_SETCURSEL, idx, 0);
+    }
+
     add_folders_to_combo_box();
 
     /* Set initial ComboBox selection */
@@ -438,14 +455,16 @@ void ui_layout_controls(HWND hwnd, int width, int height) {
     int btn_gap = 5;
     int btn_w = (list_w - btn_gap * 2) / 3;
 
-    /* 5 base + 3 char buttons + group box + 8 stat pairs + 4 extra detail = 29 */
-    HDWP hdwp = BeginDeferWindowPos(5 + 3 + 1 + STAT_COUNT * 2 + 4);
+    /* 6 base + 3 char buttons + group box + 8 stat pairs + 4 extra detail = 30 */
+    HDWP hdwp = BeginDeferWindowPos(6 + 3 + 1 + STAT_COUNT * 2 + 4);
 
     /* Top row */
     hdwp = DeferWindowPos(hdwp, button_change_folder, NULL,
         gap, 10, 160, 25, SWP_NOZORDER);
     hdwp = DeferWindowPos(hdwp, combo_box_save_folder, NULL,
-        170, 10, width - 180 - btn_face_w - gap, 25, SWP_NOZORDER);
+        170, 10, width - 180 - 140 - gap - btn_face_w - gap, 25, SWP_NOZORDER);
+    hdwp = DeferWindowPos(hdwp, combo_box_compression, NULL,
+        width - gap - btn_face_w - gap - 140, 10, 140, 25, SWP_NOZORDER);
     hdwp = DeferWindowPos(hdwp, button_manage_faces, NULL,
         width - gap - btn_face_w, 10, btn_face_w, 25, SWP_NOZORDER);
 
@@ -509,6 +528,15 @@ void ui_refresh_language(void) {
     SetWindowTextW(main_window, window_title);
     SetWindowTextW(button_change_folder, locale_str(STR_CHANGE_SAVE_FOLDER));
     SetWindowTextW(button_manage_faces, locale_str(STR_MANAGE_FACES));
+    /* Refresh compression combo items for new locale */
+    SendMessageW(combo_box_compression, CB_RESETCONTENT, 0, 0);
+    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_FAST));
+    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_NORMAL));
+    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_MAX));
+    {
+        int idx = (config.compression_level <= 2) ? 0 : (config.compression_level <= 6 ? 1 : 2);
+        SendMessageW(combo_box_compression, CB_SETCURSEL, idx, 0);
+    }
     SetWindowTextW(label_chars, locale_str(STR_CHARACTERS));
     SetWindowTextW(button_import_char, locale_str(STR_IMPORT_CHARACTER));
     SetWindowTextW(button_export_char, locale_str(STR_EXPORT_CHARACTER));
