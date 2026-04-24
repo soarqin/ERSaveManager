@@ -14,6 +14,7 @@
 #define IDM_BACKUP_SLOT     111
 #define IDM_RESTORE_SEL     120
 #define IDM_RESTORE_UNDO    121
+#define IDM_RESTORE_SLOT    122
 #define IDM_GAME_ER         130
 #define IDM_OPTIONS_HOTKEYS 140
 #define IDM_OPTIONS_LANG    141

@@ -34,3 +34,40 @@ END
 
 /* Application icon */
 IDI_APPICON ICON "app.ico"
+
+IDR_MAIN_MENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "Set Tree Root...", IDM_FILE_SET_ROOT
+        MENUITEM "Refresh", IDM_FILE_REFRESH
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit", IDM_FILE_EXIT
+    END
+    POPUP "&Backup"
+    BEGIN
+        MENUITEM "Full Backup Now", IDM_BACKUP_FULL
+        MENUITEM "Slot Backup Now", IDM_BACKUP_SLOT
+    END
+    POPUP "&Restore"
+    BEGIN
+        MENUITEM "Restore Selected", IDM_RESTORE_SEL
+        MENUITEM "Undo Last Restore", IDM_RESTORE_UNDO
+    END
+    POPUP "&Game"
+    BEGIN
+        MENUITEM "Elden Ring", IDM_GAME_ER
+    END
+    POPUP "&Options"
+    BEGIN
+        MENUITEM "Hotkey Settings...", IDM_OPTIONS_HOTKEYS
+        POPUP "Language"
+        BEGIN
+            MENUITEM "English", IDM_OPTIONS_LANG
+        END
+        POPUP "Compression"
+        BEGIN
+            MENUITEM "Normal (5)", IDM_OPTIONS_COMP
+        END
+    END
+END

@@ -5,8 +5,10 @@
 
 #include "config.h"
 #include "backend_registry.h"
+#include "hotkey.h"
 #include "locale.h"
 #include "resource.h"
+#include "file_dialog.h"
 #include "ring_backup.h"
 #include "restore_safe.h"
 #include "save_tree.h"
@@ -30,6 +32,7 @@
 /** @brief Global main window handle (set on WM_CREATE). */
 static HWND g_main_window = NULL;
 static save_tree_t *g_save_tree = NULL;
+static HWND g_status_bar = NULL;
 
 /** @brief Log file handle opened via --log-file flag (for Gate I testing). */
 static HANDLE g_log_file = INVALID_HANDLE_VALUE;
@@ -81,18 +84,61 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     case WM_CREATE:
         {
             CREATESTRUCTW *cs = (CREATESTRUCTW *)lp;
+            hotkey_binding_t b;
 
             g_save_tree = save_tree_create(hwnd, cs->hInstance, IDC_TREE_VIEW);
             if (!g_save_tree) {
                 return -1;
             }
+
+            g_status_bar = CreateWindowExW(0, STATUSCLASSNAMEW, L"",
+                WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
+                0, 0, 0, 0, hwnd, (HMENU)(uintptr_t)IDC_STATUS_BAR, cs->hInstance, NULL);
+            if (!g_status_bar) {
+                save_tree_destroy(g_save_tree);
+                g_save_tree = NULL;
+                return -1;
+            }
+
+            save_tree_set_root(g_save_tree, praxis_config.tree_root);
+
+            g_main_window = hwnd;
+
+            hotkey_init(hwnd);
+            if (hotkey_parse_string(praxis_config.hotkey_backup_full, &b))
+                hotkey_register(HOTKEY_BACKUP_FULL, &b);
+            if (hotkey_parse_string(praxis_config.hotkey_restore_full, &b))
+                hotkey_register(HOTKEY_RESTORE_FULL, &b);
+            if (hotkey_parse_string(praxis_config.hotkey_backup_slot, &b))
+                hotkey_register(HOTKEY_BACKUP_SLOT, &b);
+            if (hotkey_parse_string(praxis_config.hotkey_restore_slot, &b))
+                hotkey_register(HOTKEY_RESTORE_SLOT, &b);
+            if (hotkey_parse_string(praxis_config.hotkey_undo_restore, &b))
+                hotkey_register(HOTKEY_UNDO_RESTORE, &b);
+
+            SendMessageW(g_status_bar, SB_SETTEXTW, 0, (LPARAM)praxis_locale_str(STR_PRAXIS_APP_TITLE));
         }
-        g_main_window = hwnd;
         return 0;
 
     case WM_SIZE:
+        if (g_status_bar) {
+            SendMessageW(g_status_bar, WM_SIZE, wp, lp);
+        }
         if (g_save_tree && save_tree_get_hwnd(g_save_tree)) {
-            MoveWindow(save_tree_get_hwnd(g_save_tree), 0, 0, LOWORD(lp), HIWORD(lp), TRUE);
+            RECT client_rect;
+            RECT status_rect;
+            int status_height = 0;
+
+            GetClientRect(hwnd, &client_rect);
+            if (g_status_bar && GetWindowRect(g_status_bar, &status_rect)) {
+                status_height = status_rect.bottom - status_rect.top;
+            }
+            MoveWindow(save_tree_get_hwnd(g_save_tree),
+                0,
+                0,
+                client_rect.right - client_rect.left,
+                (client_rect.bottom - client_rect.top) - status_height,
+                TRUE);
         }
         return 0;
 
@@ -108,20 +154,160 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
 
     case WM_COMMAND:
         switch (LOWORD(wp)) {
+        case IDM_BACKUP_FULL:
+            {
+                const game_backend_t *b = backend_registry_get_default();
+
+                if (b) {
+                    wchar_t save_path[MAX_PATH];
+
+                    if (b->resolve_save_path(save_path, MAX_PATH)) {
+                        SYSTEMTIME st;
+                        wchar_t fname[MAX_PATH];
+
+                        GetSystemTime(&st);
+                        _snwprintf(fname, MAX_PATH, L"%ls\\manual_%04d%02d%02d%02d%02d%02d.ersm",
+                            praxis_config.tree_root, st.wYear, st.wMonth, st.wDay,
+                            st.wHour, st.wMinute, st.wSecond);
+                        fname[MAX_PATH - 1] = L'\0';
+                        b->backup_full(save_path, fname, praxis_config.compression_level);
+                        if (g_save_tree) save_tree_refresh(g_save_tree);
+                    }
+                }
+            }
+            return 0;
+        case IDM_BACKUP_SLOT:
+        case IDM_RESTORE_SLOT:
+            return 0;
+        case IDM_RESTORE_SEL:
+            {
+                const game_backend_t *b = backend_registry_get_default();
+
+                if (b && g_save_tree) {
+                    wchar_t sel[MAX_PATH], save_path[MAX_PATH];
+
+                    if (save_tree_get_selected_path(g_save_tree, sel, MAX_PATH) &&
+                        b->resolve_save_path(save_path, MAX_PATH)) {
+                        ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
+                        restore_with_safety(b, sel, save_path, praxis_config.tree_root,
+                            praxis_config.compression_level, false, 0);
+                    }
+                }
+            }
+            return 0;
+        case IDM_RESTORE_UNDO:
+            {
+                const game_backend_t *b = backend_registry_get_default();
+
+                if (b) {
+                    ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
+                    undo_last_restore(b, praxis_config.tree_root, praxis_config.compression_level);
+                }
+            }
+            return 0;
+        case IDM_FILE_SET_ROOT:
+            {
+                wchar_t *new_root = file_dialog_open_folder(hwnd, praxis_config.tree_root);
+
+                if (new_root) {
+                    lstrcpynW(praxis_config.tree_root, new_root, MAX_PATH);
+                    CoTaskMemFree(new_root);
+                    if (g_save_tree) save_tree_set_root(g_save_tree, praxis_config.tree_root);
+                }
+            }
+            return 0;
+        case IDM_FILE_REFRESH:
+            if (g_save_tree) save_tree_refresh(g_save_tree);
+            return 0;
         case IDM_FILE_EXIT:
             SendMessageW(hwnd, WM_CLOSE, 0, 0);
+            return 0;
+        case IDM_OPTIONS_HOTKEYS:
+            MessageBoxW(hwnd, L"Configure hotkeys in Praxis.ini", L"Hotkey Settings", MB_OK | MB_ICONINFORMATION);
             return 0;
         }
         return 0;
 
-    case WM_HOTKEY:
-        /* Placeholder — full dispatch added in T27 */
-        {
+    case WM_HOTKEY: {
             wchar_t log_msg[64];
+            const game_backend_t *backend = backend_registry_get_default();
+            wchar_t save_path[MAX_PATH];
+
             _snwprintf(log_msg, 64, L"HOTKEY_FIRED id=%d\n", (int)wp);
+            log_msg[63] = L'\0';
             log_write(log_msg);
+
+            if (!backend) return 0;
+            if (!backend->resolve_save_path(save_path, MAX_PATH)) {
+                return 0;
+            }
+
+            switch ((hotkey_id_t)wp) {
+            case HOTKEY_BACKUP_FULL:
+                {
+                    SYSTEMTIME st;
+                    wchar_t fname[MAX_PATH];
+
+                    GetSystemTime(&st);
+                    _snwprintf(fname, MAX_PATH, L"%ls\\manual_%04d%02d%02d%02d%02d%02d.ersm",
+                        praxis_config.tree_root, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+                    fname[MAX_PATH - 1] = L'\0';
+                    backend->backup_full(save_path, fname, praxis_config.compression_level);
+                    if (g_save_tree) save_tree_refresh(g_save_tree);
+                    break;
+                }
+            case HOTKEY_RESTORE_FULL:
+                {
+                    wchar_t sel[MAX_PATH];
+
+                    if (g_save_tree && save_tree_get_selected_path(g_save_tree, sel, MAX_PATH)) {
+                        ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
+                        restore_with_safety(backend, sel, save_path, praxis_config.tree_root,
+                            praxis_config.compression_level, false, 0);
+                    }
+                    break;
+                }
+            case HOTKEY_BACKUP_SLOT:
+                if (game_backend_supports_slot_ops(backend)) {
+                    int slot = 0;
+
+                    if (backend->get_active_slot(save_path, &slot)) {
+                        SYSTEMTIME st2;
+                        wchar_t fname2[MAX_PATH];
+
+                        GetSystemTime(&st2);
+                        _snwprintf(fname2, MAX_PATH, L"%ls\\slot%d_%04d%02d%02d%02d%02d%02d.ersm",
+                            praxis_config.tree_root, slot, st2.wYear, st2.wMonth, st2.wDay,
+                            st2.wHour, st2.wMinute, st2.wSecond);
+                        fname2[MAX_PATH - 1] = L'\0';
+                        backend->backup_slot(save_path, slot, fname2, praxis_config.compression_level);
+                        if (g_save_tree) save_tree_refresh(g_save_tree);
+                    }
+                }
+                break;
+            case HOTKEY_RESTORE_SLOT:
+                {
+                    wchar_t sel2[MAX_PATH];
+
+                    if (g_save_tree && save_tree_get_selected_path(g_save_tree, sel2, MAX_PATH) &&
+                        game_backend_supports_slot_ops(backend)) {
+                        int slot = 0;
+
+                        if (backend->get_active_slot(save_path, &slot)) {
+                            ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
+                            restore_with_safety(backend, sel2, save_path, praxis_config.tree_root,
+                                praxis_config.compression_level, true, slot);
+                        }
+                    }
+                    break;
+                }
+            case HOTKEY_UNDO_RESTORE:
+                ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
+                undo_last_restore(backend, praxis_config.tree_root, praxis_config.compression_level);
+                break;
+            }
+            return 0;
         }
-        return 0;
 
     case WM_CLOSE:
         praxis_config.window_x = -1;
@@ -137,12 +323,14 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         }
         praxis_config.language = praxis_locale_get_current();
         praxis_save_config();
+        hotkey_unregister_all();
         DestroyWindow(hwnd);
         return 0;
 
     case WM_DESTROY:
         save_tree_destroy(g_save_tree);
         g_save_tree = NULL;
+        g_status_bar = NULL;
         if (g_log_file != INVALID_HANDLE_VALUE) {
             CloseHandle(g_log_file);
             g_log_file = INVALID_HANDLE_VALUE;
@@ -209,6 +397,12 @@ static bool praxis_make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
     CloseHandle(f);
     LocalFree(file_data);
     return ok;
+}
+
+static int selftest_make_valid_ersm(const wchar_t *path) {
+    uint8_t buf[16] = {0};
+
+    return ersm_compress_to_file(path, buf, sizeof(buf), ERSM_TYPE_CHAR_SLOT, ERSM_LEVEL_NORMAL) ? 0 : 1;
 }
 
 static int run_selftest(void) {
@@ -283,6 +477,47 @@ static int run_selftest(void) {
             } else {
                 result = b->restore_full(argv[3], argv[4]) ? 0 : 1;
             }
+        }
+    } else if (wcscmp(sub, L"backup-slot-headless") == 0) {
+        if (argc < 6) { result = 2; }
+        else {
+            const game_backend_t *b = backend_registry_get_default();
+            int slot = _wtoi(argv[4]);
+            result = (b && b->backup_slot) ? (b->backup_slot(argv[3], slot, argv[5], 5) ? 0 : 1) : 1;
+        }
+    } else if (wcscmp(sub, L"restore-slot-headless") == 0) {
+        if (argc < 6) { result = 2; }
+        else {
+            const game_backend_t *b = backend_registry_get_default();
+            int slot = _wtoi(argv[5]);
+            result = (b && b->restore_slot) ? (b->restore_slot(argv[3], argv[4], slot) ? 0 : 1) : 1;
+        }
+    } else if (wcscmp(sub, L"dump-active-slot-praxis") == 0) {
+        if (argc < 4) { result = 2; }
+        else {
+            const game_backend_t *b = backend_registry_get_default();
+            int slot = -1;
+            if (b && b->get_active_slot && b->get_active_slot(argv[3], &slot)) {
+                st_printf(L"active_slot=%d\n", slot);
+                result = 0;
+            } else result = 1;
+        }
+    } else if (wcscmp(sub, L"hotkey-validate") == 0) {
+        if (argc < 4) { result = 2; }
+        else {
+            hotkey_binding_t b;
+            result = hotkey_parse_string(argv[3], &b) ? 0 : 1;
+            if (result == 0) {
+                wchar_t str[64];
+                hotkey_to_string(&b, str, 64);
+                st_printf(L"parsed: %ls\n", str);
+            }
+        }
+    } else if (wcscmp(sub, L"make-valid-ersm") == 0) {
+        if (argc < 4) {
+            result = 2;
+        } else {
+            result = selftest_make_valid_ersm(argv[3]);
         }
     } else if (wcscmp(sub, L"tree-populate") == 0) {
         if (argc < 4) {
@@ -390,6 +625,8 @@ static int run_selftest(void) {
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line, int cmd_show) {
     (void)prev_instance;
+    HRESULT com_hr;
+    bool com_initialized;
 
     /* Initialize common controls (TreeView + ToolBar/StatusBar family). */
     INITCOMMONCONTROLSEX icex;
@@ -399,6 +636,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
 
     /* Enable visual styles for native-looking controls. */
     SetThemeAppProperties(STAP_ALLOW_NONCLIENT | STAP_ALLOW_CONTROLS | STAP_ALLOW_WEBCONTENT);
+
+    com_hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    com_initialized = SUCCEEDED(com_hr) || com_hr == S_FALSE;
 
     /* Initialize LZMA SDK (idempotent). */
     save_compress_init();
@@ -419,7 +659,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
 
     /* --selftest: headless QA mode — runs tests and exits without showing a window. */
     if (cmd_line && cmd_line[0] != L'\0' && wcsncmp(cmd_line, L"--selftest", 10) == 0) {
-        return run_selftest();
+        int selftest_result = run_selftest();
+        if (com_initialized) CoUninitialize();
+        return selftest_result;
     }
 
     /* Load configuration and apply language preference.
@@ -442,6 +684,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     wc.hIcon = LoadIconW(instance, MAKEINTRESOURCEW(IDI_APPICON));
     wc.hIconSm = wc.hIcon;
     if (!RegisterClassExW(&wc)) {
+        if (com_initialized) CoUninitialize();
         return 1;
     }
 
@@ -457,6 +700,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
         x, y, w, h,
         NULL, NULL, instance, NULL);
     if (!hwnd) {
+        if (com_initialized) CoUninitialize();
         return 1;
     }
 
@@ -470,5 +714,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
         DispatchMessageW(&msg);
     }
 
+    if (com_initialized) CoUninitialize();
     return (int)msg.wParam;
 }
