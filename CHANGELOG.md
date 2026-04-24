@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-04-25
+
+### Added
+- Praxis: Practice save tool with global hotkeys (Ctrl+Shift+F5/F6/F9/F10/Z)
+- Praxis: Tree-structured save library with rename, move, delete (Recycle Bin)
+- Praxis: Auto ring backup (5-slot FIFO) with undo last restore
+- Praxis: Game backend interface (compile-time vtable, `game_backend_t`)
+- Praxis: Elden Ring backend implementing full-save + slot backup/restore
+
+### Changed
+- ERSaveManager: Source files relocated to `src/ERSaveManager/` subdirectory (no behavior change)
+- Repository: Shared `src/common/` static library extracted (ersave, save_compress, file_dialog, locale_core, config_core)
+
 ## [1.0.0] - 2026-04-04
 
 ### Added

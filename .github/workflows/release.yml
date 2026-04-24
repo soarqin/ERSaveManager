@@ -53,11 +53,12 @@ jobs:
         run: |
           mkdir release
           cp build/bin/ERSaveManager.exe release/
+          cp build/bin/Praxis.exe release/
           cp README.md CHANGELOG.md LICENSE release/
 
       - name: Create archive
         shell: pwsh
-        run: Compress-Archive -Path release/* -DestinationPath "ERSaveManager-${{ steps.version.outputs.VERSION }}.zip"
+        run: Compress-Archive -Path release/* -DestinationPath "ERSaveManager-and-Praxis-${{ steps.version.outputs.VERSION }}.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -65,4 +66,4 @@ jobs:
           name: v${{ steps.version.outputs.VERSION }}
           body: ${{ steps.changelog.outputs.BODY }}
           prerelease: ${{ steps.version.outputs.PRERELEASE }}
-          files: ERSaveManager-${{ steps.version.outputs.VERSION }}.zip
+          files: ERSaveManager-and-Praxis-${{ steps.version.outputs.VERSION }}.zip

@@ -25,20 +25,19 @@ ERSaveManager/
 │   ├── GlobalOptions.cmake           # Visibility presets, export compile commands
 │   └── ProjectMacros.cmake           # add_project() macro
 ├── deps/
-│   ├── inih/               # INI file parser (inih library)
+│   ├── inih/               # INI file parser (linked but currently unused)
 │   └── md5/                # MD5 hash library
-├── msg/                    # External locale message files (*.txt per language)
 └── src/                    # Main application source
-    ├── main.c              # WinMain entry, window proc, command handling
-    ├── ersave.c / .h       # Save-file parsing and I/O (pure data layer)
-    ├── config.c / .h       # INI-based config load/save
-    ├── locale.c / .h       # Multi-language string tables (11 languages)
-    ├── embedded_face_data.c / .h  # Built-in NPC face presets
-    ├── face_dialog.c / .h  # Face data management dialog
-    ├── file_dialog.c / .h  # Open/save file dialog wrappers (IFileDialog COM)
-    ├── ui_controls.c / .h  # Control creation, layout, and refresh helpers
-    ├── version.h.in        # CMake-configured version header template
-    └── resource.h / app.rc / app.manifest / app.ico
+    ├── CMakeLists.txt      # add_subdirectory(common/ERSaveManager/Praxis)
+    ├── common/             # src/common: Static library: ersave, save_compress, file_dialog, locale_core, config_core
+    │   └── CMakeLists.txt
+    ├── ERSaveManager/      # src/ERSaveManager: ERSaveManager executable sources
+    │   └── CMakeLists.txt
+    └── Praxis/             # src/Praxis: Praxis executable sources
+        ├── CMakeLists.txt
+        ├── backends/
+        │   └── er_backend.c
+        └── ...
 ```
 
 ---
@@ -60,8 +59,12 @@ cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 ### Build
 
 ```powershell
+# Build everything
 cmake --build build --config Release
-# Output: build/bin/ERSaveManager.exe
+
+# Build specific target
+cmake --build build --config Release --target saveman  # ERSaveManager.exe
+cmake --build build --config Release --target praxis   # Praxis.exe
 ```
 
 ### Build (Debug)
@@ -84,6 +87,19 @@ cmake --build build --config Release
 - No single-test runner command exists.
 - `CMAKE_EXPORT_COMPILE_COMMANDS=ON` is set automatically → `build/compile_commands.json`
   is generated for clangd/IDE tooling.
+
+---
+
+## Praxis-Specific Notes
+
+- **Default Hotkeys**:
+  - Backup Full Save: `Ctrl+Shift+F5`
+  - Restore Full Save: `Ctrl+Shift+F9`
+  - Backup Current Slot: `Ctrl+Shift+F6`
+  - Restore Current Slot: `Ctrl+Shift+F10`
+  - Undo Last Restore: `Ctrl+Shift+Z`
+- **Ring Backup Location**: `<tree_root>/.praxis_ring/` (hidden directory).
+- **Backend Interface**: Compile-time vtable defined in `src/Praxis/game_backend.h`.
 
 ---
 
