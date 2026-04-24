@@ -7,6 +7,8 @@
 
 #include "locale.h"
 
+#include "locale_core.h"
+
 #include <windows.h>
 
 /* Array of available locale names */
@@ -732,8 +734,20 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
     }
 };
 
-/* Current locale index */
-int current_locale = 0;
+/* BCP-47 tags for each locale index; order must match the locale_strings table. */
+static const wchar_t *language_codes[] = {
+    L"en",       /* 0: English */
+    L"fr",       /* 1: French */
+    L"de",       /* 2: German */
+    L"it",       /* 3: Italian */
+    L"es",       /* 4: Spanish */
+    L"pt",       /* 5: Portuguese */
+    L"ru",       /* 6: Russian */
+    L"ja",       /* 7: Japanese */
+    L"ko",       /* 8: Korean */
+    L"zh-Hans",  /* 9: Simplified Chinese */
+    L"zh-Hant",  /* 10: Traditional Chinese */
+};
 
 /**
  * @brief Gets a localized string by index
@@ -752,7 +766,7 @@ const wchar_t *locale_str(locale_string_index_t string_index) {
  * @param locale_index Index of the locale to set
  */
 void set_current_locale(int locale_index) {
-    current_locale = locale_index;
+    locale_core_set_current(locale_index);
 }
 
 /**
@@ -760,7 +774,7 @@ void set_current_locale(int locale_index) {
  * @return Current locale index
  */
 int get_current_locale(void) {
-    return current_locale;
+    return locale_core_get_current();
 }
 
 /**
@@ -785,43 +799,8 @@ const wchar_t *locale_name(int locale_index) {
  * @return Best matching language index
  */
 int detect_system_language(void) {
-    /* Get system language using Windows API */
-    LANGID lang_id = GetSystemDefaultLangID();
-    int primary_lang = PRIMARYLANGID(lang_id);
-    int sub_lang = SUBLANGID(lang_id);
-
-    /* Map system language to our supported languages */
-    switch (primary_lang) {
-        case LANG_CHINESE:
-            /* Handle different Chinese variants */
-            switch (sub_lang) {
-                case SUBLANG_CHINESE_SIMPLIFIED:
-                case SUBLANG_CHINESE_SINGAPORE:
-                case SUBLANG_NEUTRAL:
-                    return 9; /* Simplified Chinese */
-                case SUBLANG_CHINESE_TRADITIONAL:
-                case SUBLANG_CHINESE_HONGKONG:
-                case SUBLANG_CHINESE_MACAU:
-                default:
-                    return 10; /* Traditional Chinese */
-            }
-        case LANG_JAPANESE:
-            return 7; /* Japanese */
-        case LANG_KOREAN:
-            return 8; /* Korean */
-        case LANG_FRENCH:
-            return 1; /* French */
-        case LANG_GERMAN:
-            return 2; /* German */
-        case LANG_ITALIAN:
-            return 3; /* Italian */
-        case LANG_SPANISH:
-            return 4; /* Spanish */
-        case LANG_PORTUGUESE:
-            return 5; /* Portuguese */
-        case LANG_RUSSIAN:
-            return 6; /* Russian */
-        default:
-            return 0; /* Default to English */
-    }
+    return locale_core_detect_system_language(
+        0, /* default to English */
+        language_codes,
+        (int)(sizeof(language_codes) / sizeof(language_codes[0])));
 }
