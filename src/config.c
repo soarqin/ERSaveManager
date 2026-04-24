@@ -25,6 +25,7 @@
 #define CONFIG_WINDOW_Y L"WindowY"                /* Window Y position key */
 #define CONFIG_WINDOW_WIDTH L"WindowWidth"        /* Window width key */
 #define CONFIG_WINDOW_HEIGHT L"WindowHeight"      /* Window height key */
+#define CONFIG_COMPRESSION_LEVEL L"CompressionLevel" /* Compression level key */
 
 #define INI_WRITE_BUF_SIZE 4096                   /* Write buffer size in bytes */
 
@@ -104,6 +105,7 @@ static void write_ini_file(const wchar_t* filename) {
     buf_write_int(&buf, CONFIG_WINDOW_Y, config.window_y);
     buf_write_int(&buf, CONFIG_WINDOW_WIDTH, config.window_width);
     buf_write_int(&buf, CONFIG_WINDOW_HEIGHT, config.window_height);
+    buf_write_int(&buf, CONFIG_COMPRESSION_LEVEL, config.compression_level);
 
     /* Flush entire buffer to file at once */
     HANDLE hFile = CreateFileW(filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
@@ -243,6 +245,8 @@ static void parse_ini_buffer(const char* data, DWORD size, config_t* cfg) {
             cfg->window_width = parse_int(val, val_len);
         } else if (key_matches(key, key_len, CONFIG_WINDOW_HEIGHT)) {
             cfg->window_height = parse_int(val, val_len);
+        } else if (key_matches(key, key_len, CONFIG_COMPRESSION_LEVEL)) {
+            cfg->compression_level = parse_int(val, val_len);
         }
     }
 }
@@ -269,6 +273,7 @@ void load_config(void) {
     config.window_y = -1;
     config.window_width = 0;
     config.window_height = 0;
+    config.compression_level = 5;
 
     /* Read entire file into memory and parse in one pass */
     HANDLE hFile = CreateFileW(config_path, GENERIC_READ, FILE_SHARE_READ, NULL,
@@ -286,6 +291,11 @@ void load_config(void) {
             }
         }
         CloseHandle(hFile);
+    }
+
+    /* Clamp compression_level to valid range */
+    if (config.compression_level < 0 || config.compression_level > 9) {
+        config.compression_level = 5;
     }
 
     /* If save path is empty, use default AppData path */

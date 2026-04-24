@@ -27,6 +27,7 @@ typedef struct {
     int window_y;                     /* Window Y position */
     int window_width;                 /* Window width */
     int window_height;                /* Window height */
+    int compression_level;            /* LZMA compression level 0..9; Fast=1, Normal=5, Max=9. Default 5. */
 } config_t;
 
 /**
