@@ -82,6 +82,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Arcane",
         L"Runes Held",
         L"Deaths",
+        L"Compression",
+        L"Fast",
+        L"Normal",
+        L"Max",
+        L"Compression failed",
+        L"Invalid or corrupt compressed file",
     },
     /* French strings */
     {
@@ -139,6 +145,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Ésotérisme",
         L"Runes possédées",
         L"Morts",
+        L"Compression",
+        L"Rapide",
+        L"Normal",
+        L"Maximum",
+        L"Échec de la compression",
+        L"Fichier compressé invalide ou corrompu",
     },
     /* German strings */
     {
@@ -196,6 +208,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Arkanenergie",
         L"Vorhandene Runen",
         L"Tode",
+        L"Komprimierung",
+        L"Schnell",
+        L"Normal",
+        L"Maximum",
+        L"Komprimierung fehlgeschlagen",
+        L"Ungültige oder beschädigte komprimierte Datei",
     },
     /* Italian strings */
     {
@@ -253,6 +271,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Arcano",
         L"Rune in possesso",
         L"Morti",
+        L"Compressione",
+        L"Veloce",
+        L"Normale",
+        L"Massima",
+        L"Compressione non riuscita",
+        L"File compresso non valido o corrotto",
     },
     /* Spanish strings */
     {
@@ -310,6 +334,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Arcano",
         L"N.º runas",
         L"Muertes",
+        L"Compresión",
+        L"Rápido",
+        L"Normal",
+        L"Máximo",
+        L"Error de compresión",
+        L"Archivo comprimido no válido o corrupto",
     },
     /* Portuguese strings */
     {
@@ -367,6 +397,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Arcano",
         L"Runas carregadas",
         L"Mortes",
+        L"Compressão",
+        L"Rápido",
+        L"Normal",
+        L"Máximo",
+        L"Falha na compressão",
+        L"Arquivo comprimido inválido ou corrompido",
     },
     /* Russian strings */
     {
@@ -424,6 +460,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Колдовство",
         L"Ваши руны",
         L"Смерти",
+        L"Сжатие",
+        L"Быстро",
+        L"Нормально",
+        L"Максимум",
+        L"Ошибка сжатия",
+        L"Неверный или повреждённый сжатый файл",
     },
     /* Japanese strings */
     {
@@ -481,6 +523,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"神秘",
         L"所持ルーン",
         L"死亡回数",
+        L"圧縮",
+        L"高速",
+        L"標準",
+        L"最大",
+        L"圧縮に失敗しました",
+        L"無効または破損した圧縮ファイルです",
     },
     /* Korean strings */
     {
@@ -538,6 +586,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"신비",
         L"소지 룬",
         L"사망 횟수",
+        L"압축",
+        L"빠름",
+        L"보통",
+        L"최대",
+        L"압축 실패",
+        L"잘못되었거나 손상된 압축 파일입니다",
     },
     /* Simplified Chinese strings */
     {
@@ -595,6 +649,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"感应",
         L"持有卢恩",
         L"死亡次数",
+        L"压缩",
+        L"快速",
+        L"正常",
+        L"最大",
+        L"压缩失败",
+        L"无效或损坏的压缩文件",
     },
     /* Traditional Chinese strings */
     {
@@ -652,6 +712,12 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"感應",
         L"持有盧恩",
         L"死亡次數",
+        L"壓縮",
+        L"快速",
+        L"正常",
+        L"最大",
+        L"壓縮失敗",
+        L"無效或損毀的壓縮檔案",
     }
 };
 

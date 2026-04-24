@@ -67,6 +67,12 @@ typedef enum locale_string_index_e {
     STR_ARCANE, /* "Arcane" */
     STR_RUNES_HELD, /* "Runes Held" */
     STR_DEATH_COUNT, /* "Deaths" */
+    STR_COMPRESSION_LEVEL,  /* "Compression" */
+    STR_COMPRESSION_FAST,   /* "Fast" */
+    STR_COMPRESSION_NORMAL, /* "Normal" */
+    STR_COMPRESSION_MAX,    /* "Max" */
+    STR_COMPRESSION_ERROR,  /* "Compression failed" */
+    STR_DECOMPRESSION_ERROR, /* "Invalid or corrupt compressed file" */
     STR_MAX /* Total number of strings */
 } locale_string_index_t;
 
