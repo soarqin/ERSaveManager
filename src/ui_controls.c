@@ -369,6 +369,16 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     SetMenu(hwnd, menu_bar);
     compression_submenu_handle = compression_submenu;
 
+    /* Suppress the check-mark gutter: the Options menu has no checkable/icon items */
+    {
+        MENUINFO mi;
+        ZeroMemory(&mi, sizeof(MENUINFO));
+        mi.cbSize = sizeof(MENUINFO);
+        mi.fMask  = MIM_STYLE;
+        mi.dwStyle = MNS_NOCHECK;
+        SetMenuInfo(options_menu, &mi);
+    }
+
     /* Tick current compression level */
     static const UINT compression_cmds[] = { IDM_COMPRESSION_FAST, IDM_COMPRESSION_NORMAL, IDM_COMPRESSION_MAX };
     static const int  compression_lvls[] = { ERSM_LEVEL_FAST, ERSM_LEVEL_NORMAL, ERSM_LEVEL_MAX };
