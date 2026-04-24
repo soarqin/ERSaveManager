@@ -43,3 +43,8 @@ void ui_update_char_buttons(void);
  * @brief Release UI resources (font)
  */
 void ui_cleanup(void);
+
+/**
+ * @brief Update the checkmarks in the Compression submenu
+ */
+void ui_update_compression_menu(void);

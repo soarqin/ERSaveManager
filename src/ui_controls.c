@@ -13,6 +13,7 @@
 #include "config.h"
 #include "embedded_face_data.h"
 #include "resource.h"
+#include "save_compress.h"
 #include <stdint.h>
 #include <wchar.h>
 #include <windows.h>
@@ -24,7 +25,6 @@ extern HWND main_window;
 extern HWND button_change_folder;
 extern HWND combo_box_save_folder;
 extern HWND button_manage_faces;
-extern HWND combo_box_compression;
 extern HWND list_view_chars;
 extern HWND label_chars;
 extern HWND button_import_char;
@@ -45,6 +45,8 @@ extern er_save_data_t *save_data;
 /* Functions declared in main.c */
 extern bool handle_save_folder_selection(HWND hwnd);
 extern void update_char_list_view(int item, const er_char_data_t *char_data);
+
+static HMENU compression_submenu_handle = NULL;
 
 /* Mapping from stat index to locale string index */
 static const locale_string_index_t stat_str_indices[STAT_COUNT] = {
@@ -328,22 +330,6 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     );
     SendMessage(button_manage_faces, WM_SETFONT, (WPARAM)default_font, TRUE);
 
-    /* Create compression level combo box */
-    combo_box_compression = CreateWindowW(
-        L"COMBOBOX", L"",
-        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST,
-        0, 0, 140, 25,
-        hwnd, (HMENU)IDC_COMBO_COMPRESSION_LEVEL, module, NULL);
-    SendMessage(combo_box_compression, WM_SETFONT, (WPARAM)default_font, TRUE);
-    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_FAST));
-    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_NORMAL));
-    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_MAX));
-    /* Map stored level to combo index: 0..2 = Fast, 3..6 = Normal, 7..9 = Max */
-    {
-        int idx = (config.compression_level <= 2) ? 0 : (config.compression_level <= 6 ? 1 : 2);
-        SendMessageW(combo_box_compression, CB_SETCURSEL, idx, 0);
-    }
-
     add_folders_to_combo_box();
 
     /* Set initial ComboBox selection */
@@ -371,6 +357,25 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
 
     /* Tick menu item */
     CheckMenuItem(menu_bar, IDM_LOCALE_START + get_current_locale(), MF_CHECKED);
+
+    /* Create Options menu with Compression submenu */
+    HMENU options_menu = CreatePopupMenu();
+    HMENU compression_submenu = CreatePopupMenu();
+    AppendMenuW(compression_submenu, MF_STRING, IDM_COMPRESSION_FAST,   locale_str(STR_COMPRESSION_FAST));
+    AppendMenuW(compression_submenu, MF_STRING, IDM_COMPRESSION_NORMAL, locale_str(STR_COMPRESSION_NORMAL));
+    AppendMenuW(compression_submenu, MF_STRING, IDM_COMPRESSION_MAX,    locale_str(STR_COMPRESSION_MAX));
+    AppendMenuW(options_menu, MF_POPUP, (UINT_PTR)compression_submenu, locale_str(STR_COMPRESSION_LEVEL));
+    AppendMenuW(menu_bar, MF_POPUP, (UINT_PTR)options_menu, locale_str(STR_OPTIONS));
+    SetMenu(hwnd, menu_bar);
+    compression_submenu_handle = compression_submenu;
+
+    /* Tick current compression level */
+    static const UINT compression_cmds[] = { IDM_COMPRESSION_FAST, IDM_COMPRESSION_NORMAL, IDM_COMPRESSION_MAX };
+    static const int  compression_lvls[] = { ERSM_LEVEL_FAST, ERSM_LEVEL_NORMAL, ERSM_LEVEL_MAX };
+    for (int i = 0; i < 3; i++) {
+        int state = (config.compression_level == compression_lvls[i]) ? MF_CHECKED : MF_UNCHECKED;
+        CheckMenuItem(compression_submenu, compression_cmds[i], MF_BYCOMMAND | state);
+    }
 
     create_embedded_face_data_menu(hwnd);
 }
@@ -455,16 +460,14 @@ void ui_layout_controls(HWND hwnd, int width, int height) {
     int btn_gap = 5;
     int btn_w = (list_w - btn_gap * 2) / 3;
 
-    /* 6 base + 3 char buttons + group box + 8 stat pairs + 4 extra detail = 30 */
-    HDWP hdwp = BeginDeferWindowPos(6 + 3 + 1 + STAT_COUNT * 2 + 4);
+    /* 5 base + 3 char buttons + group box + 8 stat pairs + 4 extra detail = 29 */
+    HDWP hdwp = BeginDeferWindowPos(5 + 3 + 1 + STAT_COUNT * 2 + 4);
 
     /* Top row */
     hdwp = DeferWindowPos(hdwp, button_change_folder, NULL,
         gap, 10, 160, 25, SWP_NOZORDER);
     hdwp = DeferWindowPos(hdwp, combo_box_save_folder, NULL,
-        170, 10, width - 180 - 140 - gap - btn_face_w - gap, 25, SWP_NOZORDER);
-    hdwp = DeferWindowPos(hdwp, combo_box_compression, NULL,
-        width - gap - btn_face_w - gap - 140, 10, 140, 25, SWP_NOZORDER);
+        170, 10, width - 180 - btn_face_w - gap, 25, SWP_NOZORDER);
     hdwp = DeferWindowPos(hdwp, button_manage_faces, NULL,
         width - gap - btn_face_w, 10, btn_face_w, 25, SWP_NOZORDER);
 
@@ -528,15 +531,6 @@ void ui_refresh_language(void) {
     SetWindowTextW(main_window, window_title);
     SetWindowTextW(button_change_folder, locale_str(STR_CHANGE_SAVE_FOLDER));
     SetWindowTextW(button_manage_faces, locale_str(STR_MANAGE_FACES));
-    /* Refresh compression combo items for new locale */
-    SendMessageW(combo_box_compression, CB_RESETCONTENT, 0, 0);
-    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_FAST));
-    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_NORMAL));
-    SendMessageW(combo_box_compression, CB_ADDSTRING, 0, (LPARAM)locale_str(STR_COMPRESSION_MAX));
-    {
-        int idx = (config.compression_level <= 2) ? 0 : (config.compression_level <= 6 ? 1 : 2);
-        SendMessageW(combo_box_compression, CB_SETCURSEL, idx, 0);
-    }
     SetWindowTextW(label_chars, locale_str(STR_CHARACTERS));
     SetWindowTextW(button_import_char, locale_str(STR_IMPORT_CHARACTER));
     SetWindowTextW(button_export_char, locale_str(STR_EXPORT_CHARACTER));
@@ -554,6 +548,32 @@ void ui_refresh_language(void) {
     HMENU locale_menu = GetSubMenu(menu_bar, 0);
     ModifyMenuW(menu_bar, 0, MF_BYPOSITION | MF_POPUP, (UINT_PTR)locale_menu, locale_str(STR_LANGUAGE));
     DrawMenuBar(main_window);
+
+    /* Rebuild compression submenu strings for new locale */
+    if (compression_submenu_handle) {
+        /* Remove all 3 items and re-add with new locale strings */
+        while (GetMenuItemCount(compression_submenu_handle) > 0)
+            RemoveMenu(compression_submenu_handle, 0, MF_BYPOSITION);
+        AppendMenuW(compression_submenu_handle, MF_STRING, IDM_COMPRESSION_FAST,   locale_str(STR_COMPRESSION_FAST));
+        AppendMenuW(compression_submenu_handle, MF_STRING, IDM_COMPRESSION_NORMAL, locale_str(STR_COMPRESSION_NORMAL));
+        AppendMenuW(compression_submenu_handle, MF_STRING, IDM_COMPRESSION_MAX,    locale_str(STR_COMPRESSION_MAX));
+        /* Re-apply checkmark */
+        static const UINT cmds[] = { IDM_COMPRESSION_FAST, IDM_COMPRESSION_NORMAL, IDM_COMPRESSION_MAX };
+        static const int  lvls[] = { ERSM_LEVEL_FAST, ERSM_LEVEL_NORMAL, ERSM_LEVEL_MAX };
+        for (int i = 0; i < 3; i++) {
+            CheckMenuItem(compression_submenu_handle, cmds[i],
+                MF_BYCOMMAND | (config.compression_level == lvls[i] ? MF_CHECKED : MF_UNCHECKED));
+        }
+        /* Also update the Options menu title and Compression submenu title */
+        HMENU options_menu = GetSubMenu(menu_bar, 1); /* index 1 = Options (after Language) */
+        if (options_menu) {
+            ModifyMenuW(options_menu, 0, MF_BYPOSITION | MF_POPUP,
+                (UINT_PTR)compression_submenu_handle, locale_str(STR_COMPRESSION_LEVEL));
+        }
+        ModifyMenuW(menu_bar, 1, MF_BYPOSITION | MF_POPUP,
+            (UINT_PTR)options_menu, locale_str(STR_OPTIONS));
+        DrawMenuBar(main_window);
+    }
 
     /* Update characters ListView columns */
     LVCOLUMNW lvc;
@@ -609,4 +629,15 @@ void ui_update_char_buttons(void) {
 
 void ui_cleanup(void) {
     DeleteObject(default_font);
+}
+
+void ui_update_compression_menu(void) {
+    if (!compression_submenu_handle) return;
+    static const UINT cmds[] = { IDM_COMPRESSION_FAST, IDM_COMPRESSION_NORMAL, IDM_COMPRESSION_MAX };
+    static const int  lvls[] = { ERSM_LEVEL_FAST, ERSM_LEVEL_NORMAL, ERSM_LEVEL_MAX };
+    for (int i = 0; i < 3; i++) {
+        CheckMenuItem(compression_submenu_handle, cmds[i],
+            MF_BYCOMMAND | (config.compression_level == lvls[i] ? MF_CHECKED : MF_UNCHECKED));
+    }
+    DrawMenuBar(main_window);
 }

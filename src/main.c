@@ -41,8 +41,6 @@ HWND button_change_folder;
 HWND combo_box_save_folder;
 /** @brief "Manage Faces" button — opens face data dialog */
 HWND button_manage_faces;
-/** @brief Compression level combo box — selects LZMA compression preset */
-HWND combo_box_compression;
 
 /*** Characters panel (left side) ***/
 /** @brief Section label above the characters ListView */
@@ -191,6 +189,22 @@ static void on_menu_change_language(int idx) {
 
     /* Refresh all UI strings for the new locale */
     ui_refresh_language();
+}
+
+static void on_menu_change_compression(int id) {
+    static const struct { UINT cmd; int level; } map[] = {
+        { IDM_COMPRESSION_FAST,   ERSM_LEVEL_FAST   },
+        { IDM_COMPRESSION_NORMAL, ERSM_LEVEL_NORMAL  },
+        { IDM_COMPRESSION_MAX,    ERSM_LEVEL_MAX     }
+    };
+    for (int i = 0; i < 3; i++) {
+        if ((UINT)id == map[i].cmd) {
+            config.compression_level = map[i].level;
+            save_config();
+            break;
+        }
+    }
+    ui_update_compression_menu();
 }
 
 static ersm_format_t detect_import_format(const wchar_t *path) {
@@ -598,19 +612,6 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                     break;
                 }
 
-                case IDC_COMBO_COMPRESSION_LEVEL: {
-                    if (HIWORD(wparam) == CBN_SELCHANGE) {
-                        int idx = SendMessageW(combo_box_compression, CB_GETCURSEL, 0, 0);
-                        /* 0=Fast(1), 1=Normal(5), 2=Max(9) */
-                        static const int level_map[] = { ERSM_LEVEL_FAST, ERSM_LEVEL_NORMAL, ERSM_LEVEL_MAX };
-                        if (idx >= 0 && idx < 3) {
-                            config.compression_level = level_map[idx];
-                            save_config();
-                        }
-                    }
-                    break;
-                }
-
                 case IDC_BUTTON_IMPORT_CHAR:
                 case IDM_IMPORT_CHAR: {
                     /* Get selected item */
@@ -645,6 +646,8 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                     int id = LOWORD(wparam);
                     if (id >= IDM_LOCALE_START && id < IDM_LOCALE_START + 100) {
                         on_menu_change_language(id - IDM_LOCALE_START);
+                    } else if (id == IDM_COMPRESSION_FAST || id == IDM_COMPRESSION_NORMAL || id == IDM_COMPRESSION_MAX) {
+                        on_menu_change_compression(id);
                     }
                     break;
                 }
