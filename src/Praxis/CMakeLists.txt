@@ -1,5 +1,7 @@
 add_project(praxis WIN32
     main.c
+    config.c
+    config.h
     resource.h
     app.rc
     VERSION 1.0.0
