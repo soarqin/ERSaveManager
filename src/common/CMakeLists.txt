@@ -1,6 +1,7 @@
 add_project(ersave_common STATIC
     common.c
     file_dialog.c file_dialog.h
+    save_compress.c save_compress.h
     FOLDER "common"
 )
 

@@ -203,10 +203,8 @@ uint8_t *ersm_decompress_from_file(const wchar_t *path, size_t *out_size, uint8_
         return NULL;
     }
 
-    if (data_type == ERSM_TYPE_CHAR_SLOT && uncompressed_size != 0x28024Cu) {
-        CloseHandle(f);
-        return NULL;
-    }
+    /* Caller (game backend) is responsible for validating decompressed size
+     * matches expected slot/full layout. */
 
     if (!GetFileSizeEx(f, &file_size_li)) {
         CloseHandle(f);

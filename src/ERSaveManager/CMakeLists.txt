@@ -2,7 +2,6 @@
 add_project(saveman WIN32
     main.c
     ersave.c ersave.h
-    save_compress.c save_compress.h
     config.c config.h
     locale.c locale.h
 
