@@ -5,6 +5,9 @@ add_project(praxis WIN32
     locale.c
     locale.h
     game_backend.h
+    backend_registry.c
+    backend_registry.h
+    backends/er_backend.c
     resource.h
     app.rc
     VERSION 1.0.0

@@ -4,6 +4,7 @@
  */
 
 #include "config.h"
+#include "backend_registry.h"
 #include "locale.h"
 #include "resource.h"
 
@@ -154,6 +155,15 @@ static int run_selftest(void) {
         save_compress_init();
         st_printf(L"praxis_smoke_ok\n");
         result = 0;
+    } else if (wcscmp(sub, L"dump-default-backend") == 0) {
+        const game_backend_t *b = backend_registry_get_default();
+        if (!b) {
+            st_printf(L"no default backend\n");
+            result = 1;
+        } else {
+            st_printf(L"%ls\n", b->display_name);
+            result = 0;
+        }
     } else {
         /* Placeholder subcommands added in T18, T20-T22, T23, T25, T26, T29. */
         st_printf(L"unknown selftest subcommand: %ls\n", sub);
