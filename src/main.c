@@ -9,11 +9,17 @@
 #include "face_dialog.h"
 #include "file_dialog.h"
 #include "ui_controls.h"
+#include "save_compress.h"
 
+#include <md5.h>
+
+#include <stdarg.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <wchar.h>
 
 #include <windows.h>
+#include <shellapi.h>
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <shobjidl.h>
@@ -35,6 +41,8 @@ HWND button_change_folder;
 HWND combo_box_save_folder;
 /** @brief "Manage Faces" button — opens face data dialog */
 HWND button_manage_faces;
+/** @brief Compression level combo box — selects LZMA compression preset */
+HWND combo_box_compression;
 
 /*** Characters panel (left side) ***/
 /** @brief Section label above the characters ListView */
@@ -185,19 +193,8 @@ static void on_menu_change_language(int idx) {
     ui_refresh_language();
 }
 
-static bool is_full_save_file(const wchar_t *path) {
-    HANDLE file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (file == INVALID_HANDLE_VALUE) {
-        return false;
-    }
-    char tag[4];
-    DWORD bytes_read;
-    if (!ReadFile(file, tag, 4, &bytes_read, NULL)) {
-        CloseHandle(file);
-        return false;
-    }
-    CloseHandle(file);
-    return bytes_read == 4 && RtlCompareMemory(tag, "BND4", 4) == 4;
+static ersm_format_t detect_import_format(const wchar_t *path) {
+    return ersm_detect_file_format(path);
 }
 
 void update_char_list_view(int item, const er_char_data_t *char_data) {
@@ -348,7 +345,41 @@ static void import_char_data(HWND hwnd, int item) {
         return;
     }
 
-    if (is_full_save_file(pszPath)) {
+    ersm_format_t fmt = detect_import_format(pszPath);
+    if (fmt == ERSM_FMT_ERSM_CONTAINER) {
+        SetCursor(LoadCursor(NULL, IDC_WAIT));
+        size_t payload_size = 0;
+        uint8_t data_type = 0;
+        uint8_t *payload = ersm_decompress_from_file(pszPath, &payload_size, &data_type);
+        SetCursor(LoadCursor(NULL, IDC_ARROW));
+        if (!payload) {
+            MessageBoxW(hwnd, locale_str(STR_DECOMPRESSION_ERROR), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        } else if (data_type == ERSM_TYPE_CHAR_SLOT && payload_size == 0x28024Cu) {
+            if (er_char_data_import_raw(save_data, item, payload)) {
+                update_char_list_view(item, er_char_data_ref(save_data, item));
+                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
+            } else {
+                MessageBoxW(hwnd, locale_str(STR_CHARACTER_IMPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+            }
+            LocalFree(payload);
+        } else if (data_type == ERSM_TYPE_FULL_SAVE) {
+            LocalFree(payload);
+            wchar_t temp_path[MAX_PATH];
+            uint8_t dummy_type = 0;
+            SetCursor(LoadCursor(NULL, IDC_WAIT));
+            bool ok = ersm_decompress_to_temp_file(pszPath, temp_path, &dummy_type);
+            SetCursor(LoadCursor(NULL, IDC_ARROW));
+            if (ok) {
+                import_char_from_save_file(hwnd, item, temp_path);
+                DeleteFileW(temp_path);
+            } else {
+                MessageBoxW(hwnd, locale_str(STR_DECOMPRESSION_ERROR), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+            }
+        } else {
+            LocalFree(payload);
+            MessageBoxW(hwnd, locale_str(STR_DECOMPRESSION_ERROR), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        }
+    } else if (fmt == ERSM_FMT_BND4_RAW) {
         import_char_from_save_file(hwnd, item, pszPath);
     } else {
         import_char_from_file(hwnd, item, pszPath);
@@ -363,15 +394,38 @@ static void export_char_data(HWND hwnd, int item) {
         { locale_str(STR_ALL_FILES), L"*.*" }
     };
     PWSTR pszPath = file_dialog_save(hwnd, locale_str(STR_EXPORT_CHARACTER), rgSpec, 1);
-    if (pszPath) {
-        const er_char_data_t *char_data = er_char_data_ref(save_data, item);
-        if (char_data && er_char_data_to_file(char_data, pszPath)) {
-            MessageBoxW(hwnd, locale_str(STR_CHARACTER_EXPORT_SUCCESS), locale_str(STR_SUCCESS), MB_OK | MB_ICONINFORMATION);
-        } else {
-            MessageBoxW(hwnd, locale_str(STR_CHARACTER_EXPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
-        }
-        CoTaskMemFree(pszPath);
+    if (!pszPath) {
+        return;
     }
+
+    const er_char_data_t *ref = er_char_data_ref(save_data, item);
+    if (!ref) {
+        CoTaskMemFree(pszPath);
+        return;
+    }
+
+    uint8_t *buf = LocalAlloc(LMEM_FIXED, 0x28024C);
+    if (!buf) {
+        MessageBoxW(hwnd, locale_str(STR_CHARACTER_EXPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        CoTaskMemFree(pszPath);
+        return;
+    }
+
+    if (!er_char_data_serialize(ref, buf, 0x28024C)) {
+        LocalFree(buf);
+        MessageBoxW(hwnd, locale_str(STR_CHARACTER_EXPORT_FAILED), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        CoTaskMemFree(pszPath);
+        return;
+    }
+
+    SetCursor(LoadCursor(NULL, IDC_WAIT));
+    bool ok = ersm_compress_to_file(pszPath, buf, 0x28024C, ERSM_TYPE_CHAR_SLOT, config.compression_level);
+    SetCursor(LoadCursor(NULL, IDC_ARROW));
+    LocalFree(buf);
+    MessageBoxW(hwnd, locale_str(ok ? STR_CHARACTER_EXPORT_SUCCESS : STR_CHARACTER_EXPORT_FAILED),
+                locale_str(ok ? STR_SUCCESS : STR_ERROR),
+                MB_OK | (ok ? MB_ICONINFORMATION : MB_ICONERROR));
+    CoTaskMemFree(pszPath);
 }
 
 static LRESULT CALLBACK rename_char_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
@@ -538,6 +592,19 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                     break;
                 }
 
+                case IDC_COMBO_COMPRESSION_LEVEL: {
+                    if (HIWORD(wparam) == CBN_SELCHANGE) {
+                        int idx = SendMessageW(combo_box_compression, CB_GETCURSEL, 0, 0);
+                        /* 0=Fast(1), 1=Normal(5), 2=Max(9) */
+                        static const int level_map[] = { ERSM_LEVEL_FAST, ERSM_LEVEL_NORMAL, ERSM_LEVEL_MAX };
+                        if (idx >= 0 && idx < 3) {
+                            config.compression_level = level_map[idx];
+                            save_config();
+                        }
+                    }
+                    break;
+                }
+
                 case IDC_BUTTON_IMPORT_CHAR:
                 case IDM_IMPORT_CHAR: {
                     /* Get selected item */
@@ -647,6 +714,470 @@ static HWND create_window(HINSTANCE instance, int cmd_show) {
     return hwnd;
 }
 
+/*** --selftest harness (headless QA) ***/
+
+/* Emit a single wide string to stdout, supporting both console and redirected output. */
+static void st_out(const wchar_t *msg, size_t len) {
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (!hOut || hOut == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    DWORD type = GetFileType(hOut);
+    DWORD written;
+    if (type == FILE_TYPE_CHAR) {
+        WriteConsoleW(hOut, msg, (DWORD)len, &written, NULL);
+    } else {
+        /* File or pipe: write as UTF-8 */
+        int utf8_size = WideCharToMultiByte(CP_UTF8, 0, msg, (int)len, NULL, 0, NULL, NULL);
+        if (utf8_size <= 0) {
+            return;
+        }
+        char *utf8 = LocalAlloc(LMEM_FIXED, utf8_size);
+        if (!utf8) {
+            return;
+        }
+        WideCharToMultiByte(CP_UTF8, 0, msg, (int)len, utf8, utf8_size, NULL, NULL);
+        WriteFile(hOut, utf8, (DWORD)utf8_size, &written, NULL);
+        LocalFree(utf8);
+    }
+}
+
+/* Formatted wide-char printf that honors any stdout redirect set by the parent process. */
+static void st_printf(const wchar_t *fmt, ...) {
+    wchar_t buf[1024];
+    va_list args;
+    va_start(args, fmt);
+    int len = _vsnwprintf(buf, 1024, fmt, args);
+    va_end(args);
+    if (len < 0) {
+        len = 1023;
+    }
+    buf[len] = L'\0';
+    st_out(buf, (size_t)len);
+}
+
+/* Fill a buffer with a compressible but non-trivial pattern (LZMA-friendly). */
+static void fill_compressible(uint8_t *buf, size_t size) {
+    uint32_t s = 0x12345678u;
+    for (size_t i = 0; i < size; i++) {
+        if ((i & 0x3Fu) == 0) {
+            s = s * 1664525u + 1013904223u;
+            buf[i] = (uint8_t)(s >> 24);
+        } else {
+            buf[i] = 0;
+        }
+    }
+}
+
+/* Roundtrip test helper: compress + decompress at Fast/Normal/Max and verify byte equality. */
+static int selftest_roundtrip(size_t payload_size, uint8_t data_type) {
+    static const struct {
+        int level;
+        const wchar_t *name;
+    } levels[] = {
+        { ERSM_LEVEL_FAST,   L"Fast"   },
+        { ERSM_LEVEL_NORMAL, L"Normal" },
+        { ERSM_LEVEL_MAX,    L"Max"    },
+    };
+
+    uint8_t *src = LocalAlloc(LMEM_FIXED, payload_size);
+    if (!src) {
+        st_printf(L"roundtrip FAIL: allocate src\n");
+        return 1;
+    }
+    fill_compressible(src, payload_size);
+
+    wchar_t tmp_dir[MAX_PATH];
+    wchar_t tmp_path[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmp_dir);
+    if (!GetTempFileNameW(tmp_dir, L"ers", 0, tmp_path)) {
+        LocalFree(src);
+        st_printf(L"roundtrip FAIL: tempfile\n");
+        return 1;
+    }
+
+    int result = 0;
+    for (int li = 0; li < 3; li++) {
+        if (!ersm_compress_to_file(tmp_path, src, payload_size, data_type, levels[li].level)) {
+            st_printf(L"roundtrip FAIL: %s at compress\n", levels[li].name);
+            result = 1;
+            break;
+        }
+        size_t out_size = 0;
+        uint8_t out_type = 0;
+        uint8_t *out = ersm_decompress_from_file(tmp_path, &out_size, &out_type);
+        if (!out) {
+            st_printf(L"roundtrip FAIL: %s at decompress\n", levels[li].name);
+            result = 1;
+            break;
+        }
+        if (out_size != payload_size || out_type != data_type) {
+            st_printf(L"roundtrip FAIL: %s size/type mismatch\n", levels[li].name);
+            LocalFree(out);
+            result = 1;
+            break;
+        }
+        size_t mismatch = (size_t)-1;
+        for (size_t i = 0; i < payload_size; i++) {
+            if (src[i] != out[i]) {
+                mismatch = i;
+                break;
+            }
+        }
+        LocalFree(out);
+        if (mismatch != (size_t)-1) {
+            st_printf(L"roundtrip FAIL: %s at offset %llu\n",
+                      levels[li].name, (unsigned long long)mismatch);
+            result = 1;
+            break;
+        }
+        st_printf(L"roundtrip OK: %s\n", levels[li].name);
+    }
+
+    DeleteFileW(tmp_path);
+    LocalFree(src);
+    return result;
+}
+
+/* Write a 0x28024C-byte compressible buffer as an ERSM char-slot container at Normal level. */
+static int selftest_make_valid_ersm(const wchar_t *path) {
+    const size_t size = 0x28024Cu;
+    uint8_t *buf = LocalAlloc(LMEM_FIXED, size);
+    if (!buf) {
+        st_printf(L"make-valid-ersm: alloc failed\n");
+        return 1;
+    }
+    fill_compressible(buf, size);
+    bool ok = ersm_compress_to_file(path, buf, size, ERSM_TYPE_CHAR_SLOT, ERSM_LEVEL_NORMAL);
+    LocalFree(buf);
+    if (!ok) {
+        st_printf(L"make-valid-ersm: compress failed\n");
+        return 1;
+    }
+    HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h != INVALID_HANDLE_VALUE) {
+        LARGE_INTEGER fsz;
+        if (GetFileSizeEx(h, &fsz)) {
+            st_printf(L"wrote %llu bytes\n", (unsigned long long)fsz.QuadPart);
+        }
+        CloseHandle(h);
+    }
+    return 0;
+}
+
+/* Try to decompress a file and print the resulting size and type byte. */
+static int selftest_decompress_file(const wchar_t *path) {
+    size_t out_size = 0;
+    uint8_t out_type = 0;
+    uint8_t *out = ersm_decompress_from_file(path, &out_size, &out_type);
+    if (!out) {
+        st_printf(L"decompress failed: header rejected\n");
+        return 1;
+    }
+    st_printf(L"decompress OK: size=%llu, type=%u\n",
+              (unsigned long long)out_size, (unsigned)out_type);
+    LocalFree(out);
+    return 0;
+}
+
+/* Print the detected container format for a file (ERSM / BND4 / UNKNOWN). */
+static int selftest_detect_format(const wchar_t *path) {
+    ersm_format_t fmt = ersm_detect_file_format(path);
+    if (fmt == ERSM_FMT_ERSM_CONTAINER) {
+        st_printf(L"format: ERSM\n");
+    } else if (fmt == ERSM_FMT_BND4_RAW) {
+        st_printf(L"format: BND4\n");
+    } else {
+        st_printf(L"format: UNKNOWN\n");
+    }
+    return 0;
+}
+
+/* Write a raw 0x28024C-byte compressible slot (no ERSM wrapper) to path. */
+static int selftest_make_legacy_slot(const wchar_t *path) {
+    const size_t size = 0x28024Cu;
+    uint8_t *buf = LocalAlloc(LMEM_FIXED, size);
+    if (!buf) {
+        st_printf(L"make-legacy-slot: alloc failed\n");
+        return 1;
+    }
+    fill_compressible(buf, size);
+    HANDLE f = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) {
+        LocalFree(buf);
+        st_printf(L"make-legacy-slot: create failed\n");
+        return 1;
+    }
+    DWORD written;
+    bool ok = WriteFile(f, buf, (DWORD)size, &written, NULL) && written == size;
+    CloseHandle(f);
+    LocalFree(buf);
+    if (!ok) {
+        st_printf(L"make-legacy-slot: write failed\n");
+        return 1;
+    }
+    st_printf(L"wrote %llu bytes\n", (unsigned long long)size);
+    return 0;
+}
+
+/* Build a structurally valid BND4 save stub (12 slots) with the given user ID. */
+static bool make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
+    const uint32_t char_slot_size    = 0x280010u;  /* ER_CHAR_SLOT_FILE_SIZE */
+    const uint32_t summary_slot_size = 0x60010u;   /* ER_SUMMARY_SLOT_FILE_SIZE */
+    const uint32_t slot0_offset      = 0x300u;     /* ER_FILE_HEADER_SIZE */
+    const uint32_t summary_data_size = 0x60000u;   /* ER_SUMMARY_DATA_SIZE */
+    const uint32_t face_section_size = 0x11D0u;    /* ER_SUMMARY_FACE_SECTION_SIZE */
+
+    const uint32_t summary_offset = slot0_offset + 10u * char_slot_size;
+    const uint32_t index_offset   = summary_offset + summary_slot_size;
+    const uint32_t total_size     = index_offset + summary_slot_size;
+
+    uint8_t *file_data = LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, total_size);
+    if (!file_data) {
+        return false;
+    }
+
+    /* BND4 magic */
+    CopyMemory(file_data, "BND4", 4);
+    /* Slot count = 12 */
+    *(uint32_t *)(file_data + 0x0C) = 12u;
+
+    /* Slot size + offset arrays: 10 char slots, 1 summary slot, 1 index slot */
+    for (int i = 0; i < 10; i++) {
+        *(uint32_t *)(file_data + 0x48 + i * 0x20) = char_slot_size;
+        *(uint32_t *)(file_data + 0x50 + i * 0x20) = slot0_offset + (uint32_t)i * char_slot_size;
+    }
+    *(uint32_t *)(file_data + 0x48 + 10 * 0x20) = summary_slot_size;
+    *(uint32_t *)(file_data + 0x50 + 10 * 0x20) = summary_offset;
+    *(uint32_t *)(file_data + 0x48 + 11 * 0x20) = summary_slot_size;
+    *(uint32_t *)(file_data + 0x50 + 11 * 0x20) = index_offset;
+
+    /* Summary payload starts at summary_offset + 0x10 (after MD5 slot header) */
+    uint8_t *summary_payload = file_data + summary_offset + 0x10;
+    /* user_id at payload offset 0x04 */
+    *(uint64_t *)(summary_payload + 0x04) = user_id;
+    /* sz field at payload offset 0x150 stays 0 */
+    /* face-section size marker at payload offset 0x158 */
+    *(uint32_t *)(summary_payload + 0x158) = face_section_size;
+
+    /* MD5 of summary payload bytes goes in the 16-byte slot header prefix */
+    md5_buffer(summary_payload, summary_data_size, file_data + summary_offset);
+
+    HANDLE f = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) {
+        LocalFree(file_data);
+        return false;
+    }
+    DWORD written;
+    bool ok = WriteFile(f, file_data, total_size, &written, NULL) && written == total_size;
+    CloseHandle(f);
+    LocalFree(file_data);
+    return ok;
+}
+
+/* Compress an arbitrary source file as an ERSM FULL_SAVE container. */
+static int selftest_make_valid_ersm_fullsave(const wchar_t *src_path, const wchar_t *dst_path) {
+    HANDLE f = CreateFileW(src_path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) {
+        st_printf(L"make-valid-ersm-fullsave: open source failed\n");
+        return 1;
+    }
+    LARGE_INTEGER sz;
+    if (!GetFileSizeEx(f, &sz)) {
+        CloseHandle(f);
+        st_printf(L"make-valid-ersm-fullsave: size query failed\n");
+        return 1;
+    }
+    if (sz.QuadPart <= 0 || sz.QuadPart > (LONGLONG)ERSM_MAX_UNCOMPRESSED_SIZE) {
+        CloseHandle(f);
+        st_printf(L"make-valid-ersm-fullsave: source size out of range\n");
+        return 1;
+    }
+    uint8_t *buf = LocalAlloc(LMEM_FIXED, (size_t)sz.QuadPart);
+    if (!buf) {
+        CloseHandle(f);
+        st_printf(L"make-valid-ersm-fullsave: alloc failed\n");
+        return 1;
+    }
+    DWORD read_bytes;
+    if (!ReadFile(f, buf, (DWORD)sz.QuadPart, &read_bytes, NULL) || read_bytes != (DWORD)sz.QuadPart) {
+        LocalFree(buf);
+        CloseHandle(f);
+        st_printf(L"make-valid-ersm-fullsave: read failed\n");
+        return 1;
+    }
+    CloseHandle(f);
+
+    bool ok = ersm_compress_to_file(dst_path, buf, (size_t)sz.QuadPart, ERSM_TYPE_FULL_SAVE, ERSM_LEVEL_NORMAL);
+    LocalFree(buf);
+    if (!ok) {
+        st_printf(L"make-valid-ersm-fullsave: compress failed\n");
+        return 1;
+    }
+    st_printf(L"wrote fullsave ERSM\n");
+    return 0;
+}
+
+/* Provision a minimal save folder tree (root\76561...\ER0000.sl2) and write a matching INI. */
+static int selftest_provision_save_folder(const wchar_t *root) {
+    const uint64_t test_uid = 76561199999999999ULL;
+
+    CreateDirectoryW(root, NULL); /* ignore "already exists" */
+
+    wchar_t subfolder[MAX_PATH];
+    lstrcpyW(subfolder, root);
+    PathAppendW(subfolder, L"76561199999999999");
+    CreateDirectoryW(subfolder, NULL);
+
+    wchar_t sl2_path[MAX_PATH];
+    lstrcpyW(sl2_path, subfolder);
+    PathAppendW(sl2_path, L"ER0000.sl2");
+
+    if (!make_min_valid_sl2(sl2_path, test_uid)) {
+        st_printf(L"provision: sl2 write failed\n");
+        return 1;
+    }
+
+    /* Build the INI path next to the running binary */
+    wchar_t ini_path[MAX_PATH];
+    GetModuleFileNameW(NULL, ini_path, MAX_PATH);
+    PathRemoveFileSpecW(ini_path);
+    PathAppendW(ini_path, L"ERSaveManager.ini");
+
+    /* Compose the INI content as UTF-8 directly */
+    char utf8_root[MAX_PATH * 4];
+    WideCharToMultiByte(CP_UTF8, 0, root, -1, utf8_root, sizeof(utf8_root), NULL, NULL);
+
+    char ini_buf[2048];
+    int ini_len = _snprintf(ini_buf, sizeof(ini_buf),
+        "[Settings]\r\n"
+        "SavePath=%s\r\n"
+        "SaveSubFolder=76561199999999999\r\n"
+        "Language=0\r\n"
+        "WindowX=-1\r\n"
+        "WindowY=-1\r\n"
+        "WindowWidth=0\r\n"
+        "WindowHeight=0\r\n"
+        "CompressionLevel=5\r\n", utf8_root);
+    if (ini_len < 0 || ini_len >= (int)sizeof(ini_buf)) {
+        st_printf(L"provision: ini path too long\n");
+        return 1;
+    }
+
+    HANDLE fh = CreateFileW(ini_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (fh == INVALID_HANDLE_VALUE) {
+        st_printf(L"provision: ini create failed\n");
+        return 1;
+    }
+    DWORD written;
+    bool ok = WriteFile(fh, ini_buf, (DWORD)ini_len, &written, NULL) && written == (DWORD)ini_len;
+    CloseHandle(fh);
+    if (!ok) {
+        st_printf(L"provision: ini write failed\n");
+        return 1;
+    }
+
+    st_printf(L"provisioned OK\n");
+    return 0;
+}
+
+/* Parse --selftest <sub> [args...] and dispatch. Returns process exit code. */
+static int run_selftest(LPWSTR cmd_line) {
+    (void)cmd_line;
+
+    /* Only attach/allocate a console if stdout is not already redirected to a file/pipe. */
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD type = hOut ? GetFileType(hOut) : FILE_TYPE_UNKNOWN;
+    bool redirected = (type == FILE_TYPE_DISK || type == FILE_TYPE_PIPE);
+    if (!redirected) {
+        AllocConsole();
+        FILE *fp = NULL;
+        freopen_s(&fp, "CONOUT$", "w", stdout);
+        freopen_s(&fp, "CONOUT$", "w", stderr);
+    }
+
+    int argc = 0;
+    LPWSTR *argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (!argv || argc < 2 || wcscmp(argv[1], L"--selftest") != 0 || argc < 3) {
+        st_printf(L"usage: --selftest <subcommand> [args...]\n");
+        if (argv) LocalFree(argv);
+        return 2;
+    }
+
+    const wchar_t *sub = argv[2];
+    int result;
+
+    if (wcscmp(sub, L"roundtrip") == 0) {
+        result = selftest_roundtrip(0x28024Cu, ERSM_TYPE_CHAR_SLOT);
+    } else if (wcscmp(sub, L"roundtrip-large") == 0) {
+        /* 30 MB exceeds the CHAR_SLOT size contract, so use FULL_SAVE for the large test. */
+        result = selftest_roundtrip(30u * 1024u * 1024u, ERSM_TYPE_FULL_SAVE);
+    } else if (wcscmp(sub, L"make-valid-ersm") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest make-valid-ersm <path>\n");
+            result = 2;
+        } else {
+            result = selftest_make_valid_ersm(argv[3]);
+        }
+    } else if (wcscmp(sub, L"decompress-file") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest decompress-file <path>\n");
+            result = 2;
+        } else {
+            result = selftest_decompress_file(argv[3]);
+        }
+    } else if (wcscmp(sub, L"detect-format") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest detect-format <path>\n");
+            result = 2;
+        } else {
+            result = selftest_detect_format(argv[3]);
+        }
+    } else if (wcscmp(sub, L"make-legacy-slot") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest make-legacy-slot <path>\n");
+            result = 2;
+        } else {
+            result = selftest_make_legacy_slot(argv[3]);
+        }
+    } else if (wcscmp(sub, L"make-bnd4-stub") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest make-bnd4-stub <path>\n");
+            result = 2;
+        } else {
+            result = make_min_valid_sl2(argv[3], 76561199999999999ULL) ? 0 : 1;
+        }
+    } else if (wcscmp(sub, L"make-valid-ersm-fullsave") == 0) {
+        if (argc < 5) {
+            st_printf(L"usage: --selftest make-valid-ersm-fullsave <src> <dst>\n");
+            result = 2;
+        } else {
+            result = selftest_make_valid_ersm_fullsave(argv[3], argv[4]);
+        }
+    } else if (wcscmp(sub, L"make-min-valid-sl2") == 0) {
+        if (argc < 5) {
+            st_printf(L"usage: --selftest make-min-valid-sl2 <path> <user_id>\n");
+            result = 2;
+        } else {
+            uint64_t uid = _wcstoui64(argv[4], NULL, 10);
+            result = make_min_valid_sl2(argv[3], uid) ? 0 : 1;
+        }
+    } else if (wcscmp(sub, L"provision-save-folder") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest provision-save-folder <root>\n");
+            result = 2;
+        } else {
+            result = selftest_provision_save_folder(argv[3]);
+        }
+    } else {
+        st_printf(L"usage: --selftest <subcommand> [args...]\n");
+        result = 2;
+    }
+
+    LocalFree(argv);
+    return result;
+}
+
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line, int cmd_show) {
     /* Initialize common controls */
     INITCOMMONCONTROLSEX icex;
@@ -659,6 +1190,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
 
     /* Load configuration */
     load_config();
+
+    /* Initialize LZMA SDK */
+    save_compress_init();
+
+    /* --selftest: headless QA mode — runs tests and exits without showing a window */
+    if (cmd_line && cmd_line[0] != L'\0' && wcsncmp(cmd_line, L"--selftest", 10) == 0) {
+        return run_selftest(cmd_line);
+    }
 
     /* Create main window */
     main_window = create_window(instance, cmd_show);

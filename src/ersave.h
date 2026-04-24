@@ -8,6 +8,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /* Forward declarations for data structures */
@@ -161,6 +162,15 @@ er_char_data_t *er_char_data_from_memory(const uint8_t *data);
  * @param path Path to save the character data
  */
 bool er_char_data_to_file(const er_char_data_t *char_data, const wchar_t *path);
+
+/**
+ * @brief Serializes character data to a flat buffer
+ * @param c        Pointer to character data structure
+ * @param out      Output buffer (must be at least out_size bytes)
+ * @param out_size Buffer size; must be >= ER_CHAR_DATA_SIZE + ER_PROFILE_SIZE
+ * @return true on success, false if out_size is too small
+ */
+bool er_char_data_serialize(const er_char_data_t *c, uint8_t *out, size_t out_size);
 
 /**
  * @brief Frees allocated character data memory

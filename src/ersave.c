@@ -834,6 +834,15 @@ bool er_char_data_to_file(const er_char_data_t *char_data, const wchar_t *path) 
     return ok;
 }
 
+bool er_char_data_serialize(const er_char_data_t *c, uint8_t *out, size_t out_size) {
+    if (!c || !out || out_size < ER_CHAR_DATA_SIZE + ER_PROFILE_SIZE) {
+        return false;
+    }
+    CopyMemory(out, c->data, ER_CHAR_DATA_SIZE);
+    CopyMemory(out + ER_CHAR_DATA_SIZE, c->profile, ER_PROFILE_SIZE);
+    return true;
+}
+
 void er_char_data_free(er_char_data_t *char_data) {
     if (char_data) {
         LocalFree(char_data);
