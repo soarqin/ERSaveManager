@@ -2,6 +2,7 @@
 add_project(saveman WIN32
     main.c
     ersave.c ersave.h
+    save_compress.c save_compress.h
     config.c config.h
     locale.c locale.h
 
@@ -36,7 +37,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE _UNICODE)
 # - shlwapi: Shell Light-Weight API
 # - comctl32: Common Controls library
 # - uxtheme: Theme API
-target_link_libraries(${PROJECT_NAME} PRIVATE md5 inih shlwapi comctl32 uxtheme)
+target_link_libraries(${PROJECT_NAME} PRIVATE md5 inih lzma shlwapi comctl32 uxtheme)
 
 # Recompile app.rc when dependent headers or assets change
 set_property(SOURCE app.rc PROPERTY OBJECT_DEPENDS
