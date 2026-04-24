@@ -1,0 +1,41 @@
+/**
+ * @file game_backend.h
+ * @brief Compile-time vtable interface for game-specific save operations.
+ * @details Each game backend is a static const game_backend_t instance.
+ *          No runtime discovery, no LoadLibraryW.
+ */
+
+#pragma once
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <wchar.h>
+
+typedef enum game_id_e {
+    GAME_ID_ELDEN_RING = 1,
+    /* Future: GAME_ID_DARK_SOULS_3, GAME_ID_SEKIRO, GAME_ID_NIGHTREIGN */
+} game_id_t;
+
+typedef struct game_backend_s {
+    game_id_t id;
+    const wchar_t *display_name;        /* e.g. L"Elden Ring" */
+    const wchar_t *backup_extension;    /* e.g. L".ersm" */
+    bool needs_game_restart;            /* false for FromSoft titles */
+
+    /* MANDATORY methods */
+    bool (*resolve_save_path)(wchar_t *out_path, size_t out_chars);
+    bool (*backup_full)(const wchar_t *src_save, const wchar_t *dst_backup, int compression_level);
+    bool (*restore_full)(const wchar_t *src_backup, const wchar_t *dst_save);
+
+    /* OPTIONAL methods (NULL if backend does not support slot-level ops) */
+    bool (*get_active_slot)(const wchar_t *save_path, int *out_slot);
+    bool (*backup_slot)(const wchar_t *src_save, int slot, const wchar_t *dst_backup, int compression_level);
+    bool (*restore_slot)(const wchar_t *src_backup, const wchar_t *dst_save, int slot);
+} game_backend_t;
+
+/**
+ * @brief Returns true if the backend supports all three slot-level operations.
+ */
+static inline bool game_backend_supports_slot_ops(const game_backend_t *b) {
+    return b && b->get_active_slot && b->backup_slot && b->restore_slot;
+}

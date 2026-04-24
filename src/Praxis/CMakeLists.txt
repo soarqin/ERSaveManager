@@ -4,6 +4,7 @@ add_project(praxis WIN32
     config.h
     locale.c
     locale.h
+    game_backend.h
     resource.h
     app.rc
     VERSION 1.0.0
