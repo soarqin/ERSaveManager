@@ -10,8 +10,6 @@ add_project(saveman WIN32
 
     face_dialog.c face_dialog.h
 
-    file_dialog.c file_dialog.h
-
     ui_controls.c ui_controls.h
 
     resource.h
