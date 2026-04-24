@@ -1,8 +1,7 @@
 /**
  * @file er_backend.c
  * @brief Elden Ring game backend implementation.
- * @details Implements mandatory save operations for Elden Ring.
- *          Slot operations are deferred to T29.
+ * @details Implements full-save and slot-level save operations for Elden Ring.
  */
 
 #include "../game_backend.h"
@@ -150,6 +149,76 @@ static bool er_restore_full(const wchar_t *src_backup, const wchar_t *dst_save) 
     return false;
 }
 
+static bool er_get_active_slot(const wchar_t *save_path, int *out_slot) {
+    er_save_data_t *save = er_save_data_load(save_path);
+    bool ok;
+
+    if (!save) return false;
+
+    ok = er_save_get_active_slot(save, out_slot);
+    er_save_data_free(save);
+    return ok;
+}
+
+static bool er_backup_slot(const wchar_t *src_save, int slot, const wchar_t *dst_backup, int level) {
+    er_save_data_t *save = er_save_data_load(src_save);
+    const er_char_data_t *char_data;
+    uint8_t *buf;
+    bool ok;
+
+    if (!save) return false;
+
+    char_data = er_char_data_ref(save, slot);
+    if (!char_data) {
+        er_save_data_free(save);
+        return false;
+    }
+
+    buf = LocalAlloc(LMEM_FIXED, 0x28024Cu);
+    if (!buf) {
+        er_save_data_free(save);
+        return false;
+    }
+
+    ok = er_char_data_serialize(char_data, buf, 0x28024Cu);
+    er_save_data_free(save);
+    if (!ok) {
+        LocalFree(buf);
+        return false;
+    }
+
+    ok = ersm_compress_to_file(dst_backup, buf, 0x28024Cu, ERSM_TYPE_CHAR_SLOT, level);
+    LocalFree(buf);
+    return ok;
+}
+
+static bool er_restore_slot(const wchar_t *src_backup, const wchar_t *dst_save, int slot) {
+    uint8_t *buf;
+    size_t buf_size = 0;
+    uint8_t data_type = 0;
+    er_save_data_t *save;
+    bool ok;
+
+    buf = ersm_decompress_from_file(src_backup, &buf_size, &data_type);
+    if (!buf) return false;
+
+    if (data_type != ERSM_TYPE_CHAR_SLOT || buf_size != 0x28024Cu) {
+        LocalFree(buf);
+        return false;
+    }
+
+    save = er_save_data_load(dst_save);
+    if (!save) {
+        LocalFree(buf);
+        return false;
+    }
+
+    ok = er_char_data_import_raw(save, slot, buf);
+    LocalFree(buf);
+    er_save_data_free(save);
+    return ok;
+}
+
 const game_backend_t er_backend = {
     .id = GAME_ID_ELDEN_RING,
     .display_name = L"Elden Ring",
@@ -158,7 +227,7 @@ const game_backend_t er_backend = {
     .resolve_save_path = er_resolve_save_path,
     .backup_full = er_backup_full,
     .restore_full = er_restore_full,
-    .get_active_slot = 0,
-    .backup_slot = 0,
-    .restore_slot = 0,
+    .get_active_slot = er_get_active_slot,
+    .backup_slot = er_backup_slot,
+    .restore_slot = er_restore_slot,
 };
