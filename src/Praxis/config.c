@@ -4,15 +4,16 @@
  */
 
 #include "config.h"
-#include "locale.h"
 
 #include "config_core.h"
 #include "locale_core.h"
 
-#include <shlobj.h>
-#include <shlwapi.h>
 #include <string.h>
 #include <windows.h>
+#include <shlobj.h>
+#include <shlwapi.h>
+
+#define CONFIG_MAX_BYTES (64 * 1024)
 
 praxis_config_t praxis_config;
 
@@ -74,6 +75,7 @@ static void kv_callback(const char *key, const char *value, void *user) {
 
 void praxis_load_config(void) {
     apply_defaults();
+    locale_core_set_current(praxis_config.language);
 
     wchar_t ini_path[MAX_PATH];
     if (!config_core_get_app_ini_path(ini_path, MAX_PATH, L"Praxis.ini")) {
@@ -86,7 +88,7 @@ void praxis_load_config(void) {
     }
 
     DWORD file_size = GetFileSize(fh, NULL);
-    if (file_size == INVALID_FILE_SIZE || file_size == 0) {
+    if (file_size == INVALID_FILE_SIZE || file_size == 0 || file_size > CONFIG_MAX_BYTES) {
         CloseHandle(fh);
         return;
     }
@@ -118,15 +120,21 @@ void praxis_save_config(void) {
         return;
     }
 
-    char tree_root_utf8[MAX_PATH * 4];
-    char hotkey_bf[64], hotkey_rf[64], hotkey_bs[64], hotkey_rs[64], hotkey_ur[64];
+    char tree_root_utf8[MAX_PATH * 4] = {0};
+    char hotkey_bf[32 * 4] = {0};
+    char hotkey_rf[32 * 4] = {0};
+    char hotkey_bs[32 * 4] = {0};
+    char hotkey_rs[32 * 4] = {0};
+    char hotkey_ur[32 * 4] = {0};
 
-    WideCharToMultiByte(CP_UTF8, 0, praxis_config.tree_root, -1, tree_root_utf8, sizeof(tree_root_utf8), NULL, NULL);
-    WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_full, -1, hotkey_bf, sizeof(hotkey_bf), NULL, NULL);
-    WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_restore_full, -1, hotkey_rf, sizeof(hotkey_rf), NULL, NULL);
-    WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_slot, -1, hotkey_bs, sizeof(hotkey_bs), NULL, NULL);
-    WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_restore_slot, -1, hotkey_rs, sizeof(hotkey_rs), NULL, NULL);
-    WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_undo_restore, -1, hotkey_ur, sizeof(hotkey_ur), NULL, NULL);
+    if (WideCharToMultiByte(CP_UTF8, 0, praxis_config.tree_root, -1, tree_root_utf8, (int)sizeof(tree_root_utf8), NULL, NULL) <= 0 ||
+        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_full, -1, hotkey_bf, (int)sizeof(hotkey_bf), NULL, NULL) <= 0 ||
+        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_restore_full, -1, hotkey_rf, (int)sizeof(hotkey_rf), NULL, NULL) <= 0 ||
+        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_slot, -1, hotkey_bs, (int)sizeof(hotkey_bs), NULL, NULL) <= 0 ||
+        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_restore_slot, -1, hotkey_rs, (int)sizeof(hotkey_rs), NULL, NULL) <= 0 ||
+        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_undo_restore, -1, hotkey_ur, (int)sizeof(hotkey_ur), NULL, NULL) <= 0) {
+        return;
+    }
 
     config_core_buf_t buf;
     config_core_buf_init(&buf);
