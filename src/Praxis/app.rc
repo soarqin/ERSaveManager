@@ -1,0 +1,36 @@
+#include <winres.h>
+#include "resource.h"
+#include "version.h"
+
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_PATCH,0
+    PRODUCTVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_PATCH,0
+    FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+    FILEFLAGS 0
+    FILEOS VOS_NT_WINDOWS32
+    FILETYPE VFT_APP
+    FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "Praxis - Practice Save Tool"
+            VALUE "FileVersion", VERSION_STR
+            VALUE "InternalName", "Praxis"
+            VALUE "OriginalFilename", "Praxis.exe"
+            VALUE "ProductName", "Praxis"
+            VALUE "ProductVersion", VERSION_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
+
+/* Include manifest */
+1 RT_MANIFEST "app.manifest"
+
+/* Application icon */
+IDI_APPICON ICON "app.ico"
