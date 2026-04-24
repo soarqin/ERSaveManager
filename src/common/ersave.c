@@ -630,6 +630,21 @@ uint64_t er_save_get_userid(const er_save_data_t *save_data) {
     return *(uint64_t *)(save_data->summary_data.data + 0x04);
 }
 
+bool er_save_get_active_slot(const er_save_data_t *save_data, int *out_slot) {
+    if (!save_data || !out_slot) {
+        return false;
+    }
+    if (save_data->summary_data.active_offset >= ER_SUMMARY_DATA_SIZE) {
+        return false;
+    }
+    int slot = (int)save_data->summary_data.data[save_data->summary_data.active_offset];
+    if (slot < 0 || slot > 9) {
+        return false;
+    }
+    *out_slot = slot;
+    return true;
+}
+
 bool er_save_resign_userid(er_save_data_t *save_data, uint64_t user_id) {
     if (!save_data) {
         return false;

@@ -1,7 +1,6 @@
 # Add facedataman executable project with WIN32 subsystem
 add_project(saveman WIN32
     main.c
-    ersave.c ersave.h
     config.c config.h
     locale.c locale.h
 

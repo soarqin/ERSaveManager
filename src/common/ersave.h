@@ -85,6 +85,16 @@ void er_save_simple_data_slot_free(uint8_t *slot_data);
 uint64_t er_save_get_userid(const er_save_data_t *save_data);
 
 /**
+ * @brief Get the active (last-used) character slot index from save data.
+ * @details Reads the active_offset byte and returns the slot number (0-9).
+ *          The semantics of this byte were verified in Task 1 (Wave 0).
+ * @param save_data Pointer to loaded save data
+ * @param out_slot Pointer to receive slot index (0-9)
+ * @return true on success, false if save_data is NULL or byte is out of range
+ */
+bool er_save_get_active_slot(const er_save_data_t *save_data, int *out_slot);
+
+/**
  * @brief Re-signs the user ID in save data
  * @param save_data Pointer to save data structure
  * @param user_id User ID to resign
