@@ -8,7 +8,10 @@
 #include "locale.h"
 #include "resource.h"
 
+#include "ersave.h"
 #include "save_compress.h"
+
+#include <md5.h>
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -124,6 +127,64 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+/* Creates a minimal valid BND4 save file at path with the given Steam user ID.
+ * Mirrors ERSaveManager's make_min_valid_sl2 for headless testing. */
+static bool praxis_make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
+    const uint32_t char_slot_size    = 0x280010u;  /* ER_CHAR_SLOT_FILE_SIZE */
+    const uint32_t summary_slot_size = 0x60010u;   /* ER_SUMMARY_SLOT_FILE_SIZE */
+    const uint32_t slot0_offset      = 0x300u;     /* ER_FILE_HEADER_SIZE */
+    const uint32_t summary_data_size = 0x60000u;   /* ER_SUMMARY_DATA_SIZE */
+    const uint32_t face_section_size = 0x11D0u;    /* ER_SUMMARY_FACE_SECTION_SIZE */
+
+    const uint32_t summary_offset = slot0_offset + 10u * char_slot_size;
+    const uint32_t index_offset   = summary_offset + summary_slot_size;
+    const uint32_t total_size     = index_offset + summary_slot_size;
+    const uint32_t summary_layout_size = face_section_size + 0x14u;
+
+    uint8_t *file_data = LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, total_size);
+    if (!file_data) {
+        return false;
+    }
+
+    /* BND4 magic */
+    CopyMemory(file_data, "BND4", 4);
+    /* Slot count = 12 */
+    *(uint32_t *)(file_data + 0x0C) = 12u;
+
+    /* Slot size + offset arrays: 10 char slots, 1 summary slot, 1 index slot */
+    for (int i = 0; i < 10; i++) {
+        *(uint32_t *)(file_data + 0x48 + i * 0x20) = char_slot_size;
+        *(uint32_t *)(file_data + 0x50 + i * 0x20) = slot0_offset + (uint32_t)i * char_slot_size;
+    }
+    *(uint32_t *)(file_data + 0x48 + 10 * 0x20) = summary_slot_size;
+    *(uint32_t *)(file_data + 0x50 + 10 * 0x20) = summary_offset;
+    *(uint32_t *)(file_data + 0x48 + 11 * 0x20) = summary_slot_size;
+    *(uint32_t *)(file_data + 0x50 + 11 * 0x20) = index_offset;
+
+    /* Summary payload starts at summary_offset + 0x10 (after MD5 slot header) */
+    uint8_t *summary_payload = file_data + summary_offset + 0x10;
+    /* user_id at payload offset 0x04 */
+    *(uint64_t *)(summary_payload + 0x04) = user_id;
+    /* sz field at payload offset 0x150 spans face data, active slot, and padding before availability bytes */
+    *(uint32_t *)(summary_payload + 0x150) = summary_layout_size;
+    /* face-section size marker at payload offset 0x158 */
+    *(uint32_t *)(summary_payload + 0x158) = face_section_size;
+
+    /* MD5 of summary payload bytes goes in the 16-byte slot header prefix */
+    md5_buffer(summary_payload, summary_data_size, file_data + summary_offset);
+
+    HANDLE f = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) {
+        LocalFree(file_data);
+        return false;
+    }
+    DWORD written;
+    bool ok = WriteFile(f, file_data, total_size, &written, NULL) && written == total_size;
+    CloseHandle(f);
+    LocalFree(file_data);
+    return ok;
+}
+
 static int run_selftest(void) {
     /* Attach or allocate a console when stdout is not already redirected so that
      * test harnesses invoking the WIN32 subsystem binary can capture output. */
@@ -163,6 +224,39 @@ static int run_selftest(void) {
         } else {
             st_printf(L"%ls\n", b->display_name);
             result = 0;
+        }
+    } else if (wcscmp(sub, L"provision-sl2") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest provision-sl2 <output_path>\n");
+            result = 2;
+        } else {
+            result = praxis_make_min_valid_sl2(argv[3], 76561199999999999ULL) ? 0 : 1;
+        }
+    } else if (wcscmp(sub, L"backup-full-headless") == 0) {
+        if (argc < 5) {
+            st_printf(L"usage: --selftest backup-full-headless <src_sl2> <dst_ersm>\n");
+            result = 2;
+        } else {
+            const game_backend_t *b = backend_registry_get_default();
+            if (!b) {
+                st_printf(L"no backend\n");
+                result = 1;
+            } else {
+                result = b->backup_full(argv[3], argv[4], 5) ? 0 : 1;
+            }
+        }
+    } else if (wcscmp(sub, L"restore-full-headless") == 0) {
+        if (argc < 5) {
+            st_printf(L"usage: --selftest restore-full-headless <src_backup> <dst_sl2>\n");
+            result = 2;
+        } else {
+            const game_backend_t *b = backend_registry_get_default();
+            if (!b) {
+                st_printf(L"no backend\n");
+                result = 1;
+            } else {
+                result = b->restore_full(argv[3], argv[4]) ? 0 : 1;
+            }
         }
     } else {
         /* Placeholder subcommands added in T18, T20-T22, T23, T25, T26, T29. */
