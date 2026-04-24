@@ -28,12 +28,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}"
 target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE _UNICODE)
 
 # Link against required libraries:
-# - md5: MD5 hash library
-# - inih: INI parser
-# - shlwapi: Shell Light-Weight API
-# - comctl32: Common Controls library
+# - ersave_common: Shared save/common support library
 # - uxtheme: Theme API
-target_link_libraries(${PROJECT_NAME} PRIVATE md5 inih lzma shlwapi comctl32 uxtheme)
+target_link_libraries(${PROJECT_NAME} PRIVATE ersave_common uxtheme)
 
 # Recompile app.rc when dependent headers or assets change
 set_property(SOURCE app.rc PROPERTY OBJECT_DEPENDS
