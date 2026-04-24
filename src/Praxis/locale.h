@@ -1,0 +1,80 @@
+/**
+ * @file locale.h
+ * @brief Praxis locale string table declarations.
+ * @details Each application owns its own string catalog. Praxis uses STR_PRAXIS_* prefix.
+ */
+
+#pragma once
+
+#include <wchar.h>
+
+/* Praxis string index enum — MUST use STR_PRAXIS_* prefix to avoid collision with ERSaveManager */
+typedef enum praxis_string_index_e {
+    STR_PRAXIS_APP_TITLE = 0,
+    STR_PRAXIS_BACKUP_FULL,
+    STR_PRAXIS_RESTORE_FULL,
+    STR_PRAXIS_BACKUP_SLOT,
+    STR_PRAXIS_RESTORE_SLOT,
+    STR_PRAXIS_UNDO_RESTORE,
+    STR_PRAXIS_TREE_ROOT,
+    STR_PRAXIS_NEW_FOLDER,
+    STR_PRAXIS_RENAME,
+    STR_PRAXIS_DELETE,
+    STR_PRAXIS_HOTKEY_CONFLICT,
+    STR_PRAXIS_GAME_RUNNING_WARNING,
+    STR_PRAXIS_RING_BACKUP_FAILED,
+    STR_PRAXIS_RESTORE_CONFIRMATION,
+    STR_PRAXIS_LANGUAGE,
+    STR_PRAXIS_OPTIONS,
+    STR_PRAXIS_HOTKEY_SETTINGS,
+    STR_PRAXIS_GAME,
+    STR_PRAXIS_FILE,
+    STR_PRAXIS_CONFIRM,
+    STR_PRAXIS_CANCEL,
+    STR_PRAXIS_ERROR,
+    STR_PRAXIS_SUCCESS,
+    STR_PRAXIS_SET_TREE_ROOT,
+    STR_PRAXIS_REFRESH,
+    STR_PRAXIS_EXIT,
+    STR_PRAXIS_BACKUP,
+    STR_PRAXIS_RESTORE,
+    STR_PRAXIS_MAX
+} praxis_string_index_t;
+
+/**
+ * @brief Gets a localized string by index.
+ * @param idx Index of the string to retrieve.
+ * @return Pointer to the localized wide string.
+ */
+const wchar_t *praxis_locale_str(praxis_string_index_t idx);
+
+/**
+ * @brief Gets the total number of available locales.
+ * @return Number of available locales.
+ */
+int praxis_locale_count(void);
+
+/**
+ * @brief Gets the name of a locale by index.
+ * @param idx Index of the locale.
+ * @return Pointer to the locale name string.
+ */
+const wchar_t *praxis_locale_name(int idx);
+
+/**
+ * @brief Gets the current locale index.
+ * @return Current locale index.
+ */
+int praxis_locale_get_current(void);
+
+/**
+ * @brief Sets the current locale index.
+ * @param idx The locale index to set as current.
+ */
+void praxis_locale_set_current(int idx);
+
+/**
+ * @brief Detects the system language and returns the best matching language index.
+ * @return Best matching language index.
+ */
+int praxis_locale_detect_system(void);
