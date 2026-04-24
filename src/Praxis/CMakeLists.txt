@@ -13,6 +13,8 @@ add_project(praxis WIN32
     ring_backup.h
     restore_safe.c
     restore_safe.h
+    hotkey.c
+    hotkey.h
     backends/er_backend.c
     resource.h
     app.rc
