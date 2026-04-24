@@ -2,7 +2,7 @@
  * @file game_backend.h
  * @brief Compile-time vtable interface for game-specific save operations.
  * @details Each game backend is a static const game_backend_t instance.
- *          No runtime discovery, no LoadLibraryW.
+ *          No runtime discovery; backends are static compile-time instances.
  */
 
 #pragma once
