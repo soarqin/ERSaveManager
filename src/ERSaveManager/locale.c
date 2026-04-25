@@ -91,6 +91,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Max",
         L"Compression failed",
         L"Invalid or corrupt compressed file",
+        L"Theme",
+        L"System",
+        L"Light",
+        L"Dark",
     },
     /* French strings */
     {
@@ -155,6 +159,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Maximum",
         L"Échec de la compression",
         L"Fichier compressé invalide ou corrompu",
+        L"Thème",
+        L"Système",
+        L"Clair",
+        L"Sombre",
     },
     /* German strings */
     {
@@ -219,6 +227,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Maximum",
         L"Komprimierung fehlgeschlagen",
         L"Ungültige oder beschädigte komprimierte Datei",
+        L"Design",
+        L"System",
+        L"Hell",
+        L"Dunkel",
     },
     /* Italian strings */
     {
@@ -283,6 +295,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Massima",
         L"Compressione non riuscita",
         L"File compresso non valido o corrotto",
+        L"Tema",
+        L"Sistema",
+        L"Chiaro",
+        L"Scuro",
     },
     /* Spanish strings */
     {
@@ -347,6 +363,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Máximo",
         L"Error de compresión",
         L"Archivo comprimido no válido o corrupto",
+        L"Tema",
+        L"Sistema",
+        L"Claro",
+        L"Oscuro",
     },
     /* Portuguese strings */
     {
@@ -411,6 +431,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Máximo",
         L"Falha na compressão",
         L"Arquivo comprimido inválido ou corrompido",
+        L"Tema",
+        L"Sistema",
+        L"Claro",
+        L"Escuro",
     },
     /* Russian strings */
     {
@@ -475,6 +499,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Максимум",
         L"Ошибка сжатия",
         L"Неверный или повреждённый сжатый файл",
+        L"Тема",
+        L"Системная",
+        L"Светлая",
+        L"Тёмная",
     },
     /* Japanese strings */
     {
@@ -539,6 +567,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"最大",
         L"圧縮に失敗しました",
         L"無効または破損した圧縮ファイルです",
+        L"テーマ",
+        L"システム",
+        L"ライト",
+        L"ダーク",
     },
     /* Korean strings */
     {
@@ -603,6 +635,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"최대",
         L"압축 실패",
         L"잘못되었거나 손상된 압축 파일입니다",
+        L"테마",
+        L"시스템",
+        L"라이트",
+        L"다크",
     },
     /* Simplified Chinese strings */
     {
@@ -667,6 +703,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"最大",
         L"压缩失败",
         L"无效或损坏的压缩文件",
+        L"主题",
+        L"跟随系统",
+        L"浅色",
+        L"深色",
     },
     /* Traditional Chinese strings */
     {
@@ -731,6 +771,10 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"最大",
         L"壓縮失敗",
         L"無效或損毀的壓縮檔案",
+        L"主題",
+        L"跟隨系統",
+        L"淺色",
+        L"深色",
     }
 };
 

@@ -74,6 +74,10 @@ typedef enum locale_string_index_e {
     STR_COMPRESSION_MAX,    /* "Max" */
     STR_COMPRESSION_ERROR,  /* "Compression failed" */
     STR_DECOMPRESSION_ERROR, /* "Invalid or corrupt compressed file" */
+    STR_THEME,              /* "Theme" */
+    STR_THEME_SYSTEM,       /* "System" */
+    STR_THEME_LIGHT,        /* "Light" */
+    STR_THEME_DARK,         /* "Dark" */
     STR_MAX /* Total number of strings */
 } locale_string_index_t;
 

@@ -9,6 +9,7 @@ add_project(saveman WIN32
     face_dialog.c face_dialog.h
 
     ui_controls.c ui_controls.h
+    theme.c theme.h
 
     resource.h
     app.rc
