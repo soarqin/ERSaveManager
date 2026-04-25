@@ -19,6 +19,8 @@ add_project(praxis WIN32
     hotkey.h
     profile_store.c
     profile_store.h
+    praxis_selftest.c
+    praxis_selftest.h
     toolbar.c
     toolbar.h
     bnd4_test_format.h
