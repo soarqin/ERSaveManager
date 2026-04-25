@@ -37,13 +37,12 @@ IDI_APPICON ICON "app.ico"
 
 IDR_MAIN_MENU MENU
 BEGIN
-    POPUP "&File"
-    BEGIN
-        MENUITEM "Set Tree Root...", IDM_FILE_SET_ROOT
-        MENUITEM "Refresh", IDM_FILE_REFRESH
-        MENUITEM SEPARATOR
-        MENUITEM "E&xit", IDM_FILE_EXIT
-    END
+     POPUP "&File"
+     BEGIN
+         MENUITEM "Set Tree Root...", IDM_FILE_SET_ROOT
+         MENUITEM SEPARATOR
+         MENUITEM "E&xit", IDM_FILE_EXIT
+     END
     POPUP "&Backup"
     BEGIN
         MENUITEM "Full Backup Now", IDM_BACKUP_FULL

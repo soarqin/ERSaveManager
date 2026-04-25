@@ -214,9 +214,6 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 }
             }
             return 0;
-        case IDM_FILE_REFRESH:
-            if (g_save_tree) save_tree_refresh(g_save_tree);
-            return 0;
         case IDM_FILE_EXIT:
             SendMessageW(hwnd, WM_CLOSE, 0, 0);
             return 0;
@@ -654,10 +651,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     HRESULT com_hr;
     bool com_initialized;
 
-    /* Initialize common controls (TreeView + ToolBar/StatusBar family). */
+    /* Initialize common controls (TreeView + ToolBar/StatusBar family + ListView + Standard). */
     INITCOMMONCONTROLSEX icex;
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-    icex.dwICC = ICC_TREEVIEW_CLASSES | ICC_BAR_CLASSES;
+    icex.dwICC = ICC_TREEVIEW_CLASSES | ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_STANDARD_CLASSES;
     InitCommonControlsEx(&icex);
 
     /* Enable visual styles for native-looking controls. */
