@@ -19,6 +19,7 @@
 #include "dialogs/edit_game_profile.h"
 #include "dialogs/game_profile_manager.h"
 #include "dialogs/edit_backup_profile.h"
+#include "dialogs/hotkey_settings.h"
 
 #include "ersave.h"
 #include "save_compress.h"
@@ -120,7 +121,9 @@ static const game_backend_t *get_active_backend(void) {
     return backend_registry_get_default();
 }
 
-static bool save_profile_store(void) {
+/* Exposed (non-static) so dialogs/hotkey_settings.c can persist the INI
+ * after committing new bindings without reaching into private state. */
+bool save_profile_store(void) {
     wchar_t ini[MAX_PATH];
 
     if (!config_core_get_app_ini_path(ini, MAX_PATH, L"Praxis.ini")) {
@@ -582,6 +585,23 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             apply_active_profile_ui(hwnd);
             return 0;
         }
+        /* Dynamic Language submenu selection */
+        if (LOWORD(wp) >= IDM_LANG_FIRST && LOWORD(wp) <= IDM_LANG_LAST) {
+            int idx = (int)(LOWORD(wp) - IDM_LANG_FIRST);
+            if (idx >= 0 && idx < praxis_locale_count() && idx != praxis_locale_get_current()) {
+                praxis_locale_set_current(idx);
+                praxis_config.language = idx;
+                save_profile_store();
+                /* Refresh visible UI strings without requiring a restart.
+                 * The Language submenu itself is rebuilt on next
+                 * WM_INITMENUPOPUP so its checkmark moves automatically. */
+                if (g_toolbar) {
+                    toolbar_apply_locale_strings(g_toolbar);
+                }
+                set_active_status_text();
+            }
+            return 0;
+        }
         if (HIWORD(wp) == CBN_SELCHANGE && LOWORD(wp) == IDC_PROFILE_COMBO) {
             int selected_id = toolbar_get_selected_backup_id(g_toolbar);
 
@@ -676,19 +696,35 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             SendMessageW(hwnd, WM_CLOSE, 0, 0);
             return 0;
         case IDM_OPTIONS_HOTKEYS:
-            MessageBoxW(hwnd, L"Configure hotkeys in Praxis.ini", L"Hotkey Settings", MB_OK | MB_ICONINFORMATION);
+            show_hotkey_settings(hwnd);
             return 0;
         }
         return 0;
 
     case WM_INITMENUPOPUP: {
             HMENU sub = (HMENU)wp;
-            /* Identify Game submenu by checking if it contains IDM_GAME_MANAGE */
             int count = GetMenuItemCount(sub);
             bool is_game_menu = false;
+            bool is_lang_menu = false;
+
+            /* Identify the popup by inspecting its current item IDs:
+             *   - Game submenu always contains IDM_GAME_MANAGE.
+             *   - Language submenu contains IDM_OPTIONS_LANG (the static
+             *     "English" placeholder from the .rc) on first open, or any
+             *     id in [IDM_LANG_FIRST, IDM_LANG_LAST] after rebuild. */
             for (int i = 0; i < count; i++) {
-                if (GetMenuItemID(sub, i) == IDM_GAME_MANAGE) { is_game_menu = true; break; }
+                UINT id = GetMenuItemID(sub, i);
+                if (id == IDM_GAME_MANAGE) {
+                    is_game_menu = true;
+                    break;
+                }
+                if (id == IDM_OPTIONS_LANG ||
+                    (id >= IDM_LANG_FIRST && id <= IDM_LANG_LAST)) {
+                    is_lang_menu = true;
+                    break;
+                }
             }
+
             if (is_game_menu) {
                 /* Keep ONLY the Manage item (1 item). Remove all dynamically inserted items. */
                 while (GetMenuItemCount(sub) > 1) {
@@ -708,6 +744,32 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 if (g_profile_store.game_count > 0) {
                     InsertMenuW(sub, (int)g_profile_store.game_count, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
                 }
+                return 0;
+            }
+
+            if (is_lang_menu) {
+                /* Wipe the entire submenu (sentinel placeholder + any prior
+                 * dynamic items) and rebuild it from the locale catalog with
+                 * the active locale checked. */
+                int n;
+                int cur;
+
+                while (GetMenuItemCount(sub) > 0) {
+                    DeleteMenu(sub, 0, MF_BYPOSITION);
+                }
+
+                n = praxis_locale_count();
+                cur = praxis_locale_get_current();
+                for (int i = 0; i < n; i++) {
+                    UINT flags = MF_BYPOSITION | MF_STRING;
+                    if (i == cur) {
+                        flags |= MF_CHECKED;
+                    }
+                    InsertMenuW(sub, i, flags,
+                                (UINT_PTR)(IDM_LANG_FIRST + i),
+                                praxis_locale_name(i));
+                }
+                return 0;
             }
             return 0;
         }
@@ -1564,10 +1626,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     HRESULT com_hr;
     bool com_initialized;
 
-    /* Initialize common controls (TreeView + ToolBar/StatusBar family + ListView + Standard). */
+    /* Initialize common controls (TreeView + ToolBar/StatusBar family + ListView + Standard + Hotkey). */
     INITCOMMONCONTROLSEX icex;
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-    icex.dwICC = ICC_TREEVIEW_CLASSES | ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_STANDARD_CLASSES;
+    icex.dwICC = ICC_TREEVIEW_CLASSES | ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES
+               | ICC_STANDARD_CLASSES | ICC_HOTKEY_CLASS;
     InitCommonControlsEx(&icex);
 
     /* Enable visual styles for native-looking controls. */
