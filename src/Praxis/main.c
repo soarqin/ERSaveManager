@@ -16,6 +16,7 @@
 #include "save_watcher.h"
 #include "profile_store.h"
 #include "toolbar.h"
+#include "bnd4_test_format.h"
 #include "dialogs/edit_game_profile.h"
 #include "dialogs/game_profile_manager.h"
 #include "dialogs/edit_backup_profile.h"
@@ -903,16 +904,16 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
 /* Creates a minimal valid BND4 save file at path with the given Steam user ID.
  * Mirrors ERSaveManager's make_min_valid_sl2 for headless testing. */
 static bool praxis_make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
-    const uint32_t char_slot_size    = 0x280010u;  /* ER_CHAR_SLOT_FILE_SIZE */
-    const uint32_t summary_slot_size = 0x60010u;   /* ER_SUMMARY_SLOT_FILE_SIZE */
-    const uint32_t slot0_offset      = 0x300u;     /* ER_FILE_HEADER_SIZE */
-    const uint32_t summary_data_size = 0x60000u;   /* ER_SUMMARY_DATA_SIZE */
-    const uint32_t face_section_size = 0x11D0u;    /* ER_SUMMARY_FACE_SECTION_SIZE */
+    const uint32_t char_slot_size    = BND4_TEST_CHAR_SLOT_SIZE;
+    const uint32_t summary_slot_size = BND4_TEST_SUMMARY_SLOT_SIZE;
+    const uint32_t slot0_offset      = BND4_TEST_FILE_HEADER_SIZE;
+    const uint32_t summary_data_size = BND4_TEST_SUMMARY_DATA_SIZE;
+    const uint32_t face_section_size = BND4_TEST_SUMMARY_FACE_SECTION;
 
     const uint32_t summary_offset = slot0_offset + 10u * char_slot_size;
     const uint32_t index_offset   = summary_offset + summary_slot_size;
     const uint32_t total_size     = index_offset + summary_slot_size;
-    const uint32_t summary_layout_size = face_section_size + 0x14u;
+    const uint32_t summary_layout_size = face_section_size + BND4_TEST_SUMMARY_LAYOUT_ADJUSTMENT;
 
     uint8_t *file_data = LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, total_size);
     if (!file_data) {
@@ -922,26 +923,26 @@ static bool praxis_make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
     /* BND4 magic */
     CopyMemory(file_data, "BND4", 4);
     /* Slot count = 12 */
-    *(uint32_t *)(file_data + 0x0C) = 12u;
+    *(uint32_t *)(file_data + BND4_TEST_SLOT_COUNT_OFFSET) = 12u;
 
     /* Slot size + offset arrays: 10 char slots, 1 summary slot, 1 index slot */
     for (int i = 0; i < 10; i++) {
-        *(uint32_t *)(file_data + 0x48 + i * 0x20) = char_slot_size;
-        *(uint32_t *)(file_data + 0x50 + i * 0x20) = slot0_offset + (uint32_t)i * char_slot_size;
+        *(uint32_t *)(file_data + BND4_TEST_SLOT_SIZE_ARRAY_OFFSET + i * BND4_TEST_SLOT_ENTRY_STRIDE) = char_slot_size;
+        *(uint32_t *)(file_data + BND4_TEST_SLOT_OFFSET_ARRAY_OFFSET + i * BND4_TEST_SLOT_ENTRY_STRIDE) = slot0_offset + (uint32_t)i * char_slot_size;
     }
-    *(uint32_t *)(file_data + 0x48 + 10 * 0x20) = summary_slot_size;
-    *(uint32_t *)(file_data + 0x50 + 10 * 0x20) = summary_offset;
-    *(uint32_t *)(file_data + 0x48 + 11 * 0x20) = summary_slot_size;
-    *(uint32_t *)(file_data + 0x50 + 11 * 0x20) = index_offset;
+    *(uint32_t *)(file_data + BND4_TEST_SLOT_SIZE_ARRAY_OFFSET + 10 * BND4_TEST_SLOT_ENTRY_STRIDE) = summary_slot_size;
+    *(uint32_t *)(file_data + BND4_TEST_SLOT_OFFSET_ARRAY_OFFSET + 10 * BND4_TEST_SLOT_ENTRY_STRIDE) = summary_offset;
+    *(uint32_t *)(file_data + BND4_TEST_SLOT_SIZE_ARRAY_OFFSET + 11 * BND4_TEST_SLOT_ENTRY_STRIDE) = summary_slot_size;
+    *(uint32_t *)(file_data + BND4_TEST_SLOT_OFFSET_ARRAY_OFFSET + 11 * BND4_TEST_SLOT_ENTRY_STRIDE) = index_offset;
 
-    /* Summary payload starts at summary_offset + 0x10 (after MD5 slot header) */
-    uint8_t *summary_payload = file_data + summary_offset + 0x10;
-    /* user_id at payload offset 0x04 */
-    *(uint64_t *)(summary_payload + 0x04) = user_id;
-    /* sz field at payload offset 0x150 spans face data, active slot, and padding before availability bytes */
-    *(uint32_t *)(summary_payload + 0x150) = summary_layout_size;
-    /* face-section size marker at payload offset 0x158 */
-    *(uint32_t *)(summary_payload + 0x158) = face_section_size;
+    /* Summary payload starts at summary_offset + MD5 header (after MD5 slot header) */
+    uint8_t *summary_payload = file_data + summary_offset + BND4_TEST_MD5_HEADER_SIZE;
+    /* user_id at payload offset */
+    *(uint64_t *)(summary_payload + BND4_TEST_SUMMARY_USER_ID_OFFSET) = user_id;
+    /* sz field spans face data, active slot, and padding before availability bytes */
+    *(uint32_t *)(summary_payload + BND4_TEST_SUMMARY_SZ_OFFSET) = summary_layout_size;
+    /* face-section size marker */
+    *(uint32_t *)(summary_payload + BND4_TEST_SUMMARY_FACE_OFFSET) = face_section_size;
 
     /* MD5 of summary payload bytes goes in the 16-byte slot header prefix */
     md5_buffer(summary_payload, summary_data_size, file_data + summary_offset);

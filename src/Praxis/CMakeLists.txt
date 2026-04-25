@@ -21,6 +21,7 @@ add_project(praxis WIN32
     profile_store.h
     toolbar.c
     toolbar.h
+    bnd4_test_format.h
     dialogs/game_profile_manager.c
     dialogs/game_profile_manager.h
     dialogs/edit_game_profile.c
