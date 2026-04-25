@@ -5,9 +5,7 @@
  *          and handles TreeView rename, context menu, and drag-move behavior.
  */
 
-#include "save_tree.h"
-
-#include "locale.h"
+#include "save_tree_internal.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -18,40 +16,14 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
-#include <shellapi.h>
-#include <shlobj.h>      /* SHParseDisplayName, SHOpenFolderAndSelectItems */
 #include <shlwapi.h>
 
 #define SAVE_TREE_MAX_DEPTH 16
 #define SAVE_TREE_MAX_EXPANDED_PATHS 256
-#define ID_SAVE_TREE_NEW_FOLDER       50001
-#define ID_SAVE_TREE_RENAME           50002
-#define ID_SAVE_TREE_DELETE           50003
-#define ID_SAVE_TREE_SHOW_IN_EXPLORER 50004
-
-typedef struct save_item_s {
-    wchar_t relative_path[MAX_PATH]; /* Relative to tree root */
-    bool is_directory;
-} save_item_t;
-
 typedef struct walk_entry_s {
     wchar_t name[MAX_PATH];
     DWORD attributes;
 } walk_entry_t;
-
-struct save_tree_s {
-    HWND hwnd;                  /* WC_TREEVIEW control */
-    wchar_t root_path[MAX_PATH];
-    save_item_t *items;         /* Dynamic array */
-    size_t item_count;
-    size_t item_capacity;
-    /* Drag state */
-    bool dragging;
-    HTREEITEM drag_src;
-    HIMAGELIST drag_image;
-    /* System icon indices for cached lookups (resolved lazily). */
-    int folder_icon_idx;        /* Cached generic folder icon index, -1 if unresolved */
-};
 
 /* Forward declaration: refresh body without redraw bracketing.
  * Public save_tree_refresh() / save_tree_refresh_preserve_selection() handle
@@ -86,65 +58,6 @@ static int save_tree_resolve_icon_index(const wchar_t *name, bool is_directory) 
     return sfi.iIcon;
 }
 
-/* Open the user's file manager at @p full_path and highlight the item.
- *  - For files / non-root directories, uses SHOpenFolderAndSelectItems to
- *    open the parent folder with the target highlighted (Windows Explorer
- *    "Reveal in Folder" behavior).
- *  - For the tree root itself (selecting it has no logical parent within
- *    Praxis), simply opens the folder via ShellExecute. The caller decides
- *    which mode by passing @p select_in_parent.
- * Returns true on apparent success. Failures are silent (best-effort UX). */
-static bool save_tree_reveal_in_explorer(const wchar_t *full_path, bool select_in_parent) {
-    if (!full_path || full_path[0] == L'\0') {
-        return false;
-    }
-
-    if (!select_in_parent) {
-        HINSTANCE rv = ShellExecuteW(NULL, L"open", full_path, NULL, NULL, SW_SHOWNORMAL);
-        return (INT_PTR)rv > 32;
-    }
-
-    PIDLIST_ABSOLUTE pidl = NULL;
-    HRESULT hr = SHParseDisplayName(full_path, NULL, &pidl, 0, NULL);
-    if (FAILED(hr) || !pidl) {
-        /* Fallback: explorer.exe /select,"<path>" — works even when COM /
-         * the desktop folder PIDL parsing path fails for some reason. */
-        wchar_t args[MAX_PATH + 16];
-        HINSTANCE rv;
-
-        _snwprintf(args, MAX_PATH + 16, L"/select,\"%ls\"", full_path);
-        args[MAX_PATH + 15] = L'\0';
-        rv = ShellExecuteW(NULL, L"open", L"explorer.exe", args, NULL, SW_SHOWNORMAL);
-        return (INT_PTR)rv > 32;
-    }
-
-    hr = SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
-    /* Cast through void* to drop the __unaligned qualifier on PIDLIST_ABSOLUTE
-     * (x64 only) and silence -Wincompatible-pointer-types-discards-qualifiers. */
-    CoTaskMemFree((void *)pidl);
-    return SUCCEEDED(hr);
-}
-
-/* Compute the visual display name for a tree item.
- *  - For directories: identical to leaf name.
- *  - For files: leaf name with extension stripped. We display ext-less names
- *    for a friendlier UX; the actual filename on disk keeps its extension and
- *    is used for all I/O via items[i].relative_path. */
-static void save_tree_make_display_name(const wchar_t *leaf, bool is_directory,
-    wchar_t *out, size_t out_chars) {
-    if (!out || out_chars == 0) {
-        return;
-    }
-    if (!leaf) {
-        out[0] = L'\0';
-        return;
-    }
-    lstrcpynW(out, leaf, (int)out_chars);
-    if (!is_directory) {
-        PathRemoveExtensionW(out);
-    }
-}
-
 static bool ensure_capacity(save_tree_t *t) {
     if (!t) {
         return false;
@@ -171,7 +84,7 @@ static bool ensure_capacity(save_tree_t *t) {
     return true;
 }
 
-static bool build_full_path(const save_tree_t *t, const wchar_t *relpath, wchar_t *out, size_t out_chars) {
+bool save_tree_build_full_path(const save_tree_t *t, const wchar_t *relpath, wchar_t *out, size_t out_chars) {
     size_t root_len;
 
     if (!t || !out || out_chars == 0 || t->root_path[0] == L'\0') {
@@ -190,7 +103,7 @@ static bool build_full_path(const save_tree_t *t, const wchar_t *relpath, wchar_
     return true;
 }
 
-static bool get_item_info(const save_tree_t *t, HTREEITEM item, size_t *out_index, save_item_t *out_value) {
+bool save_tree_get_item_info(const save_tree_t *t, HTREEITEM item, size_t *out_index, save_item_t *out_value) {
     TVITEMW tv_item = {0};
     size_t index;
 
@@ -218,7 +131,7 @@ static bool get_item_info(const save_tree_t *t, HTREEITEM item, size_t *out_inde
     return true;
 }
 
-static bool get_parent_relpath(const wchar_t *relpath, wchar_t *out, size_t out_chars) {
+bool save_tree_get_parent_relpath(const wchar_t *relpath, wchar_t *out, size_t out_chars) {
     if (!out || out_chars == 0) {
         return false;
     }
@@ -265,33 +178,6 @@ static int __cdecl compare_walk_entries(const void *lhs, const void *rhs) {
         return left_is_dir ? -1 : 1;
     }
     return lstrcmpW(left->name, right->name);
-}
-
-static void end_drag(save_tree_t *t) {
-    if (!t) {
-        return;
-    }
-
-    if (t->dragging) {
-        if (t->hwnd) {
-            TreeView_SelectDropTarget(t->hwnd, NULL);
-        }
-        if (GetCapture() == t->hwnd) {
-            ReleaseCapture();
-        }
-        if (t->drag_image) {
-            ImageList_DragLeave(t->hwnd);
-            ImageList_EndDrag();
-        }
-    }
-
-    if (t->drag_image) {
-        ImageList_Destroy(t->drag_image);
-        t->drag_image = NULL;
-    }
-
-    t->dragging = false;
-    t->drag_src = NULL;
 }
 
 static bool append_item(save_tree_t *t, const wchar_t *relative_path, bool is_directory, size_t *out_index) {
@@ -394,56 +280,6 @@ static void collect_expanded_paths(save_tree_t *t, HTREEITEM hitem,
 
         hitem = TreeView_GetNextSibling(t->hwnd, hitem);
     }
-}
-
-static bool choose_drop_parent(const save_tree_t *t, HTREEITEM target, wchar_t *dst_parent_relpath, size_t out_chars) {
-    save_item_t item;
-
-    if (!dst_parent_relpath || out_chars == 0) {
-        return false;
-    }
-
-    dst_parent_relpath[0] = L'\0';
-    if (!target) {
-        return true;
-    }
-
-    if (!get_item_info(t, target, NULL, &item)) {
-        return false;
-    }
-
-    if (item.is_directory) {
-        if ((size_t)lstrlenW(item.relative_path) >= out_chars) {
-            return false;
-        }
-        lstrcpyW(dst_parent_relpath, item.relative_path);
-        return true;
-    }
-
-    return get_parent_relpath(item.relative_path, dst_parent_relpath, out_chars);
-}
-
-static bool create_unique_folder(save_tree_t *t, const wchar_t *parent_relpath) {
-    wchar_t name[MAX_PATH];
-    const wchar_t *base_name = praxis_locale_str(STR_PRAXIS_NEW_FOLDER);
-
-    if (!t || !base_name) {
-        return false;
-    }
-
-    if (save_tree_new_folder(t, parent_relpath, base_name)) {
-        return true;
-    }
-
-    for (int suffix = 2; suffix <= 999; suffix++) {
-        _snwprintf(name, MAX_PATH, L"%ls (%d)", base_name, suffix);
-        name[MAX_PATH - 1] = L'\0';
-        if (save_tree_new_folder(t, parent_relpath, name)) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 static void walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *rel_prefix,
@@ -558,65 +394,6 @@ static void walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *rel
     LocalFree(entries);
 }
 
-static LRESULT CALLBACK save_tree_subclass_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
-    UINT_PTR subclass_id, DWORD_PTR ref_data) {
-    save_tree_t *t = (save_tree_t *)ref_data;
-
-    (void)subclass_id;
-
-    switch (msg) {
-    case WM_MOUSEMOVE:
-        if (t && t->dragging && t->drag_image) {
-            POINT pt = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
-            TVHITTESTINFO hit = {0};
-
-            ImageList_DragMove(pt.x, pt.y);
-
-            hit.pt = pt;
-            TreeView_HitTest(hwnd, &hit);
-            TreeView_SelectDropTarget(hwnd, hit.hItem);
-            return 0;
-        }
-        break;
-
-    case WM_LBUTTONUP:
-        if (t && t->dragging) {
-            POINT pt = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
-            TVHITTESTINFO hit = {0};
-            save_item_t src_item;
-            wchar_t dst_parent_relpath[MAX_PATH];
-
-            hit.pt = pt;
-            TreeView_HitTest(hwnd, &hit);
-
-            if (get_item_info(t, t->drag_src, NULL, &src_item)
-                && choose_drop_parent(t, hit.hItem, dst_parent_relpath, MAX_PATH)) {
-                save_tree_move(t, src_item.relative_path, dst_parent_relpath);
-            }
-
-            end_drag(t);
-            return 0;
-        }
-        break;
-
-    case WM_CAPTURECHANGED:
-        if (t && t->dragging && (HWND)lp != hwnd) {
-            end_drag(t);
-            return 0;
-        }
-        break;
-
-    case WM_NCDESTROY:
-        if (t) {
-            end_drag(t);
-        }
-        RemoveWindowSubclass(hwnd, save_tree_subclass_proc, 1);
-        break;
-    }
-
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
-
 save_tree_t *save_tree_create(HWND parent, HINSTANCE hinst, int id) {
     save_tree_t *t = LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, sizeof(save_tree_t));
 
@@ -668,7 +445,7 @@ void save_tree_destroy(save_tree_t *t) {
         return;
     }
 
-    end_drag(t);
+    save_tree_end_drag(t);
     if (t->items) {
         LocalFree(t->items);
     }
@@ -700,7 +477,7 @@ static void save_tree_refresh_inner(save_tree_t *t) {
     }
 
     if (t->dragging) {
-        end_drag(t);
+        save_tree_end_drag(t);
     }
 
     if (t->hwnd) {
@@ -775,7 +552,7 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
     }
 
     if (t->dragging) {
-        end_drag(t);
+        save_tree_end_drag(t);
     }
 
     /* Anti-flicker: bracket the entire capture/refresh/restore sequence in
@@ -787,7 +564,7 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
         HTREEITEM selection = TreeView_GetSelection(t->hwnd);
         save_item_t item;
 
-        if (selection && get_item_info(t, selection, NULL, &item)) {
+        if (selection && save_tree_get_item_info(t, selection, NULL, &item)) {
             lstrcpynW(saved_relpath, item.relative_path, MAX_PATH);
         }
 
@@ -896,11 +673,11 @@ bool save_tree_get_selected_path(const save_tree_t *t, wchar_t *out, size_t out_
     }
 
     selection = TreeView_GetSelection(t->hwnd);
-    if (!selection || !get_item_info(t, selection, NULL, &item)) {
+    if (!selection || !save_tree_get_item_info(t, selection, NULL, &item)) {
         return false;
     }
 
-    return build_full_path(t, item.relative_path, out, out_chars);
+    return save_tree_build_full_path(t, item.relative_path, out, out_chars);
 }
 
 bool save_tree_select_full_path(save_tree_t *t, const wchar_t *full_path) {
@@ -976,7 +753,7 @@ bool save_tree_get_selected_dir(const save_tree_t *t, wchar_t *out, size_t out_c
         return true;
     }
 
-    if (!get_item_info(t, selection, NULL, &item)) {
+    if (!save_tree_get_item_info(t, selection, NULL, &item)) {
         return false;
     }
 
@@ -986,10 +763,10 @@ bool save_tree_get_selected_dir(const save_tree_t *t, wchar_t *out, size_t out_c
     }
 
     if (item.is_directory) {
-        return build_full_path(t, item.relative_path, out, out_chars);
+        return save_tree_build_full_path(t, item.relative_path, out, out_chars);
     }
 
-    if (!build_full_path(t, item.relative_path, out, out_chars)) {
+    if (!save_tree_build_full_path(t, item.relative_path, out, out_chars)) {
         return false;
     }
 
@@ -1012,7 +789,7 @@ bool save_tree_rename(save_tree_t *t, const wchar_t *old_relpath, const wchar_t 
         return false;
     }
 
-    if (!build_full_path(t, old_relpath, old_full, MAX_PATH)) {
+    if (!save_tree_build_full_path(t, old_relpath, old_full, MAX_PATH)) {
         return false;
     }
 
@@ -1039,7 +816,7 @@ bool save_tree_rename(save_tree_t *t, const wchar_t *old_relpath, const wchar_t 
      * after the tree is rebuilt. The file watcher debounce will see this
      * selection and preserve it via the exact-match walk-up path. */
     new_relpath[0] = L'\0';
-    if (get_parent_relpath(old_relpath, parent_relpath, MAX_PATH)) {
+    if (save_tree_get_parent_relpath(old_relpath, parent_relpath, MAX_PATH)) {
         if (parent_relpath[0] != L'\0') {
             lstrcpynW(new_relpath, parent_relpath, MAX_PATH);
             if (!PathAppendW(new_relpath, new_name)) {
@@ -1074,7 +851,7 @@ bool save_tree_delete(save_tree_t *t, const wchar_t *relpath) {
     wchar_t full[MAX_PATH + 2];
     SHFILEOPSTRUCTW op = {0};
 
-    if (!t || !relpath || !build_full_path(t, relpath, full, MAX_PATH + 1)) {
+    if (!t || !relpath || !save_tree_build_full_path(t, relpath, full, MAX_PATH + 1)) {
         return false;
     }
 
@@ -1094,7 +871,7 @@ bool save_tree_delete(save_tree_t *t, const wchar_t *relpath) {
 bool save_tree_new_folder(save_tree_t *t, const wchar_t *parent_relpath, const wchar_t *name) {
     wchar_t full[MAX_PATH];
 
-    if (!t || !name || !is_valid_name(name) || !build_full_path(t, parent_relpath, full, MAX_PATH)) {
+    if (!t || !name || !is_valid_name(name) || !save_tree_build_full_path(t, parent_relpath, full, MAX_PATH)) {
         return false;
     }
 
@@ -1118,8 +895,8 @@ bool save_tree_move(save_tree_t *t, const wchar_t *src_relpath, const wchar_t *d
     SHFILEOPSTRUCTW op = {0};
 
     if (!t || !src_relpath
-        || !build_full_path(t, src_relpath, src_full, MAX_PATH + 1)
-        || !build_full_path(t, dst_parent_relpath, dst_full, MAX_PATH + 1)) {
+        || !save_tree_build_full_path(t, src_relpath, src_full, MAX_PATH + 1)
+        || !save_tree_build_full_path(t, dst_parent_relpath, dst_full, MAX_PATH + 1)) {
         return false;
     }
 
@@ -1158,227 +935,3 @@ int save_tree_item_count(const save_tree_t *t) {
     return t ? (int)t->item_count : 0;
 }
 
-bool save_tree_handle_notify(save_tree_t *t, LPNMHDR pnm, LRESULT *out_result) {
-    if (!t || !pnm || pnm->hwndFrom != t->hwnd) {
-        return false;
-    }
-
-    switch (pnm->code) {
-    case TVN_BEGINLABELEDITW:
-    case TVN_BEGINLABELEDITA:
-        {
-            /* Disallow editing the wrapper root (empty relative_path). For
-             * everything else, replace the in-place edit control's text with
-             * the leaf-name-without-extension so users edit just the base
-             * name. The extension is re-appended in TVN_ENDLABELEDIT. */
-            NMTVDISPINFOW *info = (NMTVDISPINFOW *)pnm;
-            save_item_t item;
-
-            if (!info->item.hItem || !get_item_info(t, info->item.hItem, NULL, &item)
-                || item.relative_path[0] == L'\0') {
-                if (out_result) {
-                    *out_result = TRUE;  /* TRUE cancels the edit */
-                }
-                return true;
-            }
-
-            if (!item.is_directory) {
-                HWND edit = TreeView_GetEditControl(t->hwnd);
-                if (edit) {
-                    wchar_t base[MAX_PATH];
-                    const wchar_t *leaf = PathFindFileNameW(item.relative_path);
-
-                    save_tree_make_display_name(leaf, false, base, MAX_PATH);
-                    SetWindowTextW(edit, base);
-                    /* Select all so typing replaces the whole base name. */
-                    SendMessageW(edit, EM_SETSEL, 0, (LPARAM)-1);
-                }
-            }
-
-            if (out_result) {
-                *out_result = FALSE;  /* FALSE allows the edit to proceed */
-            }
-            return true;
-        }
-
-    case TVN_ENDLABELEDITW:
-    case TVN_ENDLABELEDITA:
-        {
-            NMTVDISPINFOW *info = (NMTVDISPINFOW *)pnm;
-            save_item_t item;
-            bool ok = false;
-
-            if (info->item.pszText && get_item_info(t, info->item.hItem, NULL, &item)) {
-                wchar_t new_name[MAX_PATH];
-
-                if (item.is_directory) {
-                    lstrcpynW(new_name, info->item.pszText, MAX_PATH);
-                } else {
-                    /* Re-append the original file extension so the on-disk
-                     * filename keeps its type. If the user typed an extension
-                     * matching the original (case-insensitive), don't double
-                     * it up. */
-                    const wchar_t *old_leaf = PathFindFileNameW(item.relative_path);
-                    const wchar_t *old_ext = old_leaf ? PathFindExtensionW(old_leaf) : L"";
-                    const wchar_t *user_ext;
-
-                    lstrcpynW(new_name, info->item.pszText, MAX_PATH);
-                    user_ext = PathFindExtensionW(new_name);
-                    if (old_ext && old_ext[0] != L'\0'
-                        && lstrcmpiW(user_ext, old_ext) != 0) {
-                        size_t cur_len = (size_t)lstrlenW(new_name);
-                        size_t ext_len = (size_t)lstrlenW(old_ext);
-                        if (cur_len + ext_len + 1 <= MAX_PATH) {
-                            lstrcatW(new_name, old_ext);
-                        }
-                    }
-                }
-
-                ok = save_tree_rename(t, item.relative_path, new_name);
-            }
-            if (out_result) {
-                /* Return FALSE: regardless of rename outcome, save_tree_rename
-                 * has already triggered a full refresh that supplies the
-                 * correct display text. Returning TRUE would let TreeView
-                 * overwrite our refreshed label with the user's raw input
-                 * (which lacks the extension we just stripped on display). */
-                *out_result = FALSE;
-            }
-            return true;
-        }
-
-    case TVN_KEYDOWN:
-        {
-            /* Built-in keyboard shortcuts:
-             *   F2  -> begin in-place rename of selection
-             *   Del -> delete the selection (Recycle Bin) */
-            NMTVKEYDOWN *kd = (NMTVKEYDOWN *)pnm;
-            HTREEITEM sel = TreeView_GetSelection(t->hwnd);
-            save_item_t item;
-            bool have_item = sel && get_item_info(t, sel, NULL, &item);
-
-            switch (kd->wVKey) {
-            case VK_F2:
-                if (have_item && item.relative_path[0] != L'\0') {
-                    TreeView_EditLabel(t->hwnd, sel);
-                }
-                break;
-            case VK_DELETE:
-                if (have_item && item.relative_path[0] != L'\0') {
-                    save_tree_delete(t, item.relative_path);
-                }
-                break;
-            }
-            if (out_result) {
-                *out_result = 0;
-            }
-            return true;
-        }
-
-    case TVN_BEGINDRAGW:
-    case TVN_BEGINDRAGA:
-        {
-            NMTREEVIEWW *info = (NMTREEVIEWW *)pnm;
-
-            end_drag(t);
-            t->dragging = true;
-            t->drag_src = info->itemNew.hItem;
-            t->drag_image = TreeView_CreateDragImage(t->hwnd, t->drag_src);
-            if (t->drag_image) {
-                ImageList_BeginDrag(t->drag_image, 0, 0, 0);
-                ImageList_DragEnter(t->hwnd, info->ptDrag.x, info->ptDrag.y);
-            }
-            SetCapture(t->hwnd);
-            if (out_result) {
-                *out_result = 0;
-            }
-            return true;
-        }
-
-    case NM_RCLICK:
-        {
-            DWORD pos = GetMessagePos();
-            POINT screen_pt = { GET_X_LPARAM(pos), GET_Y_LPARAM(pos) };
-            POINT client_pt = screen_pt;
-            TVHITTESTINFO hit = {0};
-            HMENU menu;
-            UINT cmd;
-            save_item_t item;
-            wchar_t parent_relpath[MAX_PATH];
-
-            ScreenToClient(t->hwnd, &client_pt);
-            hit.pt = client_pt;
-            TreeView_HitTest(t->hwnd, &hit);
-            if (hit.hItem) {
-                TreeView_SelectItem(t->hwnd, hit.hItem);
-            }
-
-            menu = CreatePopupMenu();
-            if (!menu) {
-                return true;
-            }
-
-            AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_NEW_FOLDER, praxis_locale_str(STR_PRAXIS_NEW_FOLDER));
-            AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_RENAME, praxis_locale_str(STR_PRAXIS_RENAME));
-            AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_DELETE, praxis_locale_str(STR_PRAXIS_DELETE));
-            AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
-            AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_SHOW_IN_EXPLORER,
-                praxis_locale_str(STR_PRAXIS_SHOW_IN_EXPLORER));
-
-            cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, screen_pt.x, screen_pt.y, 0,
-                GetParent(t->hwnd), NULL);
-            DestroyMenu(menu);
-
-            switch (cmd) {
-            case ID_SAVE_TREE_NEW_FOLDER:
-                if (hit.hItem && get_item_info(t, hit.hItem, NULL, &item)) {
-                    if (item.is_directory) {
-                        create_unique_folder(t, item.relative_path);
-                    } else if (get_parent_relpath(item.relative_path, parent_relpath, MAX_PATH)) {
-                        create_unique_folder(t, parent_relpath);
-                    }
-                } else {
-                    create_unique_folder(t, L"");
-                }
-                break;
-
-            case ID_SAVE_TREE_RENAME:
-                if (hit.hItem) {
-                    TreeView_EditLabel(t->hwnd, hit.hItem);
-                }
-                break;
-
-            case ID_SAVE_TREE_DELETE:
-                if (hit.hItem && get_item_info(t, hit.hItem, NULL, &item)) {
-                    save_tree_delete(t, item.relative_path);
-                }
-                break;
-
-            case ID_SAVE_TREE_SHOW_IN_EXPLORER:
-                {
-                    /* Wrapper root or empty space -> open the tree root.
-                     * Anything else -> open the parent folder with the
-                     * item highlighted. */
-                    wchar_t full[MAX_PATH];
-                    bool have_item = hit.hItem
-                        && get_item_info(t, hit.hItem, NULL, &item)
-                        && item.relative_path[0] != L'\0';
-
-                    if (have_item && build_full_path(t, item.relative_path, full, MAX_PATH)) {
-                        save_tree_reveal_in_explorer(full, true);
-                    } else if (t->root_path[0] != L'\0') {
-                        save_tree_reveal_in_explorer(t->root_path, false);
-                    }
-                }
-                break;
-            }
-
-            if (out_result) {
-                *out_result = 0;
-            }
-            return true;
-        }
-    }
-
-    return false;
-}
