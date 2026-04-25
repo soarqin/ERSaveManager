@@ -31,6 +31,18 @@ void save_tree_refresh(save_tree_t *t);
 void save_tree_refresh_preserve_selection(save_tree_t *t);
 bool save_tree_get_selected_path(const save_tree_t *t, wchar_t *out, size_t out_chars);
 /**
+ * @brief Select an item by its absolute file path.
+ * @details Converts the absolute path to a relative path (under t->root_path),
+ *          finds the matching item in the tree, selects it via TreeView_SelectItem,
+ *          and ensures it is visible via TreeView_EnsureVisible.
+ *          Returns false if full_path is not under t->root_path or no matching
+ *          item exists in the tree.
+ * @param t Tree widget instance.
+ * @param full_path Absolute file or directory path.
+ * @return true on success, false otherwise.
+ */
+bool save_tree_select_full_path(save_tree_t *t, const wchar_t *full_path);
+/**
  * @brief Get the directory path of the currently selected item.
  * @details If the selection is a directory, returns its full path. If the
  *          selection is a file, returns the parent directory's full path.

@@ -286,6 +286,32 @@ static void apply_active_profile_ui(HWND hwnd) {
     set_active_status_text();
 }
 
+/*
+ * Backup race-condition note:
+ *
+ * When a backup is created, the filesystem watcher worker thread detects the
+ * change and posts WM_APP+1 to the UI thread. This sets a 200ms debounce
+ * timer; on expiry, save_tree_refresh_preserve_selection() runs.
+ *
+ * Sequence for backup_full_active() / backup_slot_active():
+ *   T0:    WM_COMMAND IDC_BTN_BACKUP_* dispatched, this function begins
+ *   T0+a:  Backup file created on disk
+ *   T0+b:  Worker thread posts WM_APP+1 (queued; this function does not pump messages)
+ *   T0+c:  save_tree_refresh() rebuilds items[] -- new file present
+ *   T0+d:  save_tree_select_full_path() sets selection on new file
+ *   T0+e:  Function returns
+ *   T0+f:  Message loop dispatches WM_APP+1 -> SetTimer(IDT_REFRESH_DEBOUNCE, 200)
+ *   T0+200ms: WM_TIMER -> save_tree_refresh_preserve_selection()
+ *           - Captures saved_relpath = our newly-set path (the new file)
+ *           - Refreshes (file still exists)
+ *           - Walk-up: exact match succeeds -> re-selects same file
+ *
+ * Conclusion: because the UI thread is single-threaded and our manual
+ * refresh+select runs to completion before any pending WM_APP+1 is dispatched,
+ * the watcher's later refresh sees our selection and preserves it via
+ * exact-match walk-up. No race.
+ */
+
 static bool backup_full_active(void) {
     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
     const game_backend_t *backend = get_active_backend();
@@ -316,6 +342,7 @@ static bool backup_full_active(void) {
 
     if (ok && g_save_tree) {
         save_tree_refresh(g_save_tree);
+        save_tree_select_full_path(g_save_tree, dst);
     }
 
     return ok;
@@ -348,6 +375,7 @@ static bool backup_slot_active(void) {
     ok = backend->backup_slot(save_path, slot, dst, comp_level_to_lzma(bp->compression_level));
     if (ok && g_save_tree) {
         save_tree_refresh(g_save_tree);
+        save_tree_select_full_path(g_save_tree, dst);
     }
 
     return ok;
