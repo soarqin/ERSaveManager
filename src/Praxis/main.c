@@ -13,6 +13,7 @@
 #include "restore_safe.h"
 #include "save_tree.h"
 #include "profile_store.h"
+#include "toolbar.h"
 
 #include "ersave.h"
 #include "save_compress.h"
@@ -35,6 +36,7 @@
 static HWND g_main_window = NULL;
 static save_tree_t *g_save_tree = NULL;
 static HWND g_status_bar = NULL;
+static toolbar_t *g_toolbar = NULL;
 
 /** @brief Log file handle opened via --log-file flag (for Gate I testing). */
 static HANDLE g_log_file = INVALID_HANDLE_VALUE;
@@ -93,10 +95,23 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 return -1;
             }
 
+            g_toolbar = toolbar_create(hwnd, cs->hInstance);
+            if (g_toolbar) {
+                RECT client_rect;
+
+                if (GetClientRect(hwnd, &client_rect)) {
+                    toolbar_layout(g_toolbar, client_rect.right - client_rect.left);
+                }
+            }
+
             g_status_bar = CreateWindowExW(0, STATUSCLASSNAMEW, L"",
                 WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
                 0, 0, 0, 0, hwnd, (HMENU)(uintptr_t)IDC_STATUS_BAR, cs->hInstance, NULL);
             if (!g_status_bar) {
+                if (g_toolbar) {
+                    toolbar_destroy(g_toolbar);
+                    g_toolbar = NULL;
+                }
                 save_tree_destroy(g_save_tree);
                 g_save_tree = NULL;
                 return -1;
@@ -309,6 +324,10 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         return 0;
 
     case WM_DESTROY:
+        if (g_toolbar) {
+            toolbar_destroy(g_toolbar);
+            g_toolbar = NULL;
+        }
         save_tree_destroy(g_save_tree);
         g_save_tree = NULL;
         g_status_bar = NULL;

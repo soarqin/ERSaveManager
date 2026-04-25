@@ -17,6 +17,8 @@ add_project(praxis WIN32
     hotkey.h
     profile_store.c
     profile_store.h
+    toolbar.c
+    toolbar.h
     backends/er_backend.c
     resource.h
     app.rc
