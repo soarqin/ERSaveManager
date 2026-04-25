@@ -6,6 +6,7 @@
 #include "config.h"
 
 #include "config_core.h"
+#include "locale.h"
 #include "locale_core.h"
 
 #include <string.h>
@@ -27,7 +28,8 @@ static void apply_defaults(void) {
         PathAppendW(praxis_config.tree_root, L"Praxis");
     }
 
-    praxis_config.language = 0;
+    /* Default to system UI language; INI-supplied Language key overrides this. */
+    praxis_config.language = praxis_locale_detect_system();
     praxis_config.window_x = -1;
     praxis_config.window_y = -1;
     praxis_config.window_width = 0;
@@ -47,7 +49,8 @@ static void kv_callback(const char *key, const char *value, void *user) {
     if (strcmp(key, "TreeRoot") == 0) {
         config_core_store_wide_value(cfg->tree_root, MAX_PATH, value);
     } else if (strcmp(key, "Language") == 0) {
-        cfg->language = config_core_parse_int(value, 0);
+        /* Preserve existing value (system-detected default) when value is empty/missing. */
+        cfg->language = config_core_parse_int(value, cfg->language);
     } else if (strcmp(key, "WindowX") == 0) {
         cfg->window_x = config_core_parse_int(value, -1);
     } else if (strcmp(key, "WindowY") == 0) {
