@@ -43,19 +43,10 @@ BEGIN
          MENUITEM SEPARATOR
          MENUITEM "E&xit", IDM_FILE_EXIT
      END
-    POPUP "&Backup"
-    BEGIN
-        MENUITEM "Full Backup Now", IDM_BACKUP_FULL
-        MENUITEM "Slot Backup Now", IDM_BACKUP_SLOT
-    END
-    POPUP "&Restore"
-    BEGIN
-        MENUITEM "Restore Selected", IDM_RESTORE_SEL
-        MENUITEM "Undo Last Restore", IDM_RESTORE_UNDO
-    END
     POPUP "&Game"
     BEGIN
-        MENUITEM "Elden Ring", IDM_GAME_ER
+        MENUITEM SEPARATOR
+        MENUITEM "Manage Game Profiles...", IDM_GAME_MANAGE
     END
     POPUP "&Options"
     BEGIN

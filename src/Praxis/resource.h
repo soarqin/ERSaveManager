@@ -9,12 +9,6 @@
 #define IDR_MAIN_MENU       100
 #define IDM_FILE_SET_ROOT   101
 #define IDM_FILE_EXIT       103
-#define IDM_BACKUP_FULL     110
-#define IDM_BACKUP_SLOT     111
-#define IDM_RESTORE_SEL     120
-#define IDM_RESTORE_UNDO    121
-#define IDM_RESTORE_SLOT    122
-#define IDM_GAME_ER         130
 #define IDM_GAME_MANAGE     131
 #define IDM_GAME_PROFILE_FIRST 1300
 #define IDM_GAME_PROFILE_LAST  1399
