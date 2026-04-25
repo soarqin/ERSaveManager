@@ -1,11 +1,14 @@
 /**
  * @file toolbar.h
- * @brief Top toolbar widget: backup profile combobox + action buttons.
- * @details Provides a fixed-height (30px) child container hosting a backup
- *          profile selector combobox plus six action buttons:
- *          add backup, delete backup, backup full, backup slot, restore, undo.
- *          The toolbar is purely a UI container; WM_COMMAND routing for the
- *          action buttons is handled by the main window procedure.
+ * @brief Two-row toolbar widget: backup profile combobox (top) + action buttons (bottom).
+ * @details Provides two fixed-height child container windows:
+ *          - Top container (30 px): backup profile combobox + add ("+") and
+ *            delete ("-") buttons.
+ *          - Bottom container (38 px): four wide action buttons — Backup Full,
+ *            Backup Slot, Restore, Undo Last Restore.
+ *          Both containers are purely UI hosts; WM_COMMAND routing for the
+ *          buttons and combobox is handled by the main window procedure via
+ *          the toolbar container WndProc forwarding.
  */
 
 #pragma once
@@ -19,7 +22,7 @@
 typedef struct toolbar_s toolbar_t;
 
 /**
- * @brief Create the toolbar as a child of the parent window.
+ * @brief Create the toolbar (top + bottom containers) as children of the parent window.
  * @param parent Parent window handle.
  * @param hinst  Application instance handle.
  * @return Heap-allocated toolbar_t on success, NULL on failure.
@@ -27,33 +30,60 @@ typedef struct toolbar_s toolbar_t;
 toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst);
 
 /**
- * @brief Destroy the toolbar and free resources.
+ * @brief Destroy the toolbar and free resources (both containers).
  * @param t Toolbar handle (may be NULL).
  */
 void toolbar_destroy(toolbar_t *t);
 
 /**
- * @brief Get the toolbar's window handle (the container child window).
+ * @brief Get the top container window handle (combobox + add/del buttons).
  * @param t Toolbar handle.
- * @return Container window handle, or NULL if t is NULL.
+ * @return Top container window handle, or NULL if t is NULL.
  */
-HWND toolbar_get_hwnd(const toolbar_t *t);
+HWND toolbar_get_hwnd_top(const toolbar_t *t);
 
 /**
- * @brief Get the fixed height of the toolbar in pixels.
+ * @brief Get the bottom container window handle (action buttons).
  * @param t Toolbar handle.
- * @return Toolbar height in pixels (always 30), or 0 if t is NULL.
+ * @return Bottom container window handle, or NULL if t is NULL.
  */
-int toolbar_get_height(const toolbar_t *t);
+HWND toolbar_get_hwnd_bottom(const toolbar_t *t);
 
 /**
- * @brief Reflow the toolbar layout for a new parent width.
- * @details Combobox stretches to fill available space; buttons stay
- *          right-aligned. Minimum combobox width is clamped to 120 px.
+ * @brief Get the fixed height of the top toolbar in pixels.
+ * @param t Toolbar handle.
+ * @return Top toolbar height in pixels (30), or 0 if t is NULL.
+ */
+int toolbar_get_top_height(const toolbar_t *t);
+
+/**
+ * @brief Get the fixed height of the bottom toolbar in pixels.
+ * @param t Toolbar handle.
+ * @return Bottom toolbar height in pixels (38), or 0 if t is NULL.
+ */
+int toolbar_get_bottom_height(const toolbar_t *t);
+
+/**
+ * @brief Reflow the top toolbar layout for a new parent width.
+ * @details Combobox stretches to fill available space; "+" and "-" buttons
+ *          stay right-aligned. Minimum combobox width is clamped to 120 px.
+ *          The container itself is resized to span @p parent_width at y=0.
  * @param t Toolbar handle.
  * @param parent_width Width of parent client area in pixels.
  */
-void toolbar_layout(toolbar_t *t, int parent_width);
+void toolbar_layout_top(toolbar_t *t, int parent_width);
+
+/**
+ * @brief Reflow the bottom toolbar layout for a new parent width and y position.
+ * @details All four action buttons are left-aligned with equal width
+ *          (TOOLBAR_BTN_LARGE_W). The container is repositioned to
+ *          (0, @p y_top) and resized to span @p parent_width.
+ * @param t Toolbar handle.
+ * @param parent_width Width of parent client area in pixels.
+ * @param y_top        Y coordinate (in parent client space) for the top edge
+ *                     of the bottom container.
+ */
+void toolbar_layout_bottom(toolbar_t *t, int parent_width, int y_top);
 
 /**
  * @brief Repopulate the backup profile combobox from the profile store.

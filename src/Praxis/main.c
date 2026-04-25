@@ -389,7 +389,12 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 RECT client_rect;
 
                 if (GetClientRect(hwnd, &client_rect)) {
-                    toolbar_layout(g_toolbar, client_rect.right - client_rect.left);
+                    int cw = client_rect.right - client_rect.left;
+                    int top_h = toolbar_get_top_height(g_toolbar);
+                    /* Initial layout — WM_SIZE will refine y_top once the
+                     * status bar is also created and measured. */
+                    toolbar_layout_top(g_toolbar, cw);
+                    toolbar_layout_bottom(g_toolbar, cw, top_h);
                 }
             }
 
@@ -443,13 +448,15 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         int client_width = (int)LOWORD(lp);
         int client_height = (int)HIWORD(lp);
 
-        /* Toolbar at top */
-        int toolbar_height = g_toolbar ? toolbar_get_height(g_toolbar) : 0;
+        int top_h    = g_toolbar ? toolbar_get_top_height(g_toolbar)    : 0;
+        int bottom_h = g_toolbar ? toolbar_get_bottom_height(g_toolbar) : 0;
+
+        /* Top toolbar at y=0 */
         if (g_toolbar) {
-            toolbar_layout(g_toolbar, client_width);
+            toolbar_layout_top(g_toolbar, client_width);
         }
 
-        /* Status bar at bottom */
+        /* Status bar at very bottom (auto-positions itself) */
         int status_height = 0;
         if (g_status_bar) {
             SendMessageW(g_status_bar, WM_SIZE, wp, lp);  /* let status bar resize itself */
@@ -458,14 +465,20 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             status_height = sr.bottom - sr.top;
         }
 
-        /* TreeView fills middle */
+        /* Bottom toolbar above status bar */
+        int bottom_y = client_height - status_height - bottom_h;
+        if (bottom_y < top_h) bottom_y = top_h;
+        if (g_toolbar) {
+            toolbar_layout_bottom(g_toolbar, client_width, bottom_y);
+        }
+
+        /* TreeView fills middle: from top_h down to bottom_y */
         if (g_save_tree) {
             HWND htree = save_tree_get_hwnd(g_save_tree);
             if (htree) {
-                int tree_y = toolbar_height;
-                int tree_h = client_height - toolbar_height - status_height;
+                int tree_h = bottom_y - top_h;
                 if (tree_h < 0) tree_h = 0;
-                MoveWindow(htree, 0, tree_y, client_width, tree_h, TRUE);
+                MoveWindow(htree, 0, top_h, client_width, tree_h, TRUE);
             }
         }
         return 0;
