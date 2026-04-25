@@ -54,6 +54,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",                                 /* STR_PRAXIS_EXIT */
         L"Backup",                               /* STR_PRAXIS_BACKUP */
         L"Restore",                              /* STR_PRAXIS_RESTORE */
+        L"Game Profile",                         /* STR_PRAXIS_GAME_PROFILE */
+        L"Backup Profile",                       /* STR_PRAXIS_BACKUP_PROFILE */
+        L"Manage Game Profiles...",              /* STR_PRAXIS_MANAGE_GAME_PROFILES */
+        L"Name",                                 /* STR_PRAXIS_PROFILE_NAME */
+        L"Game",                                 /* STR_PRAXIS_PROFILE_GAME */
+        L"Save Directory",                       /* STR_PRAXIS_PROFILE_SAVE_DIR */
+        L"Backup Root",                          /* STR_PRAXIS_PROFILE_TREE_ROOT */
+        L"Compression",                          /* STR_PRAXIS_PROFILE_COMPRESSION */
+        L"None",                                 /* STR_PRAXIS_COMPRESSION_NONE */
+        L"Low",                                  /* STR_PRAXIS_COMPRESSION_LOW */
+        L"High",                                 /* STR_PRAXIS_COMPRESSION_HIGH */
+        L"Add",                                  /* STR_PRAXIS_BTN_ADD */
+        L"Edit",                                 /* STR_PRAXIS_BTN_EDIT */
+        L"Delete",                               /* STR_PRAXIS_BTN_DELETE */
+        L"Close",                                /* STR_PRAXIS_BTN_CLOSE */
+        L"OK",                                   /* STR_PRAXIS_BTN_OK */
+        L"Cancel",                               /* STR_PRAXIS_BTN_CANCEL */
+        L"Backup Full Save",                     /* STR_PRAXIS_TIP_BACKUP_FULL */
+        L"Backup Current Slot",                  /* STR_PRAXIS_TIP_BACKUP_SLOT */
+        L"Restore",                              /* STR_PRAXIS_TIP_RESTORE */
+        L"Undo Last Restore",                    /* STR_PRAXIS_TIP_UNDO */
+        L"Add Backup Profile",                   /* STR_PRAXIS_TIP_ADD_BACKUP */
+        L"Delete Backup Profile",                /* STR_PRAXIS_TIP_DELETE_BACKUP */
+        L"Migration Wizard",                     /* STR_PRAXIS_MIGRATION_TITLE */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* STR_PRAXIS_MIGRATION_WELCOME */
+        L"Step 1: Name your game profile",       /* STR_PRAXIS_MIGRATION_GAME_PAGE */
+        L"Step 2: Configure your backup profile", /* STR_PRAXIS_MIGRATION_BACKUP_PAGE */
+        L"Step 3: Confirm migration",            /* STR_PRAXIS_MIGRATION_CONFIRM */
+        L"Delete this game profile and all its backup profiles?", /* STR_PRAXIS_CONFIRM_DELETE_GAME */
+        L"Delete this backup profile?",          /* STR_PRAXIS_CONFIRM_DELETE_BACKUP */
+        L"No profile selected. Use + to add a backup profile.", /* STR_PRAXIS_NO_PROFILE_HINT */
+        L"Active: %s / %s",                      /* STR_PRAXIS_STATUS_ACTIVE */
     },
     /* TODO: translate — 1: Français (placeholder: English) */
     {
@@ -85,6 +117,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 2: Deutsch (placeholder: English) */
     {
@@ -116,6 +180,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 3: Italiano (placeholder: English) */
     {
@@ -147,6 +243,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 4: Español (placeholder: English) */
     {
@@ -178,6 +306,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 5: Português (placeholder: English) */
     {
@@ -209,6 +369,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 6: Русский (placeholder: English) */
     {
@@ -240,6 +432,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 7: 日本語 (placeholder: English) */
     {
@@ -271,6 +495,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 8: 한국어 (placeholder: English) */
     {
@@ -302,6 +558,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 9: 简体中文 (placeholder: English) */
     {
@@ -333,6 +621,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
     /* TODO: translate — 10: 繁體中文 (placeholder: English) */
     {
@@ -364,6 +684,38 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
+        L"Game Profile", /* TODO: translate */
+        L"Backup Profile", /* TODO: translate */
+        L"Manage Game Profiles...", /* TODO: translate */
+        L"Name", /* TODO: translate */
+        L"Game", /* TODO: translate */
+        L"Save Directory", /* TODO: translate */
+        L"Backup Root", /* TODO: translate */
+        L"Compression", /* TODO: translate */
+        L"None", /* TODO: translate */
+        L"Low", /* TODO: translate */
+        L"High", /* TODO: translate */
+        L"Add", /* TODO: translate */
+        L"Edit", /* TODO: translate */
+        L"Delete", /* TODO: translate */
+        L"Close", /* TODO: translate */
+        L"OK", /* TODO: translate */
+        L"Cancel", /* TODO: translate */
+        L"Backup Full Save", /* TODO: translate */
+        L"Backup Current Slot", /* TODO: translate */
+        L"Restore", /* TODO: translate */
+        L"Undo Last Restore", /* TODO: translate */
+        L"Add Backup Profile", /* TODO: translate */
+        L"Delete Backup Profile", /* TODO: translate */
+        L"Migration Wizard", /* TODO: translate */
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
+        L"Step 1: Name your game profile", /* TODO: translate */
+        L"Step 2: Configure your backup profile", /* TODO: translate */
+        L"Step 3: Confirm migration", /* TODO: translate */
+        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
+        L"Delete this backup profile?", /* TODO: translate */
+        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
+        L"Active: %s / %s", /* TODO: translate */
     },
 };
 
