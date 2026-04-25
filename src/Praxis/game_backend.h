@@ -31,6 +31,12 @@ typedef struct game_backend_s {
     bool (*get_active_slot)(const wchar_t *save_path, int *out_slot);
     bool (*backup_slot)(const wchar_t *src_save, int slot, const wchar_t *dst_backup, int compression_level);
     bool (*restore_slot)(const wchar_t *src_backup, const wchar_t *dst_save, int slot);
+
+    /* OPTIONAL: resolve a sensible default save directory for use as a UI hint
+     * (e.g. as the initial folder in the Add Game dialog's folder picker).
+     * Unlike resolve_save_path, this returns a directory path, not a file path.
+     * NULL if the backend cannot auto-detect a default save directory. */
+    bool (*get_default_save_dir)(wchar_t *out_dir, size_t out_chars);
 } game_backend_t;
 
 /**

@@ -15,6 +15,60 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 
+/* Resolve the first %APPDATA%\EldenRing\<SteamID>\ that contains ER0000.sl2.
+ * Used as a UI hint for the Add Game dialog (initial folder in the picker).
+ * Returns the directory path (no trailing ER0000.sl2). */
+static bool er_get_default_save_dir(wchar_t *out, size_t out_chars) {
+    wchar_t appdata[MAX_PATH];
+    if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, SHGFP_TYPE_CURRENT, appdata))) {
+        return false;
+    }
+
+    wchar_t er_dir[MAX_PATH];
+    lstrcpyW(er_dir, appdata);
+    if (!PathAppendW(er_dir, L"EldenRing")) return false;
+
+    wchar_t search[MAX_PATH];
+    lstrcpyW(search, er_dir);
+    if (!PathAppendW(search, L"*")) return false;
+
+    WIN32_FIND_DATAW fd;
+    HANDLE h = FindFirstFileW(search, &fd);
+    if (h == INVALID_HANDLE_VALUE) return false;
+
+    bool found = false;
+    do {
+        if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) continue;
+        if (fd.cFileName[0] == L'.') continue;
+
+        bool numeric = true;
+        for (int i = 0; fd.cFileName[i] != L'\0'; i++) {
+            if (fd.cFileName[i] < L'0' || fd.cFileName[i] > L'9') {
+                numeric = false;
+                break;
+            }
+        }
+        if (!numeric) continue;
+
+        wchar_t candidate[MAX_PATH];
+        lstrcpyW(candidate, er_dir);
+        if (!PathAppendW(candidate, fd.cFileName)) continue;
+
+        wchar_t save_check[MAX_PATH];
+        lstrcpyW(save_check, candidate);
+        if (!PathAppendW(save_check, L"ER0000.sl2")) continue;
+        if (GetFileAttributesW(save_check) == INVALID_FILE_ATTRIBUTES) continue;
+        if ((size_t)lstrlenW(candidate) >= out_chars) continue;
+
+        lstrcpyW(out, candidate);
+        found = true;
+        break;
+    } while (FindNextFileW(h, &fd));
+
+    FindClose(h);
+    return found;
+}
+
 /* Resolve the first found ER0000.sl2 under %APPDATA%\EldenRing\<SteamID>\ */
 static bool er_resolve_save_path(wchar_t *out, size_t out_chars) {
     wchar_t appdata[MAX_PATH];
@@ -230,4 +284,5 @@ const game_backend_t er_backend = {
     .get_active_slot = er_get_active_slot,
     .backup_slot = er_backup_slot,
     .restore_slot = er_restore_slot,
+    .get_default_save_dir = er_get_default_save_dir,
 };
