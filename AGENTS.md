@@ -111,6 +111,7 @@ cmake --build build --config Release
   - `restore-auto-detect <backup>` — classify backup type
   - `tree-preserve-selection-walkup <root> <sel> <del>` — walk-up selection logic
   - `watcher-state <root>` — start watcher briefly, verify clean exit
+  - `backup-full-with-active <src> <dst>` — backup full save using the active backend, exit 0 on success
   - `write-raw-bnd4 <src> <dst>`, `classify <file>` — save format helpers
 
 ---

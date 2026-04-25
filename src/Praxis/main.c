@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <wchar.h>
 
 #include <windows.h>
@@ -1084,6 +1085,22 @@ static void selftest_walk_up_existing_relpath(const wchar_t *root, const wchar_t
     }
 }
 
+/* Selftest-only INI callback: parses config keys for the config-load subcommand. */
+static void selftest_config_kv_cb(const char *key, const char *value, void *user) {
+    praxis_config_t *cfg = (praxis_config_t *)user;
+    if (strcmp(key, "TreeRoot") == 0) {
+        config_core_store_wide_value(cfg->tree_root, MAX_PATH, value);
+    } else if (strcmp(key, "Language") == 0) {
+        cfg->language = config_core_parse_int(value, 0);
+    } else if (strcmp(key, "HotkeyBackupFull") == 0) {
+        config_core_store_wide_value(cfg->hotkey_backup_full, 32, value);
+    } else if (strcmp(key, "RingSize") == 0) {
+        cfg->ring_size = config_core_parse_int(value, 5);
+    } else if (strcmp(key, "CompressionLevel") == 0) {
+        cfg->compression_level = config_core_parse_int(value, 5);
+    }
+}
+
 static int run_selftest(void) {
     /* Attach or allocate a console when stdout is not already redirected so that
      * test harnesses invoking the WIN32 subsystem binary can capture output. */
@@ -1661,6 +1678,113 @@ static int run_selftest(void) {
                     result = 1;
                 } else {
                     st_printf(L"backup-full-with-active: ok\n");
+                    result = 0;
+                }
+            }
+        }
+    } else if (wcscmp(sub, L"hotkey-defaults") == 0) {
+        /* --selftest hotkey-defaults: print 4 default hotkey strings, exit 0 */
+        praxis_load_config();
+        st_printf(L"backup_full=%ls\n", praxis_config.hotkey_backup_full);
+        st_printf(L"restore=%ls\n", praxis_config.hotkey_restore);
+        st_printf(L"undo=%ls\n", praxis_config.hotkey_undo_restore);
+        st_printf(L"backup_slot=%ls\n", praxis_config.hotkey_backup_slot);
+        result = 0;
+    } else if (wcscmp(sub, L"config-load") == 0) {
+        /* --selftest config-load <ini>: load config from given INI path, dump key fields */
+        if (argc < 4) {
+            st_printf(L"usage: --selftest config-load <ini>\n");
+            result = 2;
+        } else {
+            praxis_load_config();
+            /* Additionally parse the provided INI file to override defaults. */
+            HANDLE cfg_fh = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL,
+                                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (cfg_fh != INVALID_HANDLE_VALUE) {
+                DWORD cfg_size = GetFileSize(cfg_fh, NULL);
+                if (cfg_size != INVALID_FILE_SIZE && cfg_size > 0 && cfg_size <= (64u * 1024u)) {
+                    char *cfg_buf = LocalAlloc(LMEM_FIXED, cfg_size + 1u);
+                    if (cfg_buf) {
+                        DWORD cfg_read = 0;
+                        if (ReadFile(cfg_fh, cfg_buf, cfg_size, &cfg_read, NULL)) {
+                            cfg_buf[cfg_read] = '\0';
+                            config_core_parse_ini(cfg_buf, (size_t)cfg_read,
+                                                  selftest_config_kv_cb, &praxis_config);
+                        }
+                        LocalFree(cfg_buf);
+                    }
+                }
+                CloseHandle(cfg_fh);
+            }
+            st_printf(L"tree_root=%ls\n", praxis_config.tree_root);
+            st_printf(L"language=%d\n", praxis_config.language);
+            st_printf(L"hotkeys_backup_full=%ls\n", praxis_config.hotkey_backup_full);
+            st_printf(L"ring_size=%d\n", praxis_config.ring_size);
+            st_printf(L"compression_level=%d\n", praxis_config.compression_level);
+            result = 0;
+        }
+    } else if (wcscmp(sub, L"backend-vtable-shape") == 0) {
+        /* --selftest backend-vtable-shape: print backend id, display_name, optional method presence */
+        const game_backend_t *bvt = backend_registry_get_default();
+        if (!bvt) {
+            st_printf(L"no backend\n");
+            result = 1;
+        } else {
+            st_printf(L"id=%d\n", (int)bvt->id);
+            st_printf(L"display_name=%ls\n", bvt->display_name);
+            st_printf(L"has_get_active_slot=%d\n", bvt->get_active_slot ? 1 : 0);
+            st_printf(L"has_backup_slot=%d\n", bvt->backup_slot ? 1 : 0);
+            st_printf(L"has_restore_slot=%d\n", bvt->restore_slot ? 1 : 0);
+            result = 0;
+        }
+    } else if (wcscmp(sub, L"profile-resolve-active") == 0) {
+        /* --selftest profile-resolve-active <ini>: load profile store, print active game id and save path */
+        if (argc < 4) {
+            st_printf(L"usage: --selftest profile-resolve-active <ini>\n");
+            result = 2;
+        } else {
+            profile_store_t pra_store;
+            profile_store_init(&pra_store);
+            profile_store_load(&pra_store, argv[3]);
+            const game_profile_t *pra_gp = profile_store_get_active_game(&pra_store);
+            if (!pra_gp) {
+                st_printf(L"profile-resolve-active: no active profile\n");
+                result = 1;
+            } else {
+                wchar_t pra_save_path[MAX_PATH] = {0};
+                const game_backend_t *pra_b = backend_registry_get_by_id(pra_gp->game_id);
+                if (pra_gp->original_save_dir[0] != L'\0') {
+                    lstrcpynW(pra_save_path, pra_gp->original_save_dir, MAX_PATH);
+                } else if (pra_b && pra_b->resolve_save_path) {
+                    pra_b->resolve_save_path(pra_save_path, MAX_PATH);
+                }
+                st_printf(L"active_game_id=%d\n", pra_gp->id);
+                st_printf(L"save_path=%ls\n", pra_save_path);
+                result = 0;
+            }
+        }
+    } else if (wcscmp(sub, L"watcher-debounce-timing") == 0) {
+        /* --selftest watcher-debounce-timing <root>: start watcher, verify clean start and stop */
+        if (argc < 4) {
+            st_printf(L"usage: --selftest watcher-debounce-timing <root>\n");
+            result = 2;
+        } else {
+            HWND wdt_host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
+                0, 0, 1, 1, NULL, NULL, GetModuleHandleW(NULL), NULL);
+            if (!wdt_host) {
+                st_printf(L"watcher-debounce-timing: failed to create host window\n");
+                result = 1;
+            } else {
+                save_watcher_t *wdt_w = save_watcher_start(wdt_host, argv[3], WM_APP + 1);
+                if (!wdt_w) {
+                    st_printf(L"watcher-debounce-timing: failed to start watcher\n");
+                    DestroyWindow(wdt_host);
+                    result = 1;
+                } else {
+                    st_printf(L"watcher_start_ok\n");
+                    save_watcher_stop(wdt_w);
+                    DestroyWindow(wdt_host);
+                    st_printf(L"watcher_stop_ok\n");
                     result = 0;
                 }
             }
