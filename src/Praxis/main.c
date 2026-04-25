@@ -17,6 +17,8 @@
 #include "profile_store.h"
 #include "toolbar.h"
 #include "dialogs/migration_wizard.h"
+#include "dialogs/game_profile_manager.h"
+#include "dialogs/edit_backup_profile.h"
 
 #include "ersave.h"
 #include "save_compress.h"
@@ -41,6 +43,7 @@ static save_tree_t *g_save_tree = NULL;
 static save_watcher_t *g_save_watcher = NULL;
 static HWND g_status_bar = NULL;
 static toolbar_t *g_toolbar = NULL;
+static profile_store_t g_profile_store;
 
 /** @brief Log file handle opened via --log-file flag (for Gate I testing). */
 static HANDLE g_log_file = INVALID_HANDLE_VALUE;
@@ -90,6 +93,286 @@ static void st_printf(const wchar_t *fmt, ...) {
     }
 }
 
+static const game_backend_t *get_active_backend(void) {
+    const game_profile_t *gp = NULL;
+    const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+
+    if (bp) {
+        for (size_t i = 0; i < g_profile_store.game_count; i++) {
+            if (g_profile_store.games[i].id == bp->parent_game_id) {
+                gp = &g_profile_store.games[i];
+                break;
+            }
+        }
+    }
+
+    if (!gp) {
+        gp = profile_store_get_active_game(&g_profile_store);
+    }
+
+    if (gp) {
+        const game_backend_t *backend = backend_registry_get_by_id(gp->game_id);
+        if (backend) {
+            return backend;
+        }
+    }
+
+    return backend_registry_get_default();
+}
+
+static bool save_profile_store(void) {
+    wchar_t ini[MAX_PATH];
+
+    if (!config_core_get_app_ini_path(ini, MAX_PATH, L"Praxis.ini")) {
+        return false;
+    }
+
+    return profile_store_save(&g_profile_store, ini);
+}
+
+static int comp_level_to_lzma(compression_level_t cl) {
+    switch (cl) {
+    case COMP_LEVEL_HIGH:
+        return ERSM_LEVEL_MAX;
+    case COMP_LEVEL_NONE:
+    case COMP_LEVEL_LOW:
+    default:
+        return ERSM_LEVEL_FAST;
+    }
+}
+
+static bool resolve_save_path_for_active(wchar_t *out, size_t out_chars) {
+    const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+    const game_profile_t *gp = NULL;
+    const game_backend_t *backend = get_active_backend();
+
+    if (bp) {
+        for (size_t i = 0; i < g_profile_store.game_count; i++) {
+            if (g_profile_store.games[i].id == bp->parent_game_id) {
+                gp = &g_profile_store.games[i];
+                break;
+            }
+        }
+    }
+
+    if (!gp) {
+        gp = profile_store_get_active_game(&g_profile_store);
+    }
+
+    if (!out || out_chars == 0 || !bp || !gp || !backend) {
+        return false;
+    }
+
+    if (gp->original_save_dir[0] != L'\0') {
+        lstrcpynW(out, gp->original_save_dir, (int)out_chars);
+        return PathAppendW(out, L"ER0000.sl2") == TRUE;
+    }
+
+    return backend->resolve_save_path(out, out_chars);
+}
+
+static void make_backup_filename(const backup_profile_t *bp, const wchar_t *prefix,
+    const wchar_t *ext, wchar_t *out, size_t out_chars) {
+    SYSTEMTIME st;
+
+    if (!bp || !prefix || !ext || !out || out_chars == 0) {
+        return;
+    }
+
+    GetLocalTime(&st);
+    _snwprintf_s(out, out_chars, _TRUNCATE,
+        L"%ls\\%ls_%04d%02d%02d_%02d%02d%02d%ls",
+        bp->tree_root, prefix,
+        st.wYear, st.wMonth, st.wDay,
+        st.wHour, st.wMinute, st.wSecond, ext);
+}
+
+static bool backup_full_raw(const wchar_t *src_path, const wchar_t *dst_path) {
+    HANDLE file;
+    DWORD file_size;
+    uint8_t *buf;
+    DWORD bytes_read = 0;
+    bool ok;
+
+    if (!src_path || !dst_path) {
+        return false;
+    }
+
+    file = CreateFileW(src_path, GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    file_size = GetFileSize(file, NULL);
+    if (file_size == INVALID_FILE_SIZE || file_size < 4) {
+        CloseHandle(file);
+        return false;
+    }
+
+    buf = (uint8_t *)LocalAlloc(LMEM_FIXED, file_size);
+    if (!buf) {
+        CloseHandle(file);
+        return false;
+    }
+
+    ok = ReadFile(file, buf, file_size, &bytes_read, NULL) && bytes_read == file_size;
+    CloseHandle(file);
+    if (!ok) {
+        LocalFree(buf);
+        return false;
+    }
+
+    ok = ersm_write_raw_bnd4_to_file(dst_path, buf, (size_t)bytes_read);
+    LocalFree(buf);
+    return ok;
+}
+
+static void set_active_status_text(void) {
+    const game_profile_t *gp = NULL;
+    const backup_profile_t *bp;
+    wchar_t status[256];
+
+    if (!g_status_bar) {
+        return;
+    }
+
+    bp = profile_store_get_active_backup(&g_profile_store);
+    if (bp) {
+        for (size_t i = 0; i < g_profile_store.game_count; i++) {
+            if (g_profile_store.games[i].id == bp->parent_game_id) {
+                gp = &g_profile_store.games[i];
+                break;
+            }
+        }
+    }
+    if (!gp) {
+        gp = profile_store_get_active_game(&g_profile_store);
+    }
+    if (gp && bp) {
+        _snwprintf_s(status, 256, _TRUNCATE, L"Active: %ls / %ls", gp->name, bp->name);
+        SetWindowTextW(g_status_bar, status);
+        return;
+    }
+
+    SetWindowTextW(g_status_bar, praxis_locale_str(STR_PRAXIS_APP_TITLE));
+}
+
+static void apply_active_profile_ui(HWND hwnd) {
+    const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+
+    if (g_toolbar) {
+        toolbar_set_selected_backup_id(g_toolbar, bp ? bp->id : 0);
+        toolbar_set_actions_enabled(g_toolbar, bp != NULL);
+    }
+
+    if (bp && g_save_tree) {
+        save_tree_set_root(g_save_tree, bp->tree_root);
+    }
+
+    if (bp && g_save_watcher) {
+        save_watcher_change_root(g_save_watcher, bp->tree_root);
+    } else if (bp && !g_save_watcher) {
+        g_save_watcher = save_watcher_start(hwnd, bp->tree_root, WM_WATCHER_NOTIFY);
+    }
+
+    set_active_status_text();
+}
+
+static bool backup_full_active(void) {
+    const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+    const game_backend_t *backend = get_active_backend();
+    wchar_t save_path[MAX_PATH];
+    wchar_t dst[MAX_PATH];
+    const wchar_t *ext;
+    bool ok;
+
+    if (!bp || !backend || !resolve_save_path_for_active(save_path, MAX_PATH)) {
+        return false;
+    }
+
+    ext = (bp->compression_level == COMP_LEVEL_NONE) ? L".sl2" : L".ersm";
+    make_backup_filename(bp, L"manual", ext, dst, MAX_PATH);
+
+    if (bp->compression_level == COMP_LEVEL_NONE) {
+        ok = backup_full_raw(save_path, dst);
+    } else {
+        ok = backend->backup_full(save_path, dst, comp_level_to_lzma(bp->compression_level));
+    }
+
+    if (ok && g_save_tree) {
+        save_tree_refresh(g_save_tree);
+    }
+
+    return ok;
+}
+
+static bool backup_slot_active(void) {
+    const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+    const game_backend_t *backend = get_active_backend();
+    wchar_t save_path[MAX_PATH];
+    wchar_t dst[MAX_PATH];
+    wchar_t prefix[32];
+    int slot = -1;
+    bool ok;
+
+    if (!bp || !game_backend_supports_slot_ops(backend) ||
+        !resolve_save_path_for_active(save_path, MAX_PATH) ||
+        !backend->get_active_slot(save_path, &slot)) {
+        return false;
+    }
+
+    _snwprintf_s(prefix, 32, _TRUNCATE, L"slot%d_backup", slot);
+    make_backup_filename(bp, prefix, L".ersm", dst, MAX_PATH);
+    ok = backend->backup_slot(save_path, slot, dst, comp_level_to_lzma(bp->compression_level));
+    if (ok && g_save_tree) {
+        save_tree_refresh(g_save_tree);
+    }
+
+    return ok;
+}
+
+static bool restore_active_selection(void) {
+    const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+    const game_backend_t *backend = get_active_backend();
+    wchar_t selected_path[MAX_PATH] = {0};
+    wchar_t save_path[MAX_PATH];
+    bool ok;
+
+    if (!bp || !backend || !g_save_tree ||
+        !save_tree_get_selected_path(g_save_tree, selected_path, MAX_PATH) || !selected_path[0] ||
+        !resolve_save_path_for_active(save_path, MAX_PATH) ||
+        !ring_backup_init(bp->tree_root, praxis_config.ring_size)) {
+        return false;
+    }
+
+    ok = restore_with_safety_auto(backend, selected_path, save_path, bp->tree_root,
+        comp_level_to_lzma(bp->compression_level));
+    if (ok && g_save_tree) {
+        save_tree_refresh(g_save_tree);
+    }
+
+    return ok;
+}
+
+static bool undo_active_restore(void) {
+    const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+    const game_backend_t *backend = get_active_backend();
+    bool ok;
+
+    if (!bp || !backend || !ring_backup_init(bp->tree_root, praxis_config.ring_size)) {
+        return false;
+    }
+
+    ok = undo_last_restore(backend, bp->tree_root, comp_level_to_lzma(bp->compression_level));
+    if (ok && g_save_tree) {
+        save_tree_refresh(g_save_tree);
+    }
+
+    return ok;
+}
+
 static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_CREATE:
@@ -130,6 +413,18 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 g_save_watcher = save_watcher_start(hwnd, praxis_config.tree_root, WM_WATCHER_NOTIFY);
             }
 
+            /* Load profile store and populate toolbar combobox. */
+            profile_store_init(&g_profile_store);
+            {
+                wchar_t ini[MAX_PATH];
+                if (config_core_get_app_ini_path(ini, MAX_PATH, L"Praxis.ini")) {
+                    profile_store_load(&g_profile_store, ini);
+                }
+                if (g_toolbar) toolbar_populate_profiles(g_toolbar, &g_profile_store);
+            }
+
+            apply_active_profile_ui(hwnd);
+
             g_main_window = hwnd;
 
             hotkey_init(hwnd);
@@ -142,7 +437,6 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             if (hotkey_parse_string(praxis_config.hotkey_undo_restore, &b))
                 hotkey_register(HOTKEY_UNDO_RESTORE, &b);
 
-            SendMessageW(g_status_bar, SB_SETTEXTW, 0, (LPARAM)praxis_locale_str(STR_PRAXIS_APP_TITLE));
         }
         return 0;
 
@@ -194,55 +488,111 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         return 0;
 
     case WM_COMMAND:
+        /* Dynamic Game submenu profile selection */
+        if (LOWORD(wp) >= IDM_GAME_PROFILE_FIRST && LOWORD(wp) <= IDM_GAME_PROFILE_LAST) {
+            int game_id = (int)(LOWORD(wp) - IDM_GAME_PROFILE_FIRST);
+            const backup_profile_t *backups[1] = {0};
+
+            profile_store_set_active_game(&g_profile_store, game_id);
+            if (profile_store_list_backups_for_game(&g_profile_store, game_id, backups, 1) > 0 && backups[0]) {
+                profile_store_set_active_backup(&g_profile_store, backups[0]->id);
+            } else {
+                g_profile_store.active_backup_id = 0;
+            }
+            /* Save updated active game */
+            save_profile_store();
+            /* Repopulate toolbar with backups for new active game */
+            if (g_toolbar) toolbar_populate_profiles(g_toolbar, &g_profile_store);
+            apply_active_profile_ui(hwnd);
+            return 0;
+        }
+        if (HIWORD(wp) == CBN_SELCHANGE && LOWORD(wp) == IDC_PROFILE_COMBO) {
+            int selected_id = toolbar_get_selected_backup_id(g_toolbar);
+
+            if (selected_id > 0 && profile_store_set_active_backup(&g_profile_store, selected_id)) {
+                const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+                if (bp) {
+                    profile_store_set_active_game(&g_profile_store, bp->parent_game_id);
+                }
+                save_profile_store();
+            }
+
+            apply_active_profile_ui(hwnd);
+            return 0;
+        }
         switch (LOWORD(wp)) {
-        case IDM_BACKUP_FULL:
+        case IDM_GAME_MANAGE:
             {
-                const game_backend_t *b = backend_registry_get_default();
+                wchar_t ini[MAX_PATH];
+                config_core_get_app_ini_path(ini, MAX_PATH, L"Praxis.ini");
+                show_game_profile_manager(hwnd, &g_profile_store, ini);
+                /* Repopulate toolbar combobox */
+                if (g_toolbar) toolbar_populate_profiles(g_toolbar, &g_profile_store);
+                apply_active_profile_ui(hwnd);
+            }
+            return 0;
+        case IDC_BTN_BACKUP_FULL:
+            backup_full_active();
+            return 0;
+        case IDC_BTN_BACKUP_SLOT:
+            backup_slot_active();
+            return 0;
+        case IDC_BTN_RESTORE:
+            restore_active_selection();
+            return 0;
+        case IDC_BTN_UNDO:
+            undo_active_restore();
+            return 0;
+        case IDC_BTN_ADD_BACKUP:
+            {
+                const game_profile_t *gp = profile_store_get_active_game(&g_profile_store);
 
-                if (b) {
-                    wchar_t save_path[MAX_PATH];
+                if (!gp) {
+                    return 0;
+                }
 
-                    if (b->resolve_save_path(save_path, MAX_PATH)) {
-                        SYSTEMTIME st;
-                        wchar_t fname[MAX_PATH];
+                backup_profile_t new_bp;
+                int new_backup_id;
+                ZeroMemory(&new_bp, sizeof(new_bp));
+                new_bp.parent_game_id = gp->id;
+                new_bp.compression_level = COMP_LEVEL_LOW;
 
-                        GetSystemTime(&st);
-                        _snwprintf(fname, MAX_PATH, L"%ls\\manual_%04d%02d%02d%02d%02d%02d.ersm",
-                            praxis_config.tree_root, st.wYear, st.wMonth, st.wDay,
-                            st.wHour, st.wMinute, st.wSecond);
-                        fname[MAX_PATH - 1] = L'\0';
-                        b->backup_full(save_path, fname, praxis_config.compression_level);
-                        if (g_save_tree) save_tree_refresh(g_save_tree);
+                if (edit_backup_profile(hwnd, &new_bp, gp->tree_root, true) != IDOK) {
+                    return 0;
+                }
+
+                new_backup_id = profile_store_add_backup(&g_profile_store, &new_bp);
+                if (new_backup_id != 0) {
+                    profile_store_set_active_backup(&g_profile_store, new_backup_id);
+                    save_profile_store();
+                    if (g_toolbar) {
+                        toolbar_populate_profiles(g_toolbar, &g_profile_store);
                     }
+                    apply_active_profile_ui(hwnd);
                 }
             }
             return 0;
-        case IDM_BACKUP_SLOT:
-        case IDM_RESTORE_SLOT:
-            return 0;
-        case IDM_RESTORE_SEL:
+        case IDC_BTN_DEL_BACKUP:
             {
-                const game_backend_t *b = backend_registry_get_default();
+                int backup_id = toolbar_get_selected_backup_id(g_toolbar);
+                int response;
 
-                if (b && g_save_tree) {
-                    wchar_t sel[MAX_PATH], save_path[MAX_PATH];
-
-                    if (save_tree_get_selected_path(g_save_tree, sel, MAX_PATH) &&
-                        b->resolve_save_path(save_path, MAX_PATH)) {
-                        ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
-                        restore_with_safety(b, sel, save_path, praxis_config.tree_root,
-                            praxis_config.compression_level, false, 0);
-                    }
+                if (backup_id == 0) {
+                    return 0;
                 }
-            }
-            return 0;
-        case IDM_RESTORE_UNDO:
-            {
-                const game_backend_t *b = backend_registry_get_default();
 
-                if (b) {
-                    ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
-                    undo_last_restore(b, praxis_config.tree_root, praxis_config.compression_level);
+                response = MessageBoxW(hwnd, L"Delete this backup profile?", L"Confirm",
+                    MB_YESNO | MB_ICONQUESTION);
+                if (response != IDYES) {
+                    return 0;
+                }
+
+                if (profile_store_delete_backup(&g_profile_store, backup_id)) {
+                    save_profile_store();
+                    if (g_toolbar) {
+                        toolbar_populate_profiles(g_toolbar, &g_profile_store);
+                    }
+                    apply_active_profile_ui(hwnd);
                 }
             }
             return 0;
@@ -273,66 +623,58 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         }
         return 0;
 
+    case WM_INITMENUPOPUP: {
+            HMENU sub = (HMENU)wp;
+            /* Identify Game submenu by checking if it contains IDM_GAME_MANAGE */
+            int count = GetMenuItemCount(sub);
+            bool is_game_menu = false;
+            for (int i = 0; i < count; i++) {
+                if (GetMenuItemID(sub, i) == IDM_GAME_MANAGE) { is_game_menu = true; break; }
+            }
+            if (is_game_menu) {
+                /* Remove dynamic items (keep only separator + Manage at bottom) */
+                while (GetMenuItemCount(sub) > 2) {
+                    DeleteMenu(sub, 0, MF_BYPOSITION);
+                }
+                /* Insert game profiles at top */
+                for (int i = 0; i < (int)g_profile_store.game_count; i++) {
+                    UINT flags = MF_BYPOSITION | MF_STRING;
+                    if (g_profile_store.games[i].id == g_profile_store.active_game_id) {
+                        flags |= MF_CHECKED;
+                    }
+                    InsertMenuW(sub, i, flags,
+                                IDM_GAME_PROFILE_FIRST + g_profile_store.games[i].id,
+                                g_profile_store.games[i].name);
+                }
+                if (g_profile_store.game_count > 0) {
+                    InsertMenuW(sub, (int)g_profile_store.game_count, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+                }
+            }
+            return 0;
+        }
+
     case WM_HOTKEY: {
             wchar_t log_msg[64];
-            const game_backend_t *backend = backend_registry_get_default();
-            wchar_t save_path[MAX_PATH];
+            const game_backend_t *backend = get_active_backend();
 
             _snwprintf(log_msg, 64, L"HOTKEY_FIRED id=%d\n", (int)wp);
             log_msg[63] = L'\0';
             log_write(log_msg);
 
             if (!backend) return 0;
-            if (!backend->resolve_save_path(save_path, MAX_PATH)) {
-                return 0;
-            }
 
             switch ((hotkey_id_t)wp) {
             case HOTKEY_BACKUP_FULL:
-                {
-                    SYSTEMTIME st;
-                    wchar_t fname[MAX_PATH];
-
-                    GetSystemTime(&st);
-                    _snwprintf(fname, MAX_PATH, L"%ls\\manual_%04d%02d%02d%02d%02d%02d.ersm",
-                        praxis_config.tree_root, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
-                    fname[MAX_PATH - 1] = L'\0';
-                    backend->backup_full(save_path, fname, praxis_config.compression_level);
-                    if (g_save_tree) save_tree_refresh(g_save_tree);
-                    break;
-                }
+                backup_full_active();
+                break;
             case HOTKEY_BACKUP_SLOT:
-                if (game_backend_supports_slot_ops(backend)) {
-                    int slot = 0;
-
-                    if (backend->get_active_slot(save_path, &slot)) {
-                        SYSTEMTIME st2;
-                        wchar_t fname2[MAX_PATH];
-
-                        GetSystemTime(&st2);
-                        _snwprintf(fname2, MAX_PATH, L"%ls\\slot%d_%04d%02d%02d%02d%02d%02d.ersm",
-                            praxis_config.tree_root, slot, st2.wYear, st2.wMonth, st2.wDay,
-                            st2.wHour, st2.wMinute, st2.wSecond);
-                        fname2[MAX_PATH - 1] = L'\0';
-                        backend->backup_slot(save_path, slot, fname2, praxis_config.compression_level);
-                        if (g_save_tree) save_tree_refresh(g_save_tree);
-                    }
-                }
+                backup_slot_active();
                 break;
             case HOTKEY_RESTORE:
-                {
-                    wchar_t sel[MAX_PATH];
-
-                    if (g_save_tree && save_tree_get_selected_path(g_save_tree, sel, MAX_PATH)) {
-                        ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
-                        restore_with_safety_auto(backend, sel, save_path, praxis_config.tree_root,
-                            praxis_config.compression_level);
-                    }
-                    break;
-                }
+                restore_active_selection();
+                break;
             case HOTKEY_UNDO_RESTORE:
-                ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
-                undo_last_restore(backend, praxis_config.tree_root, praxis_config.compression_level);
+                undo_active_restore();
                 break;
             }
             return 0;
