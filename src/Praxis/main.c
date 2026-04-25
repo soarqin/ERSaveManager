@@ -894,6 +894,121 @@ static int run_selftest(void) {
                       store.active_game_id, store.active_backup_id);
             result = 0;
         }
+    } else if (wcscmp(sub, L"profile-add-game") == 0) {
+        /* --selftest profile-add-game <name> <save_dir> <tree_root> <game_id> <ini> */
+        if (argc < 8) {
+            result = 2;
+        } else {
+            profile_store_t store;
+            profile_store_init(&store);
+            profile_store_load(&store, argv[7]);
+            game_profile_t gp;
+            ZeroMemory(&gp, sizeof(gp));
+            lstrcpynW(gp.name, argv[3], 64);
+            lstrcpynW(gp.original_save_dir, argv[4], MAX_PATH);
+            lstrcpynW(gp.tree_root, argv[5], MAX_PATH);
+            gp.game_id = (game_id_t)_wtoi(argv[6]);
+            int new_id = profile_store_add_game(&store, &gp);
+            if (new_id == 0) {
+                st_printf(L"profile-add-game: FAIL\n");
+                result = 1;
+            } else {
+                profile_store_save(&store, argv[7]);
+                st_printf(L"profile-add-game: ok id=%d\n", new_id);
+                result = 0;
+            }
+        }
+    } else if (wcscmp(sub, L"profile-add-backup") == 0) {
+        /* --selftest profile-add-backup <parent_game_id> <name> <tree_root> <comp_level> <ini> */
+        if (argc < 8) {
+            result = 2;
+        } else {
+            profile_store_t store;
+            profile_store_init(&store);
+            profile_store_load(&store, argv[7]);
+            backup_profile_t bp;
+            ZeroMemory(&bp, sizeof(bp));
+            bp.parent_game_id = _wtoi(argv[3]);
+            lstrcpynW(bp.name, argv[4], 64);
+            lstrcpynW(bp.tree_root, argv[5], MAX_PATH);
+            const wchar_t *cl = argv[6];
+            if (wcscmp(cl, L"none") == 0) {
+                bp.compression_level = COMP_LEVEL_NONE;
+            } else if (wcscmp(cl, L"high") == 0) {
+                bp.compression_level = COMP_LEVEL_HIGH;
+            } else {
+                bp.compression_level = COMP_LEVEL_LOW;
+            }
+            int new_id = profile_store_add_backup(&store, &bp);
+            if (new_id == 0) {
+                st_printf(L"profile-add-backup: FAIL\n");
+                result = 1;
+            } else {
+                profile_store_save(&store, argv[7]);
+                st_printf(L"profile-add-backup: ok id=%d\n", new_id);
+                result = 0;
+            }
+        }
+    } else if (wcscmp(sub, L"profile-list") == 0) {
+        /* --selftest profile-list <ini> */
+        if (argc < 4) {
+            result = 2;
+        } else {
+            profile_store_t store;
+            profile_store_init(&store);
+            profile_store_load(&store, argv[3]);
+            st_printf(L"games=%zu backups=%zu active_game=%d active_backup=%d\n",
+                      store.game_count, store.backup_count,
+                      store.active_game_id, store.active_backup_id);
+            for (size_t i = 0; i < store.game_count; i++) {
+                st_printf(L"  game[%d] name=%ls game_id=%d tree_root=%ls\n",
+                          store.games[i].id, store.games[i].name,
+                          (int)store.games[i].game_id, store.games[i].tree_root);
+            }
+            for (size_t i = 0; i < store.backup_count; i++) {
+                st_printf(L"  backup[%d] parent=%d name=%ls tree_root=%ls comp=%d\n",
+                          store.backups[i].id, store.backups[i].parent_game_id,
+                          store.backups[i].name, store.backups[i].tree_root,
+                          (int)store.backups[i].compression_level);
+            }
+            result = 0;
+        }
+    } else if (wcscmp(sub, L"profile-delete-game") == 0) {
+        /* --selftest profile-delete-game <id> <ini> */
+        if (argc < 5) {
+            result = 2;
+        } else {
+            profile_store_t store;
+            profile_store_init(&store);
+            profile_store_load(&store, argv[4]);
+            bool ok = profile_store_delete_game(&store, _wtoi(argv[3]));
+            if (ok) {
+                profile_store_save(&store, argv[4]);
+                st_printf(L"profile-delete-game: ok\n");
+                result = 0;
+            } else {
+                st_printf(L"profile-delete-game: not found\n");
+                result = 1;
+            }
+        }
+    } else if (wcscmp(sub, L"profile-delete-backup") == 0) {
+        /* --selftest profile-delete-backup <id> <ini> */
+        if (argc < 5) {
+            result = 2;
+        } else {
+            profile_store_t store;
+            profile_store_init(&store);
+            profile_store_load(&store, argv[4]);
+            bool ok = profile_store_delete_backup(&store, _wtoi(argv[3]));
+            if (ok) {
+                profile_store_save(&store, argv[4]);
+                st_printf(L"profile-delete-backup: ok\n");
+                result = 0;
+            } else {
+                st_printf(L"profile-delete-backup: not found\n");
+                result = 1;
+            }
+        }
     } else {
         /* Placeholder subcommands added in T18, T20-T22, T23, T25, T26, T29. */
         st_printf(L"unknown selftest subcommand: %ls\n", sub);

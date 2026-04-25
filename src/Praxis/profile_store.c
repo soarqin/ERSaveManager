@@ -17,6 +17,7 @@
 #include <stdio.h>
 
 #include <windows.h>
+#include <shlobj.h>
 
 /* Maximum INI file size accepted by profile_store_load (256 KiB). */
 #define PROFILE_STORE_MAX_BYTES (256u * 1024u)
@@ -67,10 +68,45 @@ int profile_store_add_game(profile_store_t *store, const game_profile_t *gp) {
     if (store->game_count >= MAX_GAME_PROFILES) {
         return 0;
     }
+    /* Validate required fields. */
+    if (gp->name[0] == L'\0' || gp->tree_root[0] == L'\0') {
+        return 0;
+    }
+
+    /* Assign a new sequential ID. */
     int id = store->next_game_id++;
     store->games[store->game_count] = *gp;
     store->games[store->game_count].id = id;
     store->game_count++;
+
+    /* Create tree_root directory if it does not already exist. */
+    SHCreateDirectoryExW(NULL, gp->tree_root, NULL);
+    /* Ignore return value — ERROR_ALREADY_EXISTS is acceptable. */
+
+    /* Auto-create a Main backup profile for this game. */
+    backup_profile_t main_bp;
+    ZeroMemory(&main_bp, sizeof(main_bp));
+    main_bp.parent_game_id = id;
+    lstrcpyW(main_bp.name, L"Main");
+    /* tree_root for Main = <game.tree_root>\Main */
+    _snwprintf(main_bp.tree_root, MAX_PATH, L"%ls\\Main", gp->tree_root);
+    main_bp.tree_root[MAX_PATH - 1] = L'\0';
+    main_bp.compression_level = COMP_LEVEL_LOW;
+
+    /* Create the Main backup directory. */
+    SHCreateDirectoryExW(NULL, main_bp.tree_root, NULL);
+
+    /* Inline-add the backup, bypassing parent validation (parent was just added). */
+    int backup_id = store->next_backup_id++;
+    if (store->backup_count < MAX_BACKUP_PROFILES) {
+        main_bp.id = backup_id;
+        store->backups[store->backup_count++] = main_bp;
+    }
+
+    /* Set both new profiles as active. */
+    store->active_game_id = id;
+    store->active_backup_id = backup_id;
+
     return id;
 }
 
@@ -146,6 +182,26 @@ int profile_store_add_backup(profile_store_t *store, const backup_profile_t *bp)
     if (store->backup_count >= MAX_BACKUP_PROFILES) {
         return 0;
     }
+    /* Validate required fields. */
+    if (bp->name[0] == L'\0' || bp->tree_root[0] == L'\0') {
+        return 0;
+    }
+    /* Validate that the parent game profile exists. */
+    bool parent_found = false;
+    for (size_t i = 0; i < store->game_count; i++) {
+        if (store->games[i].id == bp->parent_game_id) {
+            parent_found = true;
+            break;
+        }
+    }
+    if (!parent_found) {
+        return 0;
+    }
+
+    /* Create backup directory if it does not already exist. */
+    SHCreateDirectoryExW(NULL, bp->tree_root, NULL);
+    /* Ignore return value — ERROR_ALREADY_EXISTS is acceptable. */
+
     int id = store->next_backup_id++;
     store->backups[store->backup_count] = *bp;
     store->backups[store->backup_count].id = id;
