@@ -1451,6 +1451,48 @@ static int run_selftest(void) {
                 result = 0;
             }
         }
+    } else if (wcscmp(sub, L"locale-dump") == 0) {
+        /* --selftest locale-dump: print all STR_PRAXIS_* locale strings */
+        for (int i = 0; i < (int)STR_PRAXIS_MAX; i++) {
+            st_printf(L"%d: %ls\n", i, praxis_locale_str((praxis_string_index_t)i));
+        }
+        result = 0;
+    } else if (wcscmp(sub, L"watcher-state") == 0) {
+        /* --selftest watcher-state <tree_root>: validate watcher can start and stop */
+        if (argc < 4) {
+            result = 2;
+        } else {
+            save_watcher_t *watcher = save_watcher_start(NULL, argv[3], WM_APP + 1);
+            if (!watcher) {
+                st_printf(L"watcher-state: failed to start\n");
+                result = 1;
+            } else {
+                Sleep(500);  /* brief wait */
+                save_watcher_stop(watcher);
+                st_printf(L"watcher-state: ok\n");
+                result = 0;
+            }
+        }
+    } else if (wcscmp(sub, L"backup-full-with-active") == 0) {
+        /* --selftest backup-full-with-active <src_sl2> <dst_backup>: backup full with active backend */
+        if (argc < 5) {
+            result = 2;
+        } else {
+            const game_backend_t *b = backend_registry_get_default();
+            if (!b || !b->backup_full) {
+                st_printf(L"backup-full-with-active: no backend\n");
+                result = 1;
+            } else {
+                bool ok = b->backup_full(argv[3], argv[4], 5);
+                if (!ok) {
+                    st_printf(L"backup-full-with-active: backup failed\n");
+                    result = 1;
+                } else {
+                    st_printf(L"backup-full-with-active: ok\n");
+                    result = 0;
+                }
+            }
+        }
     } else {
         /* Placeholder subcommands added in T18, T20-T22, T23, T25, T26, T29. */
         st_printf(L"unknown selftest subcommand: %ls\n", sub);
