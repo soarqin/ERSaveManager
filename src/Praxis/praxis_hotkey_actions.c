@@ -194,7 +194,15 @@ bool praxis_hotkey_action_backup_full(HWND hwnd, profile_store_t *store,
         }
     }
 
-    ext = (cl == COMP_LEVEL_NONE) ? L".sl2" : L".ersm";
+    /* All backups use the backend-defined extension (e.g. `.ersm` for Elden
+     * Ring) regardless of compression level. The actual on-disk format is
+     * determined at restore time by the file's magic bytes via
+     * ersm_detect_file_format(): COMP_LEVEL_NONE produces a byte-identical
+     * raw BND4 copy (ERSM_FMT_BND4_RAW), while compressed levels produce an
+     * ERSM container (ERSM_FMT_ERSM_CONTAINER). The TreeView strips
+     * extensions for display, so legacy `.sl2`-named backups appear the
+     * same as new `.ersm` ones and continue to restore correctly. */
+    ext = backend->backup_extension;
     make_backup_filename(base_dir, L"manual", ext, dst, MAX_PATH);
 
     if (cl == COMP_LEVEL_NONE) {
@@ -237,7 +245,7 @@ bool praxis_hotkey_action_backup_slot(HWND hwnd, profile_store_t *store,
     }
 
     _snwprintf_s(prefix, 32, _TRUNCATE, L"slot%d_backup", slot);
-    make_backup_filename(base_dir, prefix, L".ersm", dst, MAX_PATH);
+    make_backup_filename(base_dir, prefix, backend->backup_extension, dst, MAX_PATH);
     ok = backend->backup_slot(save_path, slot, dst,
         comp_level_to_lzma((compression_level_t)compression_level));
     if (ok && save_tree) {

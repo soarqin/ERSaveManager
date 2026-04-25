@@ -16,9 +16,12 @@
 
 /**
  * @brief Perform a full-save backup using the active backup profile.
- * @details Creates a timestamped backup of the active save file. When
- *          compression_level is COMP_LEVEL_NONE, a raw .sl2 copy is written;
- *          otherwise an LZMA-compressed .ersm archive is produced.
+ * @details Creates a timestamped backup of the active save file using the
+ *          backend-defined extension (e.g. `.ersm`). When compression_level
+ *          is COMP_LEVEL_NONE the file is a byte-identical raw BND4 copy of
+ *          the source save; otherwise it is an LZMA-compressed ERSM
+ *          container. The format is identified by magic bytes at restore
+ *          time, not by the extension.
  *          Refreshes save_tree and selects the new file on success.
  * @param hwnd Main window handle (reserved for future MessageBox feedback).
  * @param store Profile store containing the active game/backup profile.
@@ -32,7 +35,8 @@ bool praxis_hotkey_action_backup_full(HWND hwnd, profile_store_t *store,
 /**
  * @brief Perform an active-slot backup using the active backup profile.
  * @details Queries the backend for the currently active character slot, then
- *          creates a timestamped .ersm backup of that slot.
+ *          creates a timestamped backup of that slot using the
+ *          backend-defined extension (e.g. `.ersm`).
  *          Refreshes save_tree and selects the new file on success.
  * @param hwnd Main window handle (reserved for future MessageBox feedback).
  * @param store Profile store containing the active game/backup profile.
