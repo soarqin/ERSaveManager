@@ -8,7 +8,7 @@
 #include "praxis_selftest.h"
 
 #include "config.h"
-#include "config_core.h"
+#include "../common/config_core.h"
 #include "backend_registry.h"
 #include "hotkey.h"
 #include "locale.h"
@@ -20,10 +20,10 @@
 #include "profile_store_io.h"
 #include "bnd4_test_format.h"
 
-#include "ersave.h"
-#include "save_compress.h"
+#include "../common/ersave.h"
+#include "../common/save_compress.h"
 
-#include <md5.h>
+#include "../../deps/md5/md5.h"
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -154,34 +154,34 @@ static bool selftest_delete_tree_path(const wchar_t *full_path) {
 }
 
 static HTREEITEM selftest_find_child_by_text(HWND hwnd, HTREEITEM parent, const wchar_t *text) {
-    HTREEITEM item;
+    HTREEITEM tree_item;
     wchar_t label[MAX_PATH];
 
     if (!hwnd || !text) {
         return NULL;
     }
 
-    item = parent ? TreeView_GetChild(hwnd, parent) : TreeView_GetRoot(hwnd);
-    while (item) {
+    tree_item = parent ? TreeView_GetChild(hwnd, parent) : TreeView_GetRoot(hwnd);
+    while (tree_item) {
         TVITEMW tvi = {0};
 
         label[0] = L'\0';
-        tvi.hItem = item;
+        tvi.hItem = tree_item;
         tvi.mask = TVIF_TEXT;
         tvi.pszText = label;
         tvi.cchTextMax = MAX_PATH;
         if (TreeView_GetItem(hwnd, &tvi) && lstrcmpW(label, text) == 0) {
-            return item;
+            return tree_item;
         }
 
-        item = TreeView_GetNextSibling(hwnd, item);
+        tree_item = TreeView_GetNextSibling(hwnd, tree_item);
     }
 
     return NULL;
 }
 
 static HTREEITEM selftest_find_tree_item_by_relpath(HWND hwnd, const wchar_t *relpath) {
-    HTREEITEM item;
+    HTREEITEM tree_item;
     wchar_t path_copy[MAX_PATH];
     wchar_t *context = NULL;
     wchar_t *part;
@@ -190,23 +190,23 @@ static HTREEITEM selftest_find_tree_item_by_relpath(HWND hwnd, const wchar_t *re
         return NULL;
     }
 
-    item = TreeView_GetRoot(hwnd);
-    if (!item || !relpath || relpath[0] == L'\0') {
-        return item;
+    tree_item = TreeView_GetRoot(hwnd);
+    if (!tree_item || !relpath || relpath[0] == L'\0') {
+        return tree_item;
     }
 
     lstrcpynW(path_copy, relpath, MAX_PATH);
     part = wcstok_s(path_copy, L"\\", &context);
     while (part) {
-        item = selftest_find_child_by_text(hwnd, item, part);
-        if (!item) {
+        tree_item = selftest_find_child_by_text(hwnd, tree_item, part);
+        if (!tree_item) {
             return NULL;
         }
 
         part = wcstok_s(NULL, L"\\", &context);
     }
 
-    return item;
+    return tree_item;
 }
 
 static bool selftest_build_tree_path(const wchar_t *root, const wchar_t *relpath, wchar_t *out, size_t out_chars) {
@@ -279,7 +279,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD type = hOut ? GetFileType(hOut) : FILE_TYPE_UNKNOWN;
     bool redirected = (type == FILE_TYPE_DISK || type == FILE_TYPE_PIPE);
-    int result;
+    int exit_code;
 
     if (!redirected) {
         FILE *fp = NULL;
@@ -291,6 +291,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
 
     if (!argv || argc < 3) {
         st_printf(L"usage: --selftest <subcommand> [args...]\n");
+        /* FreeConsole not called: selftest exits the process immediately after returning. */
         return 2;
     }
 
@@ -301,86 +302,86 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
             praxis_load_config();
             save_compress_init();
             st_printf(L"praxis_smoke_ok\n");
-            result = 0;
+            exit_code = 0;
         } else if (wcscmp(sub, L"dump-default-backend") == 0) {
             const game_backend_t *b = backend_registry_get_default();
             if (!b) {
                 st_printf(L"no default backend\n");
-                result = 1;
+                exit_code = 1;
             } else {
                 st_printf(L"%ls\n", b->display_name);
-                result = 0;
+                exit_code = 0;
             }
         } else if (wcscmp(sub, L"provision-sl2") == 0) {
             if (argc < 4) {
                 st_printf(L"usage: --selftest provision-sl2 <output_path>\n");
-                result = 2;
+                exit_code = 2;
             } else {
-                result = praxis_make_min_valid_sl2(argv[3], 76561199999999999ULL) ? 0 : 1;
+                exit_code = praxis_make_min_valid_sl2(argv[3], 76561199999999999ULL) ? 0 : 1;
             }
         } else if (wcscmp(sub, L"backup-full-headless") == 0) {
             if (argc < 5) {
                 st_printf(L"usage: --selftest backup-full-headless <src_sl2> <dst_ersm>\n");
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 if (!b) {
                     st_printf(L"no backend\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
-                    result = b->backup_full(argv[3], argv[4], 5) ? 0 : 1;
+                    exit_code = b->backup_full(argv[3], argv[4], 5) ? 0 : 1;
                 }
             }
         } else if (wcscmp(sub, L"restore-full-headless") == 0) {
             if (argc < 5) {
                 st_printf(L"usage: --selftest restore-full-headless <src_backup> <dst_sl2>\n");
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 if (!b) {
                     st_printf(L"no backend\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
-                    result = b->restore_full(argv[3], argv[4]) ? 0 : 1;
+                    exit_code = b->restore_full(argv[3], argv[4]) ? 0 : 1;
                 }
             }
         } else if (wcscmp(sub, L"backup-slot-headless") == 0) {
             if (argc < 6) {
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 int slot = _wtoi(argv[4]);
-                result = (b && b->backup_slot) ? (b->backup_slot(argv[3], slot, argv[5], 5) ? 0 : 1) : 1;
+                exit_code = (b && b->backup_slot) ? (b->backup_slot(argv[3], slot, argv[5], 5) ? 0 : 1) : 1;
             }
         } else if (wcscmp(sub, L"restore-slot-headless") == 0) {
             if (argc < 6) {
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 int slot = _wtoi(argv[5]);
-                result = (b && b->restore_slot) ? (b->restore_slot(argv[3], argv[4], slot) ? 0 : 1) : 1;
+                exit_code = (b && b->restore_slot) ? (b->restore_slot(argv[3], argv[4], slot) ? 0 : 1) : 1;
             }
         } else if (wcscmp(sub, L"dump-active-slot-praxis") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 int slot = -1;
                 if (b && b->get_active_slot && b->get_active_slot(argv[3], &slot)) {
                     st_printf(L"active_slot=%d\n", slot);
-                    result = 0;
+                    exit_code = 0;
                 } else {
-                    result = 1;
+                    exit_code = 1;
                 }
             }
         } else if (wcscmp(sub, L"hotkey-validate") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
                 hotkey_binding_t b;
 
-                result = hotkey_parse_string(argv[3], &b) ? 0 : 1;
-                if (result == 0) {
+                exit_code = hotkey_parse_string(argv[3], &b) ? 0 : 1;
+                if (exit_code == 0) {
                     wchar_t str[64];
                     hotkey_to_string(&b, str, 64);
                     st_printf(L"parsed: %ls\n", str);
@@ -388,40 +389,40 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
             }
         } else if (wcscmp(sub, L"make-valid-ersm") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
-                result = selftest_make_valid_ersm(argv[3]);
+                exit_code = selftest_make_valid_ersm(argv[3]);
             }
         } else if (wcscmp(sub, L"tree-populate") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
                 save_tree_t *t = save_tree_create(NULL, NULL, 0);
                 if (!t) {
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     save_tree_set_root(t, argv[3]);
                     st_printf(L"items=%d\n", save_tree_item_count(t));
                     save_tree_destroy(t);
-                    result = 0;
+                    exit_code = 0;
                 }
             }
         } else if (wcscmp(sub, L"tree-preserve-selection-walkup") == 0) {
             if (argc < 6) {
                 st_printf(L"usage: --selftest tree-preserve-selection-walkup <root> <select_path> <delete_path>\n");
-                result = 2;
+                exit_code = 2;
             } else {
                 HWND host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
                     0, 0, 200, 200, NULL, NULL, GetModuleHandleW(NULL), NULL);
                 save_tree_t *t;
 
                 if (!host) {
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     t = save_tree_create(host, GetModuleHandleW(NULL), 0);
                     if (!t) {
                         DestroyWindow(host);
-                        result = 1;
+                        exit_code = 1;
                     } else {
                         HWND tree_hwnd = save_tree_get_hwnd(t);
                         HTREEITEM select_item;
@@ -434,30 +435,30 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                         select_item = selftest_find_tree_item_by_relpath(tree_hwnd, argv[4]);
                         if (!select_item) {
                             st_printf(L"tree-preserve-selection-walkup: selection not found\n");
-                            result = 1;
+                            exit_code = 1;
                         } else if (!TreeView_SelectItem(tree_hwnd, select_item)) {
                             st_printf(L"tree-preserve-selection-walkup: selection failed\n");
-                            result = 1;
+                            exit_code = 1;
                         } else if (!selftest_build_tree_path(argv[3], argv[5], delete_full, MAX_PATH)) {
-                            result = 1;
+                            exit_code = 1;
                         } else if (!selftest_delete_tree_path(delete_full)) {
                             st_printf(L"tree-preserve-selection-walkup: delete failed\n");
-                            result = 1;
+                            exit_code = 1;
                         } else {
                             selftest_walk_up_existing_relpath(argv[3], argv[4], expected_relpath, MAX_PATH);
                             if (!selftest_build_tree_path(argv[3], expected_relpath, expected_full, MAX_PATH)) {
-                                result = 1;
+                                exit_code = 1;
                             } else {
                                 save_tree_refresh_preserve_selection(t);
                                 if (!save_tree_get_selected_path(t, selected_full, MAX_PATH)) {
                                     st_printf(L"tree-preserve-selection-walkup: no selection after refresh\n");
-                                    result = 1;
+                                    exit_code = 1;
                                 } else if (lstrcmpW(selected_full, expected_full) != 0) {
                                     st_printf(L"expected=%ls\nselected=%ls\n", expected_full, selected_full);
-                                    result = 1;
+                                    exit_code = 1;
                                 } else {
                                     st_printf(L"selected=%ls\n", selected_full);
-                                    result = 0;
+                                    exit_code = 0;
                                 }
                             }
                         }
@@ -469,72 +470,72 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
             }
         } else if (wcscmp(sub, L"tree-rename") == 0) {
             if (argc < 6) {
-                result = 2;
+                exit_code = 2;
             } else {
                 save_tree_t *t = save_tree_create(NULL, NULL, 0);
                 if (!t) {
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     save_tree_set_root(t, argv[3]);
-                    result = save_tree_rename(t, argv[4], argv[5]) ? 0 : 1;
+                    exit_code = save_tree_rename(t, argv[4], argv[5]) ? 0 : 1;
                     save_tree_destroy(t);
                 }
             }
         } else if (wcscmp(sub, L"tree-delete") == 0) {
             if (argc < 5) {
-                result = 2;
+                exit_code = 2;
             } else {
                 save_tree_t *t = save_tree_create(NULL, NULL, 0);
                 if (!t) {
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     save_tree_set_root(t, argv[3]);
-                    result = save_tree_delete(t, argv[4]) ? 0 : 1;
+                    exit_code = save_tree_delete(t, argv[4]) ? 0 : 1;
                     save_tree_destroy(t);
                 }
             }
         } else if (wcscmp(sub, L"tree-new-folder") == 0) {
             if (argc < 6) {
-                result = 2;
+                exit_code = 2;
             } else {
                 save_tree_t *t = save_tree_create(NULL, NULL, 0);
                 if (!t) {
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     save_tree_set_root(t, argv[3]);
-                    result = save_tree_new_folder(t, argv[4], argv[5]) ? 0 : 1;
+                    exit_code = save_tree_new_folder(t, argv[4], argv[5]) ? 0 : 1;
                     save_tree_destroy(t);
                 }
             }
         } else if (wcscmp(sub, L"tree-move") == 0) {
             if (argc < 6) {
-                result = 2;
+                exit_code = 2;
             } else {
                 save_tree_t *t = save_tree_create(NULL, NULL, 0);
                 if (!t) {
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     save_tree_set_root(t, argv[3]);
-                    result = save_tree_move(t, argv[4], argv[5]) ? 0 : 1;
+                    exit_code = save_tree_move(t, argv[4], argv[5]) ? 0 : 1;
                     save_tree_destroy(t);
                 }
             }
         } else if (wcscmp(sub, L"ring-snapshot") == 0) {
             if (argc < 6) {
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 wchar_t out[MAX_PATH];
 
                 ring_backup_init(argv[3], 5);
-                result = ring_backup_snapshot(b, argv[4], argv[5], 5, out, MAX_PATH) ? 0 : 1;
-                if (result == 0) {
+                exit_code = ring_backup_snapshot(b, argv[4], argv[5], 5, out, MAX_PATH) ? 0 : 1;
+                if (exit_code == 0) {
                     st_printf(L"ring_path=%ls\n", out);
                 }
             }
         } else if (wcscmp(sub, L"restore-with-safety") == 0) {
             if (argc < 6) {
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 ring_backup_init(argv[3], 5);
@@ -547,47 +548,47 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     .slot_mode = false,
                     .slot_index = 0,
                 };
-                result = restore_safe_full(&req) ? 0 : 1;
+                exit_code = restore_safe_full(&req) ? 0 : 1;
             }
         } else if (wcscmp(sub, L"restore-auto-detect") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
                 save_kind_t kind = save_compress_classify_backup(argv[3]);
                 if (kind == SAVE_KIND_FULL) {
                     st_printf(L"FULL\n");
-                    result = 0;
+                    exit_code = 0;
                 } else if (kind == SAVE_KIND_SLOT) {
                     st_printf(L"SLOT\n");
-                    result = 0;
+                    exit_code = 0;
                 } else {
                     st_printf(L"UNKNOWN\n");
-                    result = 1;
+                    exit_code = 1;
                 }
             }
         } else if (wcscmp(sub, L"undo-last-restore") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 ring_backup_init(argv[3], 5);
-                result = restore_safe_undo(b, argv[3], 5) ? 0 : 1;
+                exit_code = restore_safe_undo(b, argv[3], 5) ? 0 : 1;
             }
         } else if (wcscmp(sub, L"write-raw-bnd4") == 0) {
             if (argc < 5) {
                 st_printf(L"usage: --selftest write-raw-bnd4 <src> <dst>\n");
-                result = 2;
+                exit_code = 2;
             } else {
                 HANDLE fh = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
                 if (fh == INVALID_HANDLE_VALUE) {
                     st_printf(L"write-raw-bnd4: cannot open source\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     DWORD fsz = GetFileSize(fh, NULL);
                     uint8_t *buf = (uint8_t *)LocalAlloc(LMEM_FIXED, fsz);
                     if (!buf) {
                         CloseHandle(fh);
-                        result = 1;
+                        exit_code = 1;
                     } else {
                         DWORD rd = 0;
 
@@ -595,10 +596,10 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                         CloseHandle(fh);
                         if (!ersm_write_raw_bnd4_to_file(argv[4], buf, (size_t)rd)) {
                             st_printf(L"write-raw-bnd4: write failed (bad magic or I/O)\n");
-                            result = 1;
+                            exit_code = 1;
                         } else {
                             st_printf(L"write-raw-bnd4: ok\n");
-                            result = 0;
+                            exit_code = 0;
                         }
 
                         LocalFree(buf);
@@ -608,7 +609,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
         } else if (wcscmp(sub, L"classify") == 0) {
             if (argc < 4) {
                 st_printf(L"usage: --selftest classify <file>\n");
-                result = 2;
+                exit_code = 2;
             } else {
                 save_kind_t kind = save_compress_classify_backup(argv[3]);
                 if (kind == SAVE_KIND_FULL) {
@@ -618,11 +619,11 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 } else {
                     wprintf(L"UNKNOWN\n");
                 }
-                result = 0;
+                exit_code = 0;
             }
         } else if (wcscmp(sub, L"profile-roundtrip") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
                 profile_store_t store;
 
@@ -644,7 +645,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
 
                 if (!profile_store_io_save(&store, argv[3])) {
                     st_printf(L"profile-roundtrip: FAIL (save)\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     profile_store_t store2;
                     int ok;
@@ -652,7 +653,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     profile_store_init(&store2);
                     if (!profile_store_io_load(&store2, argv[3])) {
                         st_printf(L"profile-roundtrip: FAIL (load)\n");
-                        result = 1;
+                        exit_code = 1;
                     } else {
                         ok = (int)(store2.game_count == 1)
                            & (int)(store2.backup_count == 1)
@@ -660,8 +661,8 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                            & (lstrcmpW(store2.backups[0].name, L"Main") == 0 ? 1 : 0)
                            & (store2.active_game_id == 1 ? 1 : 0)
                            & (store2.active_backup_id == 1 ? 1 : 0);
-                        result = ok ? 0 : 1;
-                        if (result == 0) {
+                        exit_code = ok ? 0 : 1;
+                        if (exit_code == 0) {
                             st_printf(L"profile-roundtrip: ok\n");
                         } else {
                             st_printf(L"profile-roundtrip: FAIL (compare)\n");
@@ -671,7 +672,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
             }
         } else if (wcscmp(sub, L"profile-load") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
                 profile_store_t store;
 
@@ -680,11 +681,11 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 st_printf(L"games=%u backups=%u active_game=%d active_backup=%d\n",
                     (unsigned)store.game_count, (unsigned)store.backup_count,
                     store.active_game_id, store.active_backup_id);
-                result = 0;
+                exit_code = 0;
             }
         } else if (wcscmp(sub, L"profile-add-game") == 0) {
             if (argc < 8) {
-                result = 2;
+                exit_code = 2;
             } else {
                 profile_store_t store;
                 game_profile_t gp;
@@ -700,16 +701,16 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 new_id = profile_store_add_game(&store, &gp);
                 if (new_id == 0) {
                     st_printf(L"profile-add-game: FAIL\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     profile_store_io_save(&store, argv[7]);
                     st_printf(L"profile-add-game: ok id=%d\n", new_id);
-                    result = 0;
+                    exit_code = 0;
                 }
             }
         } else if (wcscmp(sub, L"profile-add-backup") == 0) {
             if (argc < 7) {
-                result = 2;
+                exit_code = 2;
             } else {
                 profile_store_t store;
                 backup_profile_t bp;
@@ -733,16 +734,16 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 new_id = profile_store_add_backup(&store, &bp);
                 if (new_id == 0) {
                     st_printf(L"profile-add-backup: FAIL\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     profile_store_io_save(&store, argv[6]);
                     st_printf(L"profile-add-backup: ok id=%d\n", new_id);
-                    result = 0;
+                    exit_code = 0;
                 }
             }
         } else if (wcscmp(sub, L"profile-list") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
                 profile_store_t store;
 
@@ -766,11 +767,11 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                         store.backups[i].name, has_root ? backup_root : L"",
                         (int)store.backups[i].compression_level);
                 }
-                result = 0;
+                exit_code = 0;
             }
         } else if (wcscmp(sub, L"profile-delete-game") == 0) {
             if (argc < 5) {
-                result = 2;
+                exit_code = 2;
             } else {
                 profile_store_t store;
                 bool ok;
@@ -781,15 +782,15 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 if (ok) {
                     profile_store_io_save(&store, argv[4]);
                     st_printf(L"profile-delete-game: ok\n");
-                    result = 0;
+                    exit_code = 0;
                 } else {
                     st_printf(L"profile-delete-game: not found\n");
-                    result = 1;
+                    exit_code = 1;
                 }
             }
         } else if (wcscmp(sub, L"profile-delete-backup") == 0) {
             if (argc < 5) {
-                result = 2;
+                exit_code = 2;
             } else {
                 profile_store_t store;
                 bool ok;
@@ -800,46 +801,56 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 if (ok) {
                     profile_store_io_save(&store, argv[4]);
                     st_printf(L"profile-delete-backup: ok\n");
-                    result = 0;
+                    exit_code = 0;
                 } else {
                     st_printf(L"profile-delete-backup: not found\n");
-                    result = 1;
+                    exit_code = 1;
                 }
             }
         } else if (wcscmp(sub, L"locale-dump") == 0) {
             for (int i = 0; i < (int)STR_PRAXIS_MAX; i++) {
                 st_printf(L"%d: %ls\n", i, praxis_locale_str((praxis_string_index_t)i));
             }
-            result = 0;
+            exit_code = 0;
         } else if (wcscmp(sub, L"watcher-state") == 0) {
             if (argc < 4) {
-                result = 2;
+                exit_code = 2;
             } else {
-                save_watcher_t *watcher = save_watcher_start(NULL, argv[3], WM_APP + 1);
-                if (!watcher) {
-                    st_printf(L"watcher-state: failed to start\n");
-                    result = 1;
+                /* watcher-state: create a host window so save_watcher_start gets a valid HWND */
+                HWND ws_host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
+                    0, 0, 1, 1, NULL, NULL, GetModuleHandleW(NULL), NULL);
+                if (!ws_host) {
+                    st_printf(L"watcher-state: failed to create host window\n");
+                    exit_code = 1;
                 } else {
-                    Sleep(500);
-                    save_watcher_stop(watcher);
-                    st_printf(L"watcher-state: ok\n");
-                    result = 0;
+                    save_watcher_t *watcher = save_watcher_start(ws_host, argv[3], WM_APP + 1);
+                    if (!watcher) {
+                        st_printf(L"watcher-state: failed to start\n");
+                        DestroyWindow(ws_host);
+                        exit_code = 1;
+                    } else {
+                        Sleep(500);
+                        save_watcher_stop(watcher);
+                        DestroyWindow(ws_host);
+                        st_printf(L"watcher-state: ok\n");
+                        exit_code = 0;
+                    }
                 }
             }
         } else if (wcscmp(sub, L"backup-full-with-active") == 0) {
             if (argc < 5) {
-                result = 2;
+                exit_code = 2;
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 if (!b || !b->backup_full) {
                     st_printf(L"backup-full-with-active: no backend\n");
-                    result = 1;
+                    exit_code = 1;
                 } else if (!b->backup_full(argv[3], argv[4], 5)) {
                     st_printf(L"backup-full-with-active: backup failed\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     st_printf(L"backup-full-with-active: ok\n");
-                    result = 0;
+                    exit_code = 0;
                 }
             }
         } else if (wcscmp(sub, L"hotkey-defaults") == 0) {
@@ -848,11 +859,11 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
             st_printf(L"restore=%ls\n", praxis_config.hotkey_restore);
             st_printf(L"undo=%ls\n", praxis_config.hotkey_undo_restore);
             st_printf(L"backup_slot=%ls\n", praxis_config.hotkey_backup_slot);
-            result = 0;
+            exit_code = 0;
         } else if (wcscmp(sub, L"config-load") == 0) {
             if (argc < 4) {
                 st_printf(L"usage: --selftest config-load <ini>\n");
-                result = 2;
+                exit_code = 2;
             } else {
                 HANDLE cfg_fh;
 
@@ -880,25 +891,25 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 st_printf(L"hotkeys_backup_full=%ls\n", praxis_config.hotkey_backup_full);
                 st_printf(L"ring_size=%d\n", praxis_config.ring_size);
                 st_printf(L"compression_level=%d\n", praxis_config.compression_level);
-                result = 0;
+                exit_code = 0;
             }
         } else if (wcscmp(sub, L"backend-vtable-shape") == 0) {
             const game_backend_t *bvt = backend_registry_get_default();
             if (!bvt) {
                 st_printf(L"no backend\n");
-                result = 1;
+                exit_code = 1;
             } else {
                 st_printf(L"id=%d\n", (int)bvt->id);
                 st_printf(L"display_name=%ls\n", bvt->display_name);
                 st_printf(L"has_get_active_slot=%d\n", bvt->get_active_slot ? 1 : 0);
                 st_printf(L"has_backup_slot=%d\n", bvt->backup_slot ? 1 : 0);
                 st_printf(L"has_restore_slot=%d\n", bvt->restore_slot ? 1 : 0);
-                result = 0;
+                exit_code = 0;
             }
         } else if (wcscmp(sub, L"profile-resolve-active") == 0) {
             if (argc < 4) {
                 st_printf(L"usage: --selftest profile-resolve-active <ini>\n");
-                result = 2;
+                exit_code = 2;
             } else {
                 profile_store_t pra_store;
                 const game_profile_t *pra_gp;
@@ -908,7 +919,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 pra_gp = profile_store_get_active_game(&pra_store);
                 if (!pra_gp) {
                     st_printf(L"profile-resolve-active: no active profile\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     wchar_t pra_save_path[MAX_PATH] = {0};
                     const game_backend_t *pra_b = backend_registry_get_by_id(pra_gp->game_id);
@@ -919,39 +930,40 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     }
                     st_printf(L"active_game_id=%d\n", pra_gp->id);
                     st_printf(L"save_path=%ls\n", pra_save_path);
-                    result = 0;
+                    exit_code = 0;
                 }
             }
         } else if (wcscmp(sub, L"watcher-debounce-timing") == 0) {
             if (argc < 4) {
                 st_printf(L"usage: --selftest watcher-debounce-timing <root>\n");
-                result = 2;
+                exit_code = 2;
             } else {
                 HWND wdt_host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
                     0, 0, 1, 1, NULL, NULL, GetModuleHandleW(NULL), NULL);
                 if (!wdt_host) {
                     st_printf(L"watcher-debounce-timing: failed to create host window\n");
-                    result = 1;
+                    exit_code = 1;
                 } else {
                     save_watcher_t *wdt_w = save_watcher_start(wdt_host, argv[3], WM_APP + 1);
                     if (!wdt_w) {
                         st_printf(L"watcher-debounce-timing: failed to start watcher\n");
                         DestroyWindow(wdt_host);
-                        result = 1;
+                        exit_code = 1;
                     } else {
                         st_printf(L"watcher_start_ok\n");
                         save_watcher_stop(wdt_w);
                         DestroyWindow(wdt_host);
                         st_printf(L"watcher_stop_ok\n");
-                        result = 0;
+                        exit_code = 0;
                     }
                 }
             }
         } else {
             st_printf(L"unknown selftest subcommand: %ls\n", sub);
-            result = 2;
+            exit_code = 2;
         }
     }
 
-    return result;
+    /* FreeConsole not called: selftest exits the process immediately after returning. */
+    return exit_code;
 }

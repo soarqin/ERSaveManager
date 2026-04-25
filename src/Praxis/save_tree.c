@@ -20,10 +20,6 @@
 
 #define SAVE_TREE_MAX_DEPTH 16
 #define SAVE_TREE_MAX_EXPANDED_PATHS 256
-typedef struct walk_entry_s {
-    wchar_t name[MAX_PATH];
-    DWORD attributes;
-} walk_entry_t;
 
 /* Forward declaration: refresh body without redraw bracketing.
  * Public save_tree_refresh() / save_tree_refresh_preserve_selection() handle
@@ -31,9 +27,7 @@ typedef struct walk_entry_s {
  * rebuild + reselect + reexpand sequence. */
 static void save_tree_refresh_inner(save_tree_t *t);
 
-/* Get the shared system small-icon image list. The shell owns this image
- * list — we must NOT destroy it. */
-static HIMAGELIST save_tree_get_system_image_list(void) {
+HIMAGELIST save_tree_get_system_image_list(void) {
     SHFILEINFOW sfi;
 
     ZeroMemory(&sfi, sizeof(sfi));
@@ -41,11 +35,7 @@ static HIMAGELIST save_tree_get_system_image_list(void) {
         SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
 }
 
-/* Resolve the system icon index for a given file/directory name.
- *  - For directories, pass FILE_ATTRIBUTE_DIRECTORY (name does not need to exist on disk).
- *  - For files, pass FILE_ATTRIBUTE_NORMAL; the shell picks the icon by extension.
- * Uses SHGFI_USEFILEATTRIBUTES so we don't actually touch the filesystem. */
-static int save_tree_resolve_icon_index(const wchar_t *name, bool is_directory) {
+int save_tree_resolve_icon_index(const wchar_t *name, bool is_directory) {
     SHFILEINFOW sfi;
     DWORD attrs = is_directory ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
     DWORD flags = SHGFI_SYSICONINDEX | SHGFI_USEFILEATTRIBUTES | SHGFI_SMALLICON;
@@ -168,19 +158,7 @@ static bool is_valid_name(const wchar_t *name) {
     return true;
 }
 
-static int __cdecl compare_walk_entries(const void *lhs, const void *rhs) {
-    const walk_entry_t *left = (const walk_entry_t *)lhs;
-    const walk_entry_t *right = (const walk_entry_t *)rhs;
-    bool left_is_dir = (left->attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-    bool right_is_dir = (right->attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-
-    if (left_is_dir != right_is_dir) {
-        return left_is_dir ? -1 : 1;
-    }
-    return lstrcmpW(left->name, right->name);
-}
-
-static bool append_item(save_tree_t *t, const wchar_t *relative_path, bool is_directory, size_t *out_index) {
+bool save_tree_append_item(save_tree_t *t, const wchar_t *relative_path, bool is_directory, size_t *out_index) {
     size_t index;
 
     if (!t || !relative_path || !ensure_capacity(t)) {
@@ -239,159 +217,6 @@ static HTREEITEM find_hitem_by_lparam(HWND hwnd, HTREEITEM hitem, LPARAM target)
     }
 
     return NULL;
-}
-
-/**
- * @brief Recursively collect relative_paths of all expanded directory items.
- * @details Performs a depth-first walk through TreeView items. Each expanded
- *          directory contributes its relative path to the output buffer until
- *          the provided capacity is reached.
- * @param t Save tree instance.
- * @param hitem Tree item to start from.
- * @param out_paths Destination array of relative paths.
- * @param out_capacity Number of available path slots in @p out_paths.
- * @param count Running number of captured paths.
- */
-static void collect_expanded_paths(save_tree_t *t, HTREEITEM hitem,
-    wchar_t (*out_paths)[MAX_PATH], size_t out_capacity, size_t *count) {
-    while (t && hitem && out_paths && count && *count < out_capacity) {
-        TVITEMW tvi = {0};
-        HTREEITEM child;
-        size_t index;
-
-        tvi.hItem = hitem;
-        tvi.mask = TVIF_PARAM | TVIF_STATE;
-        tvi.stateMask = TVIS_EXPANDED;
-        if (TreeView_GetItem(t->hwnd, &tvi)) {
-            index = (size_t)(uintptr_t)tvi.lParam;
-            if ((tvi.state & TVIS_EXPANDED) && index < t->item_count) {
-                const save_item_t *item = &t->items[index];
-                if (item->is_directory) {
-                    lstrcpynW(out_paths[*count], item->relative_path, MAX_PATH);
-                    (*count)++;
-                }
-            }
-
-            child = TreeView_GetChild(t->hwnd, hitem);
-            if (child) {
-                collect_expanded_paths(t, child, out_paths, out_capacity, count);
-            }
-        }
-
-        hitem = TreeView_GetNextSibling(t->hwnd, hitem);
-    }
-}
-
-static void walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *rel_prefix,
-    HTREEITEM parent_item, int depth) {
-    wchar_t search[MAX_PATH];
-    WIN32_FIND_DATAW fd;
-    HANDLE handle;
-    walk_entry_t *entries = NULL;
-    size_t entry_count = 0;
-    size_t entry_capacity = 0;
-
-    if (!t || !dir_path || !rel_prefix || depth > SAVE_TREE_MAX_DEPTH) {
-        return;
-    }
-
-    lstrcpyW(search, dir_path);
-    if (!PathAppendW(search, L"*")) {
-        return;
-    }
-
-    handle = FindFirstFileW(search, &fd);
-    if (handle == INVALID_HANDLE_VALUE) {
-        return;
-    }
-
-    do {
-        walk_entry_t *new_entries;
-
-        if (fd.cFileName[0] == L'.') {
-            continue;
-        }
-        if ((fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
-            continue;
-        }
-
-        if (entry_count >= entry_capacity) {
-            size_t new_capacity = entry_capacity == 0 ? 16 : entry_capacity * 2;
-            new_entries = LocalAlloc(LMEM_FIXED, new_capacity * sizeof(walk_entry_t));
-            if (!new_entries) {
-                break;
-            }
-            if (entries && entry_count > 0) {
-                CopyMemory(new_entries, entries, entry_count * sizeof(walk_entry_t));
-            }
-            if (entries) {
-                LocalFree(entries);
-            }
-            entries = new_entries;
-            entry_capacity = new_capacity;
-        }
-
-        lstrcpynW(entries[entry_count].name, fd.cFileName, MAX_PATH);
-        entries[entry_count].attributes = fd.dwFileAttributes;
-        entry_count++;
-    } while (FindNextFileW(handle, &fd));
-
-    FindClose(handle);
-
-    if (!entries) {
-        return;
-    }
-
-    qsort(entries, entry_count, sizeof(walk_entry_t), compare_walk_entries);
-
-    for (size_t i = 0; i < entry_count; i++) {
-        wchar_t rel_path[MAX_PATH];
-        wchar_t full_path[MAX_PATH];
-        wchar_t display_name[MAX_PATH];
-        bool is_dir = (entries[i].attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-        HTREEITEM inserted = NULL;
-        size_t index;
-        TVINSERTSTRUCTW insert = {0};
-        int icon_idx;
-
-        if (rel_prefix[0] != L'\0') {
-            lstrcpyW(rel_path, rel_prefix);
-            if (!PathAppendW(rel_path, entries[i].name)) {
-                continue;
-            }
-        } else {
-            lstrcpyW(rel_path, entries[i].name);
-        }
-
-        lstrcpyW(full_path, dir_path);
-        if (!PathAppendW(full_path, entries[i].name)) {
-            continue;
-        }
-
-        if (!append_item(t, rel_path, is_dir, &index)) {
-            break;
-        }
-
-        save_tree_make_display_name(entries[i].name, is_dir, display_name, MAX_PATH);
-        icon_idx = save_tree_resolve_icon_index(entries[i].name, is_dir);
-
-        if (t->hwnd) {
-            insert.hParent = parent_item;
-            insert.hInsertAfter = TVI_LAST;
-            insert.item.mask = TVIF_TEXT | TVIF_PARAM | TVIF_IMAGE | TVIF_SELECTEDIMAGE;
-            insert.item.pszText = display_name;
-            insert.item.lParam = (LPARAM)(uintptr_t)index;
-            insert.item.iImage = icon_idx;
-            insert.item.iSelectedImage = icon_idx;
-            inserted = TreeView_InsertItem(t->hwnd, &insert);
-        }
-
-        if (is_dir) {
-            walk_dir(t, full_path, rel_path, inserted, depth + 1);
-        }
-    }
-
-    LocalFree(entries);
 }
 
 save_tree_t *save_tree_create(HWND parent, HINSTANCE hinst, int id) {
@@ -488,7 +313,7 @@ static void save_tree_refresh_inner(save_tree_t *t) {
         return;
     }
 
-    if (!append_item(t, L"", true, &wrapper_index)) {
+    if (!save_tree_append_item(t, L"", true, &wrapper_index)) {
         return;
     }
 
@@ -513,7 +338,7 @@ static void save_tree_refresh_inner(save_tree_t *t) {
         wrapper_hitem = TreeView_InsertItem(t->hwnd, &insert);
     }
 
-    walk_dir(t, t->root_path, L"", wrapper_hitem, 0);
+    save_tree_walk_dir(t, t->root_path, L"", wrapper_hitem, 0);
 
     if (t->hwnd && wrapper_hitem) {
         TreeView_Expand(t->hwnd, wrapper_hitem, TVE_EXPAND);
@@ -573,7 +398,7 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
         if (expanded_paths) {
             HTREEITEM root = TreeView_GetRoot(t->hwnd);
             if (root) {
-                collect_expanded_paths(t, root, expanded_paths,
+                save_tree_collect_expanded_paths(t, root, expanded_paths,
                     SAVE_TREE_MAX_EXPANDED_PATHS, &expanded_count);
             }
         }

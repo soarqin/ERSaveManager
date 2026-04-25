@@ -9,6 +9,7 @@ add_project(praxis WIN32
     save_tree_internal.h
     save_tree_notify.c
     save_tree_notify.h
+    save_tree_walk.c
     save_watcher.c
     save_watcher.h
     game_backend.h
@@ -30,6 +31,8 @@ add_project(praxis WIN32
     praxis_main_menu.h
     praxis_selftest.c
     praxis_selftest.h
+    praxis_window_common.c
+    praxis_window_common.h
     toolbar.c
     toolbar.h
     bnd4_test_format.h

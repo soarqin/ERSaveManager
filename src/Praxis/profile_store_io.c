@@ -10,7 +10,7 @@
 
 #include "profile_store_io.h"
 #include "config.h"
-#include "config_core.h"
+#include "../common/config_core.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -174,8 +174,11 @@ bool profile_store_io_load(profile_store_t *out_store, const wchar_t *ini_path) 
             }
         }
         if (!found) {
-            fwprintf(stderr, L"praxis: orphan BackupProfile:%d parent=%d (skipped)\n",
-                     out_store->backups[i].id, out_store->backups[i].parent_game_id);
+            wchar_t debug_msg[128];
+            _snwprintf_s(debug_msg, 128, _TRUNCATE,
+                L"praxis: orphan BackupProfile:%d parent=%d (skipped)\n",
+                out_store->backups[i].id, out_store->backups[i].parent_game_id);
+            OutputDebugStringW(debug_msg);
             for (size_t k = i; k + 1 < out_store->backup_count; k++) {
                 out_store->backups[k] = out_store->backups[k + 1];
             }

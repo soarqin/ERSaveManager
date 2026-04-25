@@ -54,11 +54,11 @@ static int ring_list_files(const wchar_t *ring_dir, wchar_t out_paths[][MAX_PATH
     }
 
     /* Copy to output, respecting capacity */
-    int result = count < out_capacity ? count : out_capacity;
-    for (int i = 0; i < result; i++) {
+    int copy_count = count < out_capacity ? count : out_capacity;
+    for (int i = 0; i < copy_count; i++) {
         lstrcpyW(out_paths[i], temp_files[i]);
     }
-    return result;
+    return copy_count;
 }
 
 bool ring_backup_init(const wchar_t *tree_root, int ring_size) {
