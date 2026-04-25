@@ -53,15 +53,25 @@
 #define IDC_EGP_TREE_ROOT   4104
 #define IDC_EGP_BROWSE_SAVE 4105
 #define IDC_EGP_BROWSE_TREE 4106
+/* Labels (need IDs so they can be localized at runtime) */
+#define IDC_EGP_LBL_NAME      4111
+#define IDC_EGP_LBL_GAME      4112
+#define IDC_EGP_LBL_SAVE_DIR  4113
+#define IDC_EGP_LBL_TREE_ROOT 4114
 
 /* === Edit Backup Profile Dialog Controls === */
 #define IDC_EBP_NAME       4201
 #define IDC_EBP_TREE_ROOT  4202
 #define IDC_EBP_BROWSE     4203
+/* Radio button IDs MUST be sequential and in display order so that
+ * CheckRadioButton(NONE, HIGH, ...) covers the full range. */
 #define IDC_EBP_COMP_NONE   4204
 #define IDC_EBP_COMP_LOW    4205
-#define IDC_EBP_COMP_HIGH   4206
-#define IDC_EBP_COMP_MEDIUM 4207
+#define IDC_EBP_COMP_MEDIUM 4206
+#define IDC_EBP_COMP_HIGH   4207
+/* Labels (need IDs so they can be localized at runtime) */
+#define IDC_EBP_LBL_NAME        4211
+#define IDC_EBP_LBL_COMPRESSION 4212
 
 /* === Hotkey Settings Dialog Controls === */
 #define IDC_HK_LBL_BACKUP_FULL 4301

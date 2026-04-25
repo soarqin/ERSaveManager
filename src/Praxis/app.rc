@@ -74,14 +74,14 @@ STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Edit Game Profile"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Name:", -1, 8, 8, 48, 8
+    LTEXT           "Name:",        IDC_EGP_LBL_NAME,      8,  8, 48, 8
     EDITTEXT        IDC_EGP_NAME, 60, 6, 212, 14, ES_AUTOHSCROLL
-    LTEXT           "Game:", -1, 8, 28, 48, 8
+    LTEXT           "Game:",        IDC_EGP_LBL_GAME,      8, 28, 48, 8
     COMBOBOX        IDC_EGP_GAME, 60, 26, 212, 80, CBS_DROPDOWNLIST | WS_TABSTOP
-    LTEXT           "Save Dir:", -1, 8, 48, 48, 8
+    LTEXT           "Save Dir:",    IDC_EGP_LBL_SAVE_DIR,  8, 48, 48, 8
     EDITTEXT        IDC_EGP_SAVE_DIR, 60, 46, 180, 14, ES_AUTOHSCROLL
     PUSHBUTTON      "...", IDC_EGP_BROWSE_SAVE, 244, 46, 28, 14
-    LTEXT           "Backup Root:", -1, 8, 68, 48, 8
+    LTEXT           "Backup Root:", IDC_EGP_LBL_TREE_ROOT, 8, 68, 48, 8
     EDITTEXT        IDC_EGP_TREE_ROOT, 60, 66, 180, 14, ES_AUTOHSCROLL
     PUSHBUTTON      "...", IDC_EGP_BROWSE_TREE, 244, 66, 28, 14
     DEFPUSHBUTTON   "OK",     IDOK,     140, 118, 60, 14
@@ -94,9 +94,9 @@ STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Edit Backup Profile"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Name:", -1, 8, 8, 48, 8
+    LTEXT           "Name:",       IDC_EBP_LBL_NAME,        8,  8, 48, 8
     EDITTEXT        IDC_EBP_NAME, 60, 6, 212, 14, ES_AUTOHSCROLL
-    GROUPBOX        "Compression", -1, 8, 28, 264, 36
+    GROUPBOX        "Compression", IDC_EBP_LBL_COMPRESSION, 8, 28, 264, 36
     AUTORADIOBUTTON "None",   IDC_EBP_COMP_NONE,   12, 40, 50, 10, WS_GROUP | WS_TABSTOP
     AUTORADIOBUTTON "Low",    IDC_EBP_COMP_LOW,    66, 40, 50, 10
     AUTORADIOBUTTON "Medium", IDC_EBP_COMP_MEDIUM, 120, 40, 60, 10
