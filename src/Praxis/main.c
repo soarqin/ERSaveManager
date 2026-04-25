@@ -4,6 +4,7 @@
  */
 
 #include "config.h"
+#include "config_core.h"
 #include "backend_registry.h"
 #include "hotkey.h"
 #include "locale.h"
@@ -14,6 +15,7 @@
 #include "save_tree.h"
 #include "profile_store.h"
 #include "toolbar.h"
+#include "dialogs/migration_wizard.h"
 
 #include "ersave.h"
 #include "save_compress.h"
@@ -1118,6 +1120,25 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     praxis_load_config();
     praxis_locale_set_current(praxis_config.language);
     praxis_save_config();
+
+    /* First-launch migration wizard: detect a legacy single-profile INI and
+     * walk the user through converting it to the multi-profile schema. The
+     * wizard re-runs on every launch until completed (no Skip button). */
+    {
+        wchar_t ini_path[MAX_PATH];
+
+        if (config_core_get_app_ini_path(ini_path, MAX_PATH, L"Praxis.ini") &&
+            profile_store_needs_migration(ini_path)) {
+            profile_store_t migrated_store;
+            profile_store_init(&migrated_store);
+            run_migration_wizard(NULL, &migrated_store, ini_path,
+                praxis_config.tree_root, praxis_config.compression_level);
+            /* Migration writes a new INI on success; reload praxis_config so the
+             * tree_root and other settings reflect any user edits. */
+            praxis_load_config();
+            praxis_locale_set_current(praxis_config.language);
+        }
+    }
 
     /* Register window class. */
     WNDCLASSEXW wc = {0};
