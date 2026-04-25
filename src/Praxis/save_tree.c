@@ -663,6 +663,48 @@ bool save_tree_get_selected_path(const save_tree_t *t, wchar_t *out, size_t out_
     return build_full_path(t, item.relative_path, out, out_chars);
 }
 
+bool save_tree_get_selected_dir(const save_tree_t *t, wchar_t *out, size_t out_chars) {
+    HTREEITEM selection;
+    save_item_t item;
+
+    if (!t || !out || out_chars == 0) {
+        return false;
+    }
+
+    if (!t->hwnd) {
+        if (t->root_path[0] == L'\0') {
+            return false;
+        }
+        lstrcpynW(out, t->root_path, (int)out_chars);
+        return true;
+    }
+
+    selection = TreeView_GetSelection(t->hwnd);
+    if (!selection) {
+        lstrcpynW(out, t->root_path, (int)out_chars);
+        return true;
+    }
+
+    if (!get_item_info(t, selection, NULL, &item)) {
+        return false;
+    }
+
+    if (item.relative_path[0] == L'\0') {
+        lstrcpynW(out, t->root_path, (int)out_chars);
+        return true;
+    }
+
+    if (item.is_directory) {
+        return build_full_path(t, item.relative_path, out, out_chars);
+    }
+
+    if (!build_full_path(t, item.relative_path, out, out_chars)) {
+        return false;
+    }
+
+    return PathRemoveFileSpecW(out) == TRUE;
+}
+
 HWND save_tree_get_hwnd(const save_tree_t *t) {
     return t ? t->hwnd : NULL;
 }

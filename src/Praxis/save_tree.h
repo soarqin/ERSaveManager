@@ -30,6 +30,18 @@ void save_tree_refresh(save_tree_t *t);
  */
 void save_tree_refresh_preserve_selection(save_tree_t *t);
 bool save_tree_get_selected_path(const save_tree_t *t, wchar_t *out, size_t out_chars);
+/**
+ * @brief Get the directory path of the currently selected item.
+ * @details If the selection is a directory, returns its full path. If the
+ *          selection is a file, returns the parent directory's full path.
+ *          If no selection, or the wrapper root is selected (relative_path
+ *          is empty), returns the tree root path.
+ * @param t Tree widget instance.
+ * @param out Buffer to receive the full path (caller must allocate).
+ * @param out_chars Capacity of out (should be MAX_PATH).
+ * @return true on success, false if t is invalid or path cannot be built.
+ */
+bool save_tree_get_selected_dir(const save_tree_t *t, wchar_t *out, size_t out_chars);
 HWND save_tree_get_hwnd(const save_tree_t *t);
 bool save_tree_handle_notify(save_tree_t *t, LPNMHDR pnm, LRESULT *out_result);
 

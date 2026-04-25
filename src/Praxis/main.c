@@ -291,17 +291,22 @@ static bool backup_full_active(void) {
     const game_backend_t *backend = get_active_backend();
     wchar_t save_path[MAX_PATH];
     wchar_t dst[MAX_PATH];
-    wchar_t backup_root[MAX_PATH];
+    wchar_t base_dir[MAX_PATH];
     const wchar_t *ext;
     bool ok;
 
-    if (!bp || !backend || !resolve_save_path_for_active(save_path, MAX_PATH) ||
-        !profile_store_resolve_backup_root(&g_profile_store, bp->id, backup_root, MAX_PATH)) {
+    if (!bp || !backend || !resolve_save_path_for_active(save_path, MAX_PATH)) {
         return false;
     }
 
+    if (!g_save_tree || !save_tree_get_selected_dir(g_save_tree, base_dir, MAX_PATH)) {
+        if (!profile_store_resolve_backup_root(&g_profile_store, bp->id, base_dir, MAX_PATH)) {
+            return false;
+        }
+    }
+
     ext = (bp->compression_level == COMP_LEVEL_NONE) ? L".sl2" : L".ersm";
-    make_backup_filename(backup_root, L"manual", ext, dst, MAX_PATH);
+    make_backup_filename(base_dir, L"manual", ext, dst, MAX_PATH);
 
     if (bp->compression_level == COMP_LEVEL_NONE) {
         ok = backup_full_raw(save_path, dst);
@@ -321,20 +326,25 @@ static bool backup_slot_active(void) {
     const game_backend_t *backend = get_active_backend();
     wchar_t save_path[MAX_PATH];
     wchar_t dst[MAX_PATH];
-    wchar_t backup_root[MAX_PATH];
+    wchar_t base_dir[MAX_PATH];
     wchar_t prefix[32];
     int slot = -1;
     bool ok;
 
     if (!bp || !game_backend_supports_slot_ops(backend) ||
         !resolve_save_path_for_active(save_path, MAX_PATH) ||
-        !backend->get_active_slot(save_path, &slot) ||
-        !profile_store_resolve_backup_root(&g_profile_store, bp->id, backup_root, MAX_PATH)) {
+        !backend->get_active_slot(save_path, &slot)) {
         return false;
     }
 
+    if (!g_save_tree || !save_tree_get_selected_dir(g_save_tree, base_dir, MAX_PATH)) {
+        if (!profile_store_resolve_backup_root(&g_profile_store, bp->id, base_dir, MAX_PATH)) {
+            return false;
+        }
+    }
+
     _snwprintf_s(prefix, 32, _TRUNCATE, L"slot%d_backup", slot);
-    make_backup_filename(backup_root, prefix, L".ersm", dst, MAX_PATH);
+    make_backup_filename(base_dir, prefix, L".ersm", dst, MAX_PATH);
     ok = backend->backup_slot(save_path, slot, dst, comp_level_to_lzma(bp->compression_level));
     if (ok && g_save_tree) {
         save_tree_refresh(g_save_tree);
