@@ -68,6 +68,60 @@ void praxis_main_menu_apply_locale_strings(HWND hwnd) {
     DrawMenuBar(hwnd);
 }
 
+/**
+ * @brief Rebuild the Game submenu from the current profile store.
+ * @param hmenu  Handle to the Game popup menu.
+ * @param store  Current profile store (read-only).
+ *
+ * Removes all dynamically inserted items, then inserts one entry per game
+ * profile at the top, followed by a separator before the static Manage item.
+ */
+static void rebuild_game_submenu(HMENU hmenu, const profile_store_t *store) {
+    /* Keep ONLY the Manage item (1 item). Remove all dynamically inserted items. */
+    while (GetMenuItemCount(hmenu) > 1) {
+        DeleteMenu(hmenu, 0, MF_BYPOSITION);
+    }
+    /* Insert game profiles at top, checking the currently active one. */
+    for (int i = 0; i < (int)store->game_count; i++) {
+        UINT flags = MF_BYPOSITION | MF_STRING;
+        if (store->games[i].id == store->active_game_id) {
+            flags |= MF_CHECKED;
+        }
+        InsertMenuW(hmenu, i, flags,
+                    IDM_GAME_PROFILE_FIRST + store->games[i].id,
+                    store->games[i].name);
+    }
+    /* Insert separator BEFORE the Manage item only when there ARE profiles. */
+    if (store->game_count > 0) {
+        InsertMenuW(hmenu, (int)store->game_count, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+    }
+}
+
+/**
+ * @brief Rebuild the Language submenu from the locale catalog.
+ * @param hmenu  Handle to the Language popup menu.
+ *
+ * Wipes the entire submenu (sentinel placeholder + any prior dynamic items)
+ * and repopulates it from the locale catalog, checking the active locale.
+ */
+static void rebuild_lang_submenu(HMENU hmenu) {
+    int n   = praxis_locale_count();
+    int cur = praxis_locale_get_current();
+
+    while (GetMenuItemCount(hmenu) > 0) {
+        DeleteMenu(hmenu, 0, MF_BYPOSITION);
+    }
+    for (int i = 0; i < n; i++) {
+        UINT flags = MF_BYPOSITION | MF_STRING;
+        if (i == cur) {
+            flags |= MF_CHECKED;
+        }
+        InsertMenuW(hmenu, i, flags,
+                    (UINT_PTR)(IDM_LANG_FIRST + i),
+                    praxis_locale_name(i));
+    }
+}
+
 void praxis_main_menu_init_popup(HWND hwnd, HMENU hmenu, const profile_store_t *store) {
     int count = GetMenuItemCount(hmenu);
     bool is_game_menu = false;
@@ -93,51 +147,16 @@ void praxis_main_menu_init_popup(HWND hwnd, HMENU hmenu, const profile_store_t *
         }
     }
 
-    if (is_game_menu) {
-        /* Keep ONLY the Manage item (1 item). Remove all dynamically inserted items. */
-        while (GetMenuItemCount(hmenu) > 1) {
-            DeleteMenu(hmenu, 0, MF_BYPOSITION);
-        }
-        /* Insert game profiles at top */
-        for (int i = 0; i < (int)store->game_count; i++) {
-            UINT flags = MF_BYPOSITION | MF_STRING;
-            if (store->games[i].id == store->active_game_id) {
-                flags |= MF_CHECKED;
-            }
-            InsertMenuW(hmenu, i, flags,
-                        IDM_GAME_PROFILE_FIRST + store->games[i].id,
-                        store->games[i].name);
-        }
-        /* Insert separator BEFORE the Manage item only when there ARE profiles. */
-        if (store->game_count > 0) {
-            InsertMenuW(hmenu, (int)store->game_count, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
-        }
+    if (!is_game_menu && !is_lang_menu) {
         return;
     }
 
-    if (is_lang_menu) {
-        /* Wipe the entire submenu (sentinel placeholder + any prior
-         * dynamic items) and rebuild it from the locale catalog with
-         * the active locale checked. */
-        int n;
-        int cur;
-
-        while (GetMenuItemCount(hmenu) > 0) {
-            DeleteMenu(hmenu, 0, MF_BYPOSITION);
-        }
-
-        n   = praxis_locale_count();
-        cur = praxis_locale_get_current();
-        for (int i = 0; i < n; i++) {
-            UINT flags = MF_BYPOSITION | MF_STRING;
-            if (i == cur) {
-                flags |= MF_CHECKED;
-            }
-            InsertMenuW(hmenu, i, flags,
-                        (UINT_PTR)(IDM_LANG_FIRST + i),
-                        praxis_locale_name(i));
-        }
+    if (is_game_menu) {
+        rebuild_game_submenu(hmenu, store);
+        return;
     }
+
+    rebuild_lang_submenu(hmenu);
 }
 
 bool praxis_main_menu_handle_command(HWND hwnd, WPARAM wparam, profile_store_t *store) {
