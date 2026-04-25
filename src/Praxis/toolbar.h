@@ -120,3 +120,13 @@ void toolbar_set_selected_backup_id(toolbar_t *t, int backup_id);
  * @param enabled true to enable action buttons, false to disable.
  */
 void toolbar_set_actions_enabled(toolbar_t *t, bool enabled);
+
+/**
+ * @brief Re-apply localized strings to all toolbar buttons.
+ * @details Call after praxis_locale_set_current() so buttons reflect the
+ *          newly-selected language without requiring an application restart.
+ *          The combobox content (profile labels) is unaffected — those come
+ *          from the profile store, not the locale catalog.
+ * @param t Toolbar handle (may be NULL — no-op).
+ */
+void toolbar_apply_locale_strings(toolbar_t *t);

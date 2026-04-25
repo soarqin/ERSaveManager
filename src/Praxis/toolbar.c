@@ -417,3 +417,24 @@ void toolbar_set_actions_enabled(toolbar_t *t, bool enabled) {
     EnableWindow(t->combo,   TRUE);
     EnableWindow(t->btn_add, TRUE);
 }
+
+void toolbar_apply_locale_strings(toolbar_t *t) {
+    if (!t) {
+        return;
+    }
+
+    /* Re-pull every localized button caption from the active locale. The
+     * "+" / "-" buttons are universal symbols and stay as-is. */
+    if (t->btn_backup_full) {
+        SetWindowTextW(t->btn_backup_full, praxis_locale_str(STR_PRAXIS_TIP_BACKUP_FULL));
+    }
+    if (t->btn_backup_slot) {
+        SetWindowTextW(t->btn_backup_slot, praxis_locale_str(STR_PRAXIS_TIP_BACKUP_SLOT));
+    }
+    if (t->btn_restore) {
+        SetWindowTextW(t->btn_restore, praxis_locale_str(STR_PRAXIS_TIP_RESTORE));
+    }
+    if (t->btn_undo) {
+        SetWindowTextW(t->btn_undo, praxis_locale_str(STR_PRAXIS_TIP_UNDO));
+    }
+}
