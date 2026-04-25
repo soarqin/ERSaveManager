@@ -52,6 +52,7 @@ static HANDLE g_log_file = INVALID_HANDLE_VALUE;
 /* Forward declarations */
 static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 static int run_selftest(void);
+static void apply_main_menu_locale_strings(HWND hwnd);
 
 #define IDT_REFRESH_DEBOUNCE 1001
 #define WM_WATCHER_NOTIFY (WM_APP + 1)
@@ -253,7 +254,7 @@ static void set_active_status_text(void) {
         gp = profile_store_get_active_game(&g_profile_store);
     }
     if (gp && bp) {
-        _snwprintf_s(status, 256, _TRUNCATE, L"Active: %ls / %ls", gp->name, bp->name);
+        _snwprintf_s(status, 256, _TRUNCATE, praxis_locale_str(STR_PRAXIS_STATUS_ACTIVE), gp->name, bp->name);
         SetWindowTextW(g_status_bar, status);
         return;
     }
@@ -287,6 +288,56 @@ static void apply_active_profile_ui(HWND hwnd) {
     }
 
     set_active_status_text();
+}
+
+static void apply_main_menu_locale_strings(HWND hwnd) {
+    HMENU menu;
+    HMENU file_menu;
+    HMENU game_menu;
+    HMENU options_menu;
+    HMENU language_menu;
+
+    if (!hwnd) {
+        return;
+    }
+
+    menu = GetMenu(hwnd);
+    if (!menu) {
+        return;
+    }
+
+    file_menu = GetSubMenu(menu, 0);
+    game_menu = GetSubMenu(menu, 1);
+    options_menu = GetSubMenu(menu, 2);
+
+    if (file_menu) {
+        ModifyMenuW(menu, 0, MF_BYPOSITION | MF_POPUP, (UINT_PTR)file_menu,
+            praxis_locale_str(STR_PRAXIS_FILE));
+        ModifyMenuW(file_menu, IDM_FILE_EXIT, MF_BYCOMMAND | MF_STRING, IDM_FILE_EXIT,
+            praxis_locale_str(STR_PRAXIS_EXIT));
+    }
+
+    if (game_menu) {
+        ModifyMenuW(menu, 1, MF_BYPOSITION | MF_POPUP, (UINT_PTR)game_menu,
+            praxis_locale_str(STR_PRAXIS_GAME));
+        ModifyMenuW(game_menu, IDM_GAME_MANAGE, MF_BYCOMMAND | MF_STRING, IDM_GAME_MANAGE,
+            praxis_locale_str(STR_PRAXIS_MANAGE_GAME_PROFILES));
+    }
+
+    if (options_menu) {
+        ModifyMenuW(menu, 2, MF_BYPOSITION | MF_POPUP, (UINT_PTR)options_menu,
+            praxis_locale_str(STR_PRAXIS_OPTIONS));
+        ModifyMenuW(options_menu, IDM_OPTIONS_HOTKEYS, MF_BYCOMMAND | MF_STRING, IDM_OPTIONS_HOTKEYS,
+            praxis_locale_str(STR_PRAXIS_HOTKEY_SETTINGS));
+
+        language_menu = GetSubMenu(options_menu, 1);
+        if (language_menu) {
+            ModifyMenuW(options_menu, 1, MF_BYPOSITION | MF_POPUP, (UINT_PTR)language_menu,
+                praxis_locale_str(STR_PRAXIS_LANGUAGE));
+        }
+    }
+
+    DrawMenuBar(hwnd);
 }
 
 /*
@@ -487,6 +538,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             apply_active_profile_ui(hwnd);
 
             g_main_window = hwnd;
+            apply_main_menu_locale_strings(hwnd);
 
             hotkey_init(hwnd);
             if (hotkey_parse_string(praxis_config.hotkey_backup_full, &b))
@@ -598,6 +650,8 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 if (g_toolbar) {
                     toolbar_apply_locale_strings(g_toolbar);
                 }
+                SetWindowTextW(hwnd, praxis_locale_str(STR_PRAXIS_APP_TITLE));
+                apply_main_menu_locale_strings(hwnd);
                 set_active_status_text();
             }
             return 0;
