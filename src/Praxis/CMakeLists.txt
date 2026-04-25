@@ -22,6 +22,8 @@ add_project(praxis WIN32
     hotkey.h
     profile_store.c
     profile_store.h
+    profile_store_io.c
+    profile_store_io.h
     praxis_hotkey_actions.c
     praxis_hotkey_actions.h
     praxis_main_menu.c

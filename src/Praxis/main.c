@@ -14,6 +14,7 @@
 #include "save_tree.h"
 #include "save_watcher.h"
 #include "profile_store.h"
+#include "profile_store_io.h"
 #include "praxis_main_menu.h"
 #include "praxis_selftest.h"
 #include "toolbar.h"
@@ -97,7 +98,7 @@ bool save_profile_store(void) {
         return false;
     }
 
-    return profile_store_save(&g_profile_store, ini);
+    return profile_store_io_save(&g_profile_store, ini);
 }
 
 static void set_active_status_text(void) {
@@ -203,7 +204,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             {
                 wchar_t ini[MAX_PATH];
                 if (config_core_get_app_ini_path(ini, MAX_PATH, L"Praxis.ini")) {
-                    profile_store_load(&g_profile_store, ini);
+                    profile_store_io_load(&g_profile_store, ini);
                 }
                 if (g_toolbar) toolbar_populate_profiles(g_toolbar, &g_profile_store);
             }
@@ -548,8 +549,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     /* Load configuration and apply language preference. We deliberately do NOT
      * call praxis_save_config() here: it writes only the [Settings] section
      * and would clobber any [GameProfile:N]/[BackupProfile:N] sections that
-     * profile_store_save() persisted in a previous session. The INI is
-     * written via profile_store_save() (which preserves all sections) on
+     * profile_store_io_save() persisted in a previous session. The INI is
+     * written via profile_store_io_save() (which preserves all sections) on
      * every profile mutation and on WM_CLOSE. */
     praxis_load_config();
     praxis_locale_set_current(praxis_config.language);
@@ -565,7 +566,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
             /* Detect: profile store empty? */
             profile_store_t probe_store;
             profile_store_init(&probe_store);
-            profile_store_load(&probe_store, ini_path);
+            profile_store_io_load(&probe_store, ini_path);
             bool needs_first_launch_setup = (probe_store.game_count == 0);
 
             if (needs_first_launch_setup) {
@@ -582,14 +583,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
                 if (result == IDOK) {
                     /* User confirmed -- add the profile (auto-creates Main backup). */
                     profile_store_add_game(&probe_store, &pre_gp);
-                    profile_store_save(&probe_store, ini_path);
+                    profile_store_io_save(&probe_store, ini_path);
                 } else {
                     /* User cancelled: set dismissed flag so we don't re-prompt.
-                     * Use profile_store_save (not praxis_save_config) so the
+                     * Use profile_store_io_save (not praxis_save_config) so the
                      * full INI -- including any pre-existing profile sections
                      * loaded into probe_store -- is preserved. */
                     praxis_config.migration_dismissed = 1;
-                    profile_store_save(&probe_store, ini_path);
+                    profile_store_io_save(&probe_store, ini_path);
                 }
             }
         }

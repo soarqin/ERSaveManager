@@ -10,6 +10,7 @@
 
 #include "../locale.h"
 #include "../profile_store.h"
+#include "../profile_store_io.h"
 #include "../resource.h"
 
 #include <commctrl.h>
@@ -124,10 +125,10 @@ static size_t gpm_count_children(const profile_store_t *store, int game_id) {
     return n;
 }
 
-/* Persist the store to disk via profile_store_save. */
+/* Persist the store to disk via profile_store_io_save. */
 static void gpm_persist(const profile_store_t *store, const wchar_t *ini_path) {
     if (ini_path && ini_path[0] != L'\0') {
-        profile_store_save(store, ini_path);
+        profile_store_io_save(store, ini_path);
     }
 }
 

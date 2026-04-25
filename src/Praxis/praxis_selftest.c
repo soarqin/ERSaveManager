@@ -17,6 +17,7 @@
 #include "save_tree.h"
 #include "save_watcher.h"
 #include "profile_store.h"
+#include "profile_store_io.h"
 #include "bnd4_test_format.h"
 
 #include "ersave.h"
@@ -632,7 +633,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 store.next_game_id = 2;
                 store.next_backup_id = 2;
 
-                if (!profile_store_save(&store, argv[3])) {
+                if (!profile_store_io_save(&store, argv[3])) {
                     st_printf(L"profile-roundtrip: FAIL (save)\n");
                     result = 1;
                 } else {
@@ -640,7 +641,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     int ok;
 
                     profile_store_init(&store2);
-                    if (!profile_store_load(&store2, argv[3])) {
+                    if (!profile_store_io_load(&store2, argv[3])) {
                         st_printf(L"profile-roundtrip: FAIL (load)\n");
                         result = 1;
                     } else {
@@ -666,7 +667,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 profile_store_t store;
 
                 profile_store_init(&store);
-                profile_store_load(&store, argv[3]);
+                profile_store_io_load(&store, argv[3]);
                 st_printf(L"games=%u backups=%u active_game=%d active_backup=%d\n",
                     (unsigned)store.game_count, (unsigned)store.backup_count,
                     store.active_game_id, store.active_backup_id);
@@ -681,7 +682,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 int new_id;
 
                 profile_store_init(&store);
-                profile_store_load(&store, argv[7]);
+                profile_store_io_load(&store, argv[7]);
                 ZeroMemory(&gp, sizeof(gp));
                 lstrcpynW(gp.name, argv[3], 64);
                 lstrcpynW(gp.original_save_dir, argv[4], MAX_PATH);
@@ -692,7 +693,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     st_printf(L"profile-add-game: FAIL\n");
                     result = 1;
                 } else {
-                    profile_store_save(&store, argv[7]);
+                    profile_store_io_save(&store, argv[7]);
                     st_printf(L"profile-add-game: ok id=%d\n", new_id);
                     result = 0;
                 }
@@ -707,7 +708,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 int new_id;
 
                 profile_store_init(&store);
-                profile_store_load(&store, argv[6]);
+                profile_store_io_load(&store, argv[6]);
                 ZeroMemory(&bp, sizeof(bp));
                 bp.parent_game_id = _wtoi(argv[3]);
                 lstrcpynW(bp.name, argv[4], 64);
@@ -725,7 +726,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     st_printf(L"profile-add-backup: FAIL\n");
                     result = 1;
                 } else {
-                    profile_store_save(&store, argv[6]);
+                    profile_store_io_save(&store, argv[6]);
                     st_printf(L"profile-add-backup: ok id=%d\n", new_id);
                     result = 0;
                 }
@@ -737,7 +738,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 profile_store_t store;
 
                 profile_store_init(&store);
-                profile_store_load(&store, argv[3]);
+                profile_store_io_load(&store, argv[3]);
                 st_printf(L"games=%zu backups=%zu active_game=%d active_backup=%d\n",
                     store.game_count, store.backup_count,
                     store.active_game_id, store.active_backup_id);
@@ -766,10 +767,10 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 bool ok;
 
                 profile_store_init(&store);
-                profile_store_load(&store, argv[4]);
+                profile_store_io_load(&store, argv[4]);
                 ok = profile_store_delete_game(&store, _wtoi(argv[3]));
                 if (ok) {
-                    profile_store_save(&store, argv[4]);
+                    profile_store_io_save(&store, argv[4]);
                     st_printf(L"profile-delete-game: ok\n");
                     result = 0;
                 } else {
@@ -785,10 +786,10 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 bool ok;
 
                 profile_store_init(&store);
-                profile_store_load(&store, argv[4]);
+                profile_store_io_load(&store, argv[4]);
                 ok = profile_store_delete_backup(&store, _wtoi(argv[3]));
                 if (ok) {
-                    profile_store_save(&store, argv[4]);
+                    profile_store_io_save(&store, argv[4]);
                     st_printf(L"profile-delete-backup: ok\n");
                     result = 0;
                 } else {
@@ -894,7 +895,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 const game_profile_t *pra_gp;
 
                 profile_store_init(&pra_store);
-                profile_store_load(&pra_store, argv[3]);
+                profile_store_io_load(&pra_store, argv[3]);
                 pra_gp = profile_store_get_active_game(&pra_store);
                 if (!pra_gp) {
                     st_printf(L"profile-resolve-active: no active profile\n");

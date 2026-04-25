@@ -117,6 +117,6 @@ void praxis_load_config(void) {
 /*
  * praxis_save_config() removed. It wrote only the [Settings] section,
  * which destructively overwrote any [GameProfile:N]/[BackupProfile:N]
- * sections previously persisted by profile_store_save(). All Praxis-side
- * INI writes now go through profile_store_save() via save_profile_store().
+ * sections previously persisted by profile_store_io_save(). All Praxis-side
+ * INI writes now go through profile_store_io_save() via save_profile_store().
  */

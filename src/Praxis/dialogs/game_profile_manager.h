@@ -15,7 +15,7 @@
 /**
  * @brief Show the Game Profile Manager modal dialog.
  * @param parent Parent window handle (may be NULL).
- * @param store Profile store to inspect/modify; persisted via profile_store_save on changes.
+ * @param store Profile store to inspect/modify; persisted via profile_store_io_save on changes.
  * @param ini_path Path to the Praxis.ini used for atomic save after each CRUD operation.
  * @return IDOK after the user closes the dialog.
  */

@@ -75,22 +75,6 @@ typedef struct profile_store_s {
 void profile_store_init(profile_store_t *store);
 
 /**
- * @brief Load profile store from INI file.
- * @param store Pointer to profile_store_t to populate.
- * @param ini_path Path to INI file.
- * @return true on success, false on failure.
- */
-bool profile_store_load(profile_store_t *store, const wchar_t *ini_path);
-
-/**
- * @brief Save profile store to INI file.
- * @param store Pointer to profile_store_t to save.
- * @param ini_path Path to INI file.
- * @return true on success, false on failure.
- */
-bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path);
-
-/**
  * @brief Add a new game profile to the store.
  * @param store Pointer to profile_store_t.
  * @param gp Pointer to game_profile_t to add (id field is ignored; auto-assigned).
