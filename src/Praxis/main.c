@@ -13,6 +13,7 @@
 #include "ring_backup.h"
 #include "restore_safe.h"
 #include "save_tree.h"
+#include "save_watcher.h"
 #include "profile_store.h"
 #include "toolbar.h"
 #include "dialogs/migration_wizard.h"
@@ -37,6 +38,7 @@
 /** @brief Global main window handle (set on WM_CREATE). */
 static HWND g_main_window = NULL;
 static save_tree_t *g_save_tree = NULL;
+static save_watcher_t *g_save_watcher = NULL;
 static HWND g_status_bar = NULL;
 static toolbar_t *g_toolbar = NULL;
 
@@ -46,6 +48,9 @@ static HANDLE g_log_file = INVALID_HANDLE_VALUE;
 /* Forward declarations */
 static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 static int run_selftest(void);
+
+#define IDT_REFRESH_DEBOUNCE 1001
+#define WM_WATCHER_NOTIFY (WM_APP + 1)
 
 /* Write a UTF-8 encoded line to the log file if one is open. */
 static void log_write(const wchar_t *msg) {
@@ -121,6 +126,10 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
 
             save_tree_set_root(g_save_tree, praxis_config.tree_root);
 
+            if (g_save_tree && praxis_config.tree_root[0] != L'\0') {
+                g_save_watcher = save_watcher_start(hwnd, praxis_config.tree_root, WM_WATCHER_NOTIFY);
+            }
+
             g_main_window = hwnd;
 
             hotkey_init(hwnd);
@@ -168,6 +177,21 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             }
         }
         break;
+
+    case WM_WATCHER_NOTIFY:
+        if (wp != 2) {
+            SetTimer(hwnd, IDT_REFRESH_DEBOUNCE, 200, NULL);
+        }
+        return 0;
+
+    case WM_TIMER:
+        if (wp == IDT_REFRESH_DEBOUNCE) {
+            KillTimer(hwnd, IDT_REFRESH_DEBOUNCE);
+            if (g_save_tree) {
+                save_tree_refresh_preserve_selection(g_save_tree);
+            }
+        }
+        return 0;
 
     case WM_COMMAND:
         switch (LOWORD(wp)) {
@@ -229,7 +253,14 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 if (new_root) {
                     lstrcpynW(praxis_config.tree_root, new_root, MAX_PATH);
                     CoTaskMemFree(new_root);
-                    if (g_save_tree) save_tree_set_root(g_save_tree, praxis_config.tree_root);
+                    if (g_save_tree) {
+                        save_tree_set_root(g_save_tree, praxis_config.tree_root);
+                    }
+                    if (g_save_watcher) {
+                        save_watcher_change_root(g_save_watcher, praxis_config.tree_root);
+                    } else if (praxis_config.tree_root[0] != L'\0') {
+                        g_save_watcher = save_watcher_start(hwnd, praxis_config.tree_root, WM_WATCHER_NOTIFY);
+                    }
                 }
             }
             return 0;
@@ -326,6 +357,11 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         return 0;
 
     case WM_DESTROY:
+        if (g_save_watcher) {
+            save_watcher_stop(g_save_watcher);
+            g_save_watcher = NULL;
+        }
+        KillTimer(hwnd, IDT_REFRESH_DEBOUNCE);
         if (g_toolbar) {
             toolbar_destroy(g_toolbar);
             g_toolbar = NULL;

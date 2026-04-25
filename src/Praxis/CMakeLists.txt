@@ -6,6 +6,8 @@ add_project(praxis WIN32
     locale.h
     save_tree.c
     save_tree.h
+    save_watcher.c
+    save_watcher.h
     game_backend.h
     backend_registry.c
     backend_registry.h
