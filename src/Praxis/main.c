@@ -272,14 +272,12 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 break;
             case HOTKEY_RESTORE:
                 {
-                    /* TODO(T19): wire to active profile and call restore_with_safety_auto */
-                    /* Placeholder: keep build green until T10/T19 complete */
                     wchar_t sel[MAX_PATH];
 
                     if (g_save_tree && save_tree_get_selected_path(g_save_tree, sel, MAX_PATH)) {
                         ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
-                        restore_with_safety(backend, sel, save_path, praxis_config.tree_root,
-                            praxis_config.compression_level, false, 0);
+                        restore_with_safety_auto(backend, sel, save_path, praxis_config.tree_root,
+                            praxis_config.compression_level);
                     }
                     break;
                 }
@@ -587,6 +585,22 @@ static int run_selftest(void) {
             const game_backend_t *b = backend_registry_get_default();
             ring_backup_init(argv[3], 5);
             result = restore_with_safety(b, argv[4], argv[5], argv[3], 5, false, 0) ? 0 : 1;
+        }
+    } else if (wcscmp(sub, L"restore-auto-detect") == 0) {
+        if (argc < 4) {
+            result = 2;
+        } else {
+            save_kind_t kind = save_compress_classify_backup(argv[3]);
+            if (kind == SAVE_KIND_FULL) {
+                st_printf(L"FULL\n");
+                result = 0;
+            } else if (kind == SAVE_KIND_SLOT) {
+                st_printf(L"SLOT\n");
+                result = 0;
+            } else {
+                st_printf(L"UNKNOWN\n");
+                result = 1;
+            }
         }
     } else if (wcscmp(sub, L"undo-last-restore") == 0) {
         if (argc < 4) { result = 2; }

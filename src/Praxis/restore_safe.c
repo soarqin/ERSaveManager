@@ -5,6 +5,7 @@
 
 #include "restore_safe.h"
 #include "ring_backup.h"
+#include "../common/save_compress.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,9 +74,9 @@ static bool read_last_restore_meta(const wchar_t *tree_root, wchar_t *out_ring_p
 }
 
 bool restore_with_safety(const game_backend_t *backend,
-                         const wchar_t *backup_src,
-                         const wchar_t *save_dst,
-                         const wchar_t *tree_root,
+                          const wchar_t *backup_src,
+                          const wchar_t *save_dst,
+                          const wchar_t *tree_root,
                          int compression_level,
                          bool slot_mode,
                          int slot_index) {
@@ -100,6 +101,38 @@ bool restore_with_safety(const game_backend_t *backend,
     /* Step 3: Write last_restore metadata (save_path lets undo target the same file) */
     write_last_restore_meta(tree_root, ring_path, save_dst, slot_mode, slot_index);
     return true;
+}
+
+bool restore_with_safety_auto(const game_backend_t *backend,
+                              const wchar_t *backup_src,
+                              const wchar_t *save_dst,
+                              const wchar_t *tree_root,
+                              int compression_level) {
+    if (!backend || !backup_src || !save_dst || !tree_root) {
+        return false;
+    }
+
+    save_kind_t kind = save_compress_classify_backup(backup_src);
+
+    if (kind == SAVE_KIND_FULL) {
+        return restore_with_safety(backend, backup_src, save_dst, tree_root,
+                                   compression_level, false, 0);
+    }
+
+    if (kind == SAVE_KIND_SLOT) {
+        int slot = -1;
+
+        if (!game_backend_supports_slot_ops(backend)) {
+            return false;
+        }
+        if (!backend->get_active_slot(save_dst, &slot)) {
+            return false;
+        }
+        return restore_with_safety(backend, backup_src, save_dst, tree_root,
+                                   compression_level, true, slot);
+    }
+
+    return false;
 }
 
 bool undo_last_restore(const game_backend_t *backend, const wchar_t *tree_root, int compression_level) {
