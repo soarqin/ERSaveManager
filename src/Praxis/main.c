@@ -155,9 +155,10 @@ static void praxis_first_launch_setup(const wchar_t *ini_path) {
     if (probe_store.game_count != 0) return;
     ZeroMemory(&game_profile, sizeof(game_profile));
     game_profile.game_id = GAME_ID_ELDEN_RING;
-    lstrcpynW(game_profile.name, L"Default", 64);
+    /* Leave game_profile.name empty so the dialog auto-fills it with a unique
+     * name derived from the selected backend's display_name (e.g. "Elden Ring"). */
     if (praxis_config.tree_root[0] != L'\0') lstrcpynW(game_profile.tree_root, praxis_config.tree_root, MAX_PATH);
-    if (dialog_edit_game_profile_show(NULL, &game_profile, true) == IDOK) profile_store_add_game(&probe_store, &game_profile);
+    if (dialog_edit_game_profile_show(NULL, &probe_store, &game_profile, true) == IDOK) profile_store_add_game(&probe_store, &game_profile);
     else {
         praxis_config.migration_dismissed = 1;
     }

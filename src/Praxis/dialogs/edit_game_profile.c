@@ -2,11 +2,18 @@
  * @file edit_game_profile.c
  * @brief Implementation of the Edit Game Profile modal dialog.
  * @details Captures Name, Game, original_save_dir, and tree_root for a game_profile_t.
- *          Browse buttons use file_dialog_open_folder for folder selection.
+ *          Browse buttons use file_dialog_open_folder for folder selection. For new
+ *          profiles, the Name field is auto-filled with a unique name based on the
+ *          selected backend's display_name, and the save_dir Browse picker uses the
+ *          backend's auto-detected default directory as the initial folder when the
+ *          field is empty. The auto-detected directory is only used as the picker's
+ *          initial folder; it is NOT recorded in any persistent "last opened directory"
+ *          history (the file_dialog module keeps no such history).
  */
 
 #include "edit_game_profile.h"
 
+#include "../backend_registry.h"
 #include "../locale.h"
 #include "../resource.h"
 #include "file_dialog.h"
@@ -19,30 +26,63 @@
 typedef struct egp_state_s {
     game_profile_t *gp;
     bool is_new;
+    const profile_store_t *store;   /* May be NULL when no store is available. */
 } egp_state_t;
 
-/* Populate the Game combobox with all known game IDs. */
+/* Resolve the backend currently selected in the Game combobox. Returns NULL if
+ * no backend is selected, the combobox lookup fails, or the registry has no
+ * matching entry. */
+static const game_backend_t *egp_get_selected_backend(HWND hwnd) {
+    HWND combo = GetDlgItem(hwnd, IDC_EGP_GAME);
+    int sel = (int)SendMessageW(combo, CB_GETCURSEL, 0, 0);
+    if (sel == CB_ERR) return NULL;
+    LRESULT data = SendMessageW(combo, CB_GETITEMDATA, sel, 0);
+    if (data == CB_ERR) return NULL;
+    return backend_registry_get_by_id((game_id_t)data);
+}
+
+/* Populate the Game combobox with all registered backends. */
 static void egp_populate_games(HWND combo, game_id_t selected) {
-    int idx = (int)SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)L"Elden Ring");
-    if (idx >= 0) {
-        SendMessageW(combo, CB_SETITEMDATA, idx, (LPARAM)GAME_ID_ELDEN_RING);
-        if (selected == GAME_ID_ELDEN_RING) {
+    size_t count = backend_registry_count();
+    for (size_t i = 0; i < count; i++) {
+        const game_backend_t *backend = backend_registry_get_at(i);
+        if (!backend || !backend->display_name) continue;
+
+        int idx = (int)SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)backend->display_name);
+        if (idx < 0) continue;
+        SendMessageW(combo, CB_SETITEMDATA, idx, (LPARAM)backend->id);
+        if (selected == backend->id) {
             SendMessageW(combo, CB_SETCURSEL, idx, 0);
         }
     }
-    /* Future games append here. */
 
     if (SendMessageW(combo, CB_GETCURSEL, 0, 0) == CB_ERR) {
         SendMessageW(combo, CB_SETCURSEL, 0, 0);
     }
 }
 
-/* Open a folder picker and write the result into the named edit control. */
+/* Open a folder picker and write the result into the named edit control.
+ * For the save_dir field, when the field is empty, the selected backend's
+ * auto-detected default save directory (if any) is used as the picker's
+ * initial folder. The auto-detected path is consumed in-place only and is
+ * NOT persisted to any "last opened directory" cache. */
 static void egp_browse_into(HWND hwnd, int edit_id) {
     wchar_t current[MAX_PATH];
     GetDlgItemTextW(hwnd, edit_id, current, MAX_PATH);
 
-    wchar_t *picked = file_dialog_open_folder(hwnd, current[0] ? current : NULL);
+    wchar_t auto_dir[MAX_PATH];
+    auto_dir[0] = L'\0';
+    const wchar_t *initial = current[0] ? current : NULL;
+    if (initial == NULL && edit_id == IDC_EGP_SAVE_DIR) {
+        const game_backend_t *backend = egp_get_selected_backend(hwnd);
+        if (backend && backend->get_default_save_dir) {
+            if (backend->get_default_save_dir(auto_dir, MAX_PATH)) {
+                initial = auto_dir;
+            }
+        }
+    }
+
+    wchar_t *picked = file_dialog_open_folder(hwnd, initial);
     if (picked) {
         SetDlgItemTextW(hwnd, edit_id, picked);
         CoTaskMemFree(picked);
@@ -82,6 +122,30 @@ static bool egp_commit(HWND hwnd, egp_state_t *state) {
     return true;
 }
 
+/* Set the text of a static label to "<localized>:" using the given string index. */
+static void egp_set_label(HWND hwnd, int control_id, praxis_string_index_t str_idx) {
+    wchar_t buf[64];
+    _snwprintf_s(buf, _countof(buf), _TRUNCATE, L"%ls:", praxis_locale_str(str_idx));
+    SetDlgItemTextW(hwnd, control_id, buf);
+}
+
+/* Auto-fill the Name field for a new profile when no name was pre-supplied.
+ * Uses the selected backend's display_name as the base; appends " (N)" when
+ * the base name is already taken in the store. */
+static void egp_auto_fill_name(HWND hwnd, const egp_state_t *state) {
+    if (!state || !state->gp || !state->is_new) return;
+    if (state->gp->name[0] != L'\0') return;
+
+    const game_backend_t *backend = egp_get_selected_backend(hwnd);
+    const wchar_t *base_name = (backend && backend->display_name)
+        ? backend->display_name : L"Profile";
+
+    wchar_t unique_name[64];
+    if (profile_store_find_unique_game_name(state->store, base_name, unique_name, 64)) {
+        SetDlgItemTextW(hwnd, IDC_EGP_NAME, unique_name);
+    }
+}
+
 static INT_PTR CALLBACK egp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     egp_state_t *state = (egp_state_t *)GetWindowLongPtrW(hwnd, DWLP_USER);
 
@@ -98,13 +162,34 @@ static INT_PTR CALLBACK egp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         SetDlgItemTextW(hwnd, IDOK,     praxis_locale_str(STR_PRAXIS_BTN_OK));
         SetDlgItemTextW(hwnd, IDCANCEL, praxis_locale_str(STR_PRAXIS_BTN_CANCEL));
 
+        /* Localize static labels (.rc embeds English fallback text). */
+        egp_set_label(hwnd, IDC_EGP_LBL_NAME,      STR_PRAXIS_PROFILE_NAME);
+        egp_set_label(hwnd, IDC_EGP_LBL_GAME,      STR_PRAXIS_PROFILE_GAME);
+        egp_set_label(hwnd, IDC_EGP_LBL_SAVE_DIR,  STR_PRAXIS_PROFILE_SAVE_DIR);
+        egp_set_label(hwnd, IDC_EGP_LBL_TREE_ROOT, STR_PRAXIS_PROFILE_TREE_ROOT);
+
         if (!state->is_new) {
             SetDlgItemTextW(hwnd, IDC_EGP_NAME, state->gp->name);
             SetDlgItemTextW(hwnd, IDC_EGP_SAVE_DIR, state->gp->original_save_dir);
             SetDlgItemTextW(hwnd, IDC_EGP_TREE_ROOT, state->gp->tree_root);
+        } else {
+            /* Honor caller-supplied pre-fill values (e.g. migration wizard). */
+            if (state->gp->name[0] != L'\0') {
+                SetDlgItemTextW(hwnd, IDC_EGP_NAME, state->gp->name);
+            }
+            if (state->gp->original_save_dir[0] != L'\0') {
+                SetDlgItemTextW(hwnd, IDC_EGP_SAVE_DIR, state->gp->original_save_dir);
+            }
+            if (state->gp->tree_root[0] != L'\0') {
+                SetDlgItemTextW(hwnd, IDC_EGP_TREE_ROOT, state->gp->tree_root);
+            }
         }
 
         egp_populate_games(GetDlgItem(hwnd, IDC_EGP_GAME), state->gp->game_id);
+
+        /* Auto-fill empty Name field with a unique name derived from the selected
+         * backend. Must run AFTER the combobox is populated and selected. */
+        egp_auto_fill_name(hwnd, state);
 
         SendMessageW(GetDlgItem(hwnd, IDC_EGP_NAME), EM_LIMITTEXT, 63, 0);
         SendMessageW(GetDlgItem(hwnd, IDC_EGP_SAVE_DIR), EM_LIMITTEXT, MAX_PATH - 1, 0);
@@ -138,7 +223,10 @@ static INT_PTR CALLBACK egp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     return FALSE;
 }
 
-INT_PTR dialog_edit_game_profile_show(HWND parent, game_profile_t *gp_inout, bool is_new) {
+INT_PTR dialog_edit_game_profile_show(HWND parent,
+                                      const profile_store_t *store,
+                                      game_profile_t *gp_inout,
+                                      bool is_new) {
     egp_state_t state;
 
     if (!gp_inout) {
@@ -147,6 +235,7 @@ INT_PTR dialog_edit_game_profile_show(HWND parent, game_profile_t *gp_inout, boo
 
     state.gp = gp_inout;
     state.is_new = is_new;
+    state.store = store;
 
     return DialogBoxParamW(GetModuleHandleW(NULL),
         MAKEINTRESOURCEW(IDD_EDIT_GAME_PROFILE),

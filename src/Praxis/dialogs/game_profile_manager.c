@@ -139,7 +139,7 @@ static void gpm_handle_add(HWND hwnd, gpm_state_t *state) {
     ZeroMemory(&gp, sizeof(gp));
     gp.game_id = GAME_ID_ELDEN_RING;
 
-    if (dialog_edit_game_profile_show(hwnd, &gp, true) == IDOK) {
+    if (dialog_edit_game_profile_show(hwnd, state->store, &gp, true) == IDOK) {
         if (profile_store_add_game(state->store, &gp) > 0) {
             gpm_persist(state->store, state->ini_path);
             gpm_refresh_list(GetDlgItem(hwnd, IDC_GPM_LIST), state->store);
@@ -164,7 +164,7 @@ static void gpm_handle_edit(HWND hwnd, gpm_state_t *state) {
     }
 
     game_profile_t copy = *gp;
-    if (dialog_edit_game_profile_show(hwnd, &copy, false) == IDOK) {
+    if (dialog_edit_game_profile_show(hwnd, state->store, &copy, false) == IDOK) {
         if (profile_store_update_game(state->store, id, &copy)) {
             gpm_persist(state->store, state->ini_path);
             gpm_refresh_list(list, state->store);
