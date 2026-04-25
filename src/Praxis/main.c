@@ -440,27 +440,37 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         }
         return 0;
 
-    case WM_SIZE:
-        if (g_status_bar) {
-            SendMessageW(g_status_bar, WM_SIZE, wp, lp);
-        }
-        if (g_save_tree && save_tree_get_hwnd(g_save_tree)) {
-            RECT client_rect;
-            RECT status_rect;
-            int status_height = 0;
+    case WM_SIZE: {
+        int client_width = (int)LOWORD(lp);
+        int client_height = (int)HIWORD(lp);
 
-            GetClientRect(hwnd, &client_rect);
-            if (g_status_bar && GetWindowRect(g_status_bar, &status_rect)) {
-                status_height = status_rect.bottom - status_rect.top;
+        /* Toolbar at top */
+        int toolbar_height = g_toolbar ? toolbar_get_height(g_toolbar) : 0;
+        if (g_toolbar) {
+            toolbar_layout(g_toolbar, client_width);
+        }
+
+        /* Status bar at bottom */
+        int status_height = 0;
+        if (g_status_bar) {
+            SendMessageW(g_status_bar, WM_SIZE, wp, lp);  /* let status bar resize itself */
+            RECT sr;
+            GetWindowRect(g_status_bar, &sr);
+            status_height = sr.bottom - sr.top;
+        }
+
+        /* TreeView fills middle */
+        if (g_save_tree) {
+            HWND htree = save_tree_get_hwnd(g_save_tree);
+            if (htree) {
+                int tree_y = toolbar_height;
+                int tree_h = client_height - toolbar_height - status_height;
+                if (tree_h < 0) tree_h = 0;
+                MoveWindow(htree, 0, tree_y, client_width, tree_h, TRUE);
             }
-            MoveWindow(save_tree_get_hwnd(g_save_tree),
-                0,
-                0,
-                client_rect.right - client_rect.left,
-                (client_rect.bottom - client_rect.top) - status_height,
-                TRUE);
         }
         return 0;
+    }
 
     case WM_NOTIFY:
         if (g_save_tree) {
