@@ -1593,39 +1593,6 @@ static int run_selftest(void) {
                 result = 1;
             }
         }
-    } else if (wcscmp(sub, L"migration-detect") == 0) {
-        /* --selftest migration-detect <ini> */
-        if (argc < 4) {
-            result = 2;
-        } else {
-            bool needs = profile_store_needs_migration(argv[3]);
-            st_printf(needs ? L"true\n" : L"false\n");
-            result = 0;
-        }
-    } else if (wcscmp(sub, L"migration-run") == 0) {
-        /* --selftest migration-run <ini> <name> <backup_name> <game_id> <comp_level> <out_ini> */
-        if (argc < 9) {
-            result = 2;
-        } else {
-            compression_level_t comp = COMP_LEVEL_LOW;
-            if (wcscmp(argv[7], L"none") == 0) {
-                comp = COMP_LEVEL_NONE;
-            } else if (wcscmp(argv[7], L"high") == 0) {
-                comp = COMP_LEVEL_HIGH;
-            }
-            profile_store_t store;
-            profile_store_init(&store);
-            bool ok = profile_store_migrate(&store, argv[3], argv[4], argv[5],
-                                            (game_id_t)_wtoi(argv[6]), comp, argv[8]);
-            if (!ok) {
-                st_printf(L"migration-run: FAIL\n");
-                result = 1;
-            } else {
-                st_printf(L"migration-run: ok games=%zu backups=%zu\n",
-                          store.game_count, store.backup_count);
-                result = 0;
-            }
-        }
     } else if (wcscmp(sub, L"locale-dump") == 0) {
         /* --selftest locale-dump: print all STR_PRAXIS_* locale strings */
         for (int i = 0; i < (int)STR_PRAXIS_MAX; i++) {
@@ -1836,10 +1803,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     praxis_load_config();
     praxis_locale_set_current(praxis_config.language);
 
-    /* First-launch setup: when there are no game profiles AND user hasn't
-     * dismissed migration, show the Add Game Profile dialog pre-filled with
-     * legacy values (if a legacy Praxis.ini exists). Skipped if user clicked
-     * Cancel previously (MigrationDismissed=1). */
+    /* First-launch setup: when there are no game profiles and the prompt has
+     * not been dismissed, show the Add Game Profile dialog pre-filled from the
+     * current config values. Skipped if the user cancelled previously
+     * (MigrationDismissed=1). */
     {
         wchar_t ini_path[MAX_PATH];
         if (config_core_get_app_ini_path(ini_path, MAX_PATH, L"Praxis.ini") &&
@@ -1851,7 +1818,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
             bool needs_first_launch_setup = (probe_store.game_count == 0);
 
             if (needs_first_launch_setup) {
-                /* Pre-fill from legacy [Settings].TreeRoot if present. */
+                /* Pre-fill from the current TreeRoot value if present. */
                 game_profile_t pre_gp;
                 ZeroMemory(&pre_gp, sizeof(pre_gp));
                 pre_gp.game_id = GAME_ID_ELDEN_RING;

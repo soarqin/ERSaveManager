@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Praxis: Game Profile Manager dialog (modal ListView) for managing game configurations
 - Praxis: Toolbar with backup profile combobox + Backup Full / Backup Slot / Restore / Undo Restore buttons
 - Praxis: Filesystem watcher with auto-refresh (ReadDirectoryChangesW worker thread, 200ms debounce) and selection preservation
-- Praxis: First-launch migration wizard for users upgrading from single-profile `[Settings].TreeRoot` format
+- Praxis: First-launch profile setup prompt that creates a default game profile when `Praxis.ini` has no profiles
 - Praxis: 3 compression levels (none / low / high) per backup profile
 - Praxis: `Praxis.exe --selftest locale-dump`, `watcher-state`, and other new headless QA subcommands
 - Praxis: New `--selftest` subcommands: `config-load`, `hotkey-defaults`, `backend-vtable-shape`, `profile-resolve-active`, `watcher-debounce-timing`
@@ -34,7 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Praxis: New ring backup files use `.sl2` extension (raw BND4); existing `.ersm` ring files still readable
 
 ### Removed (BREAKING)
-- Praxis: Legacy INI migration logic (to be removed in T9)
+- Praxis: Legacy INI migration logic removed (software was still pre-release)
+- Praxis: `migration-detect` / `migration-run` selftest subcommands removed
 - Praxis: 7-argument `restore_with_safety` signature (to be replaced with struct in T15)
 - Praxis: Backup and Restore main-menu entries (now toolbar buttons)
 - Praxis: File→Refresh menu item (auto-refresh via filesystem watcher)
