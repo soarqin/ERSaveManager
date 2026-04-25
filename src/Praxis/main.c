@@ -27,6 +27,7 @@
 
 #include <windows.h>
 #include <commctrl.h>
+#include <shellapi.h>
 #include <shlwapi.h>
 #include <uxtheme.h>
 
@@ -385,6 +386,127 @@ static int selftest_make_valid_ersm(const wchar_t *path) {
     return ersm_compress_to_file(path, buf, sizeof(buf), ERSM_TYPE_CHAR_SLOT, ERSM_LEVEL_NORMAL) ? 0 : 1;
 }
 
+static bool selftest_delete_tree_path(const wchar_t *full_path) {
+    wchar_t delete_buf[MAX_PATH + 2];
+    SHFILEOPSTRUCTW op = {0};
+
+    if (!full_path || full_path[0] == L'\0' || lstrlenW(full_path) >= MAX_PATH + 1) {
+        return false;
+    }
+
+    lstrcpyW(delete_buf, full_path);
+    delete_buf[lstrlenW(delete_buf) + 1] = L'\0';
+
+    op.wFunc = FO_DELETE;
+    op.pFrom = delete_buf;
+    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT;
+    return SHFileOperationW(&op) == 0 && !op.fAnyOperationsAborted;
+}
+
+static HTREEITEM selftest_find_child_by_text(HWND hwnd, HTREEITEM parent, const wchar_t *text) {
+    HTREEITEM item;
+    wchar_t label[MAX_PATH];
+
+    if (!hwnd || !text) {
+        return NULL;
+    }
+
+    item = parent ? TreeView_GetChild(hwnd, parent) : TreeView_GetRoot(hwnd);
+    while (item) {
+        TVITEMW tvi = {0};
+
+        label[0] = L'\0';
+        tvi.hItem = item;
+        tvi.mask = TVIF_TEXT;
+        tvi.pszText = label;
+        tvi.cchTextMax = MAX_PATH;
+        if (TreeView_GetItem(hwnd, &tvi) && lstrcmpW(label, text) == 0) {
+            return item;
+        }
+
+        item = TreeView_GetNextSibling(hwnd, item);
+    }
+
+    return NULL;
+}
+
+static HTREEITEM selftest_find_tree_item_by_relpath(HWND hwnd, const wchar_t *relpath) {
+    HTREEITEM item;
+    wchar_t path_copy[MAX_PATH];
+    wchar_t *context = NULL;
+    wchar_t *part;
+
+    if (!hwnd) {
+        return NULL;
+    }
+
+    item = TreeView_GetRoot(hwnd);
+    if (!item || !relpath || relpath[0] == L'\0') {
+        return item;
+    }
+
+    lstrcpynW(path_copy, relpath, MAX_PATH);
+    part = wcstok_s(path_copy, L"\\", &context);
+    while (part) {
+        item = selftest_find_child_by_text(hwnd, item, part);
+        if (!item) {
+            return NULL;
+        }
+        part = wcstok_s(NULL, L"\\", &context);
+    }
+
+    return item;
+}
+
+static bool selftest_build_tree_path(const wchar_t *root, const wchar_t *relpath, wchar_t *out, size_t out_chars) {
+    if (!root || !out || out_chars == 0) {
+        return false;
+    }
+
+    if ((size_t)lstrlenW(root) >= out_chars) {
+        return false;
+    }
+
+    lstrcpyW(out, root);
+    if (relpath && relpath[0] != L'\0' && !PathAppendW(out, relpath)) {
+        return false;
+    }
+
+    return true;
+}
+
+static void selftest_walk_up_existing_relpath(const wchar_t *root, const wchar_t *start_relpath,
+    wchar_t *out_relpath, size_t out_chars) {
+    wchar_t try_relpath[MAX_PATH];
+    wchar_t full_path[MAX_PATH];
+
+    if (!out_relpath || out_chars == 0) {
+        return;
+    }
+
+    out_relpath[0] = L'\0';
+    if (!root || !start_relpath || start_relpath[0] == L'\0') {
+        return;
+    }
+
+    lstrcpynW(try_relpath, start_relpath, MAX_PATH);
+    while (true) {
+        if (selftest_build_tree_path(root, try_relpath, full_path, MAX_PATH) && PathFileExistsW(full_path)) {
+            lstrcpynW(out_relpath, try_relpath, out_chars);
+            return;
+        }
+
+        {
+            wchar_t *last_sep = wcsrchr(try_relpath, L'\\');
+            if (last_sep) {
+                *last_sep = L'\0';
+            } else {
+                break;
+            }
+        }
+    }
+}
+
 static int run_selftest(void) {
     /* Attach or allocate a console when stdout is not already redirected so that
      * test harnesses invoking the WIN32 subsystem binary can capture output. */
@@ -512,6 +634,67 @@ static int run_selftest(void) {
                 st_printf(L"items=%d\n", save_tree_item_count(t));
                 save_tree_destroy(t);
                 result = 0;
+            }
+        }
+    } else if (wcscmp(sub, L"tree-preserve-selection-walkup") == 0) {
+        if (argc < 6) {
+            st_printf(L"usage: --selftest tree-preserve-selection-walkup <root> <select_path> <delete_path>\n");
+            result = 2;
+        } else {
+            HWND host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
+                0, 0, 200, 200, NULL, NULL, GetModuleHandleW(NULL), NULL);
+            save_tree_t *t;
+
+            if (!host) {
+                result = 1;
+            } else {
+                t = save_tree_create(host, GetModuleHandleW(NULL), 0);
+                if (!t) {
+                    DestroyWindow(host);
+                    result = 1;
+                } else {
+                    HWND tree_hwnd = save_tree_get_hwnd(t);
+                    HTREEITEM select_item;
+                    wchar_t delete_full[MAX_PATH];
+                    wchar_t expected_relpath[MAX_PATH];
+                    wchar_t expected_full[MAX_PATH];
+                    wchar_t selected_full[MAX_PATH];
+
+                    save_tree_set_root(t, argv[3]);
+                    select_item = selftest_find_tree_item_by_relpath(tree_hwnd, argv[4]);
+                    if (!select_item) {
+                        st_printf(L"tree-preserve-selection-walkup: selection not found\n");
+                        result = 1;
+                    } else if (!TreeView_SelectItem(tree_hwnd, select_item)) {
+                        st_printf(L"tree-preserve-selection-walkup: selection failed\n");
+                        result = 1;
+                    } else if (!selftest_build_tree_path(argv[3], argv[5], delete_full, MAX_PATH)) {
+                        result = 1;
+                    } else if (!selftest_delete_tree_path(delete_full)) {
+                        st_printf(L"tree-preserve-selection-walkup: delete failed\n");
+                        result = 1;
+                    } else {
+                        selftest_walk_up_existing_relpath(argv[3], argv[4], expected_relpath, MAX_PATH);
+                        if (!selftest_build_tree_path(argv[3], expected_relpath, expected_full, MAX_PATH)) {
+                            result = 1;
+                        } else {
+                            save_tree_refresh_preserve_selection(t);
+                            if (!save_tree_get_selected_path(t, selected_full, MAX_PATH)) {
+                                st_printf(L"tree-preserve-selection-walkup: no selection after refresh\n");
+                                result = 1;
+                            } else if (lstrcmpW(selected_full, expected_full) != 0) {
+                                st_printf(L"expected=%ls\nselected=%ls\n", expected_full, selected_full);
+                                result = 1;
+                            } else {
+                                st_printf(L"selected=%ls\n", selected_full);
+                                result = 0;
+                            }
+                        }
+                    }
+
+                    save_tree_destroy(t);
+                    DestroyWindow(host);
+                }
             }
         }
     } else if (wcscmp(sub, L"tree-rename") == 0) {

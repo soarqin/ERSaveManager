@@ -197,6 +197,67 @@ static void end_drag(save_tree_t *t) {
     t->drag_src = NULL;
 }
 
+static bool append_item(save_tree_t *t, const wchar_t *relative_path, bool is_directory, size_t *out_index) {
+    size_t index;
+
+    if (!t || !relative_path || !ensure_capacity(t)) {
+        return false;
+    }
+
+    index = t->item_count;
+    lstrcpynW(t->items[index].relative_path, relative_path, MAX_PATH);
+    t->items[index].is_directory = is_directory;
+    t->item_count++;
+
+    if (out_index) {
+        *out_index = index;
+    }
+    return true;
+}
+
+static bool find_item_index_by_relpath(const save_tree_t *t, const wchar_t *relpath, size_t *out_index) {
+    if (!t || !relpath) {
+        return false;
+    }
+
+    for (size_t i = 0; i < t->item_count; i++) {
+        if (lstrcmpW(t->items[i].relative_path, relpath) == 0) {
+            if (out_index) {
+                *out_index = i;
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static HTREEITEM find_hitem_by_lparam(HWND hwnd, HTREEITEM hitem, LPARAM target) {
+    while (hitem) {
+        TVITEMW tvi = {0};
+        HTREEITEM child;
+        HTREEITEM found;
+
+        tvi.hItem = hitem;
+        tvi.mask = TVIF_PARAM;
+        if (TreeView_GetItem(hwnd, &tvi) && tvi.lParam == target) {
+            return hitem;
+        }
+
+        child = TreeView_GetChild(hwnd, hitem);
+        if (child) {
+            found = find_hitem_by_lparam(hwnd, child, target);
+            if (found) {
+                return found;
+            }
+        }
+
+        hitem = TreeView_GetNextSibling(hwnd, hitem);
+    }
+
+    return NULL;
+}
+
 static bool choose_drop_parent(const save_tree_t *t, HTREEITEM target, wchar_t *dst_parent_relpath, size_t out_chars) {
     save_item_t item;
 
@@ -317,10 +378,6 @@ static void walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *rel
         size_t index;
         TVINSERTSTRUCTW insert = {0};
 
-        if (!ensure_capacity(t)) {
-            break;
-        }
-
         if (rel_prefix[0] != L'\0') {
             lstrcpyW(rel_path, rel_prefix);
             if (!PathAppendW(rel_path, entries[i].name)) {
@@ -335,10 +392,9 @@ static void walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *rel
             continue;
         }
 
-        index = t->item_count;
-        lstrcpynW(t->items[index].relative_path, rel_path, MAX_PATH);
-        t->items[index].is_directory = is_dir;
-        t->item_count++;
+        if (!append_item(t, rel_path, is_dir, &index)) {
+            break;
+        }
 
         if (t->hwnd) {
             insert.hParent = parent_item;
@@ -475,8 +531,16 @@ bool save_tree_set_root(save_tree_t *t, const wchar_t *root_path) {
 }
 
 void save_tree_refresh(save_tree_t *t) {
+    const wchar_t *root_name;
+    HTREEITEM wrapper_hitem = TVI_ROOT;
+    size_t wrapper_index;
+
     if (!t) {
         return;
+    }
+
+    if (t->dragging) {
+        end_drag(t);
     }
 
     if (t->hwnd) {
@@ -487,7 +551,100 @@ void save_tree_refresh(save_tree_t *t) {
         return;
     }
 
-    walk_dir(t, t->root_path, L"", TVI_ROOT, 0);
+    if (!append_item(t, L"", true, &wrapper_index)) {
+        return;
+    }
+
+    root_name = PathFindFileNameW(t->root_path);
+    if (!root_name || root_name == t->root_path || root_name[0] == L'\0') {
+        root_name = t->root_path;
+    }
+
+    if (t->hwnd) {
+        TVINSERTSTRUCTW insert = {0};
+
+        insert.hParent = TVI_ROOT;
+        insert.hInsertAfter = TVI_LAST;
+        insert.item.mask = TVIF_TEXT | TVIF_PARAM;
+        insert.item.pszText = (PWSTR)root_name;
+        insert.item.lParam = (LPARAM)(uintptr_t)wrapper_index;
+        wrapper_hitem = TreeView_InsertItem(t->hwnd, &insert);
+    }
+
+    walk_dir(t, t->root_path, L"", wrapper_hitem, 0);
+
+    if (t->hwnd && wrapper_hitem) {
+        TreeView_Expand(t->hwnd, wrapper_hitem, TVE_EXPAND);
+    }
+}
+
+void save_tree_refresh_preserve_selection(save_tree_t *t) {
+    wchar_t saved_relpath[MAX_PATH] = {0};
+    wchar_t try_path[MAX_PATH];
+
+    if (!t) {
+        return;
+    }
+
+    if (t->dragging) {
+        end_drag(t);
+    }
+
+    if (t->hwnd) {
+        HTREEITEM selection = TreeView_GetSelection(t->hwnd);
+        save_item_t item;
+
+        if (selection && get_item_info(t, selection, NULL, &item)) {
+            lstrcpynW(saved_relpath, item.relative_path, MAX_PATH);
+        }
+    }
+
+    save_tree_refresh(t);
+
+    if (!t->hwnd) {
+        return;
+    }
+
+    if (saved_relpath[0] == L'\0') {
+        HTREEITEM root = TreeView_GetRoot(t->hwnd);
+        if (root) {
+            TreeView_SelectItem(t->hwnd, root);
+        }
+        return;
+    }
+
+    lstrcpynW(try_path, saved_relpath, MAX_PATH);
+    while (true) {
+        size_t index;
+
+        if (find_item_index_by_relpath(t, try_path, &index)) {
+            HTREEITEM found = find_hitem_by_lparam(t->hwnd, TreeView_GetRoot(t->hwnd), (LPARAM)(uintptr_t)index);
+            if (found) {
+                TreeView_SelectItem(t->hwnd, found);
+            }
+            return;
+        }
+
+        if (try_path[0] == L'\0') {
+            break;
+        }
+
+        {
+            wchar_t *last_sep = wcsrchr(try_path, L'\\');
+            if (last_sep) {
+                *last_sep = L'\0';
+            } else {
+                try_path[0] = L'\0';
+            }
+        }
+    }
+
+    {
+        HTREEITEM root = TreeView_GetRoot(t->hwnd);
+        if (root) {
+            TreeView_SelectItem(t->hwnd, root);
+        }
+    }
 }
 
 bool save_tree_get_selected_path(const save_tree_t *t, wchar_t *out, size_t out_chars) {
