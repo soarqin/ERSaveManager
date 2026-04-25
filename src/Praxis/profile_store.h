@@ -164,6 +164,14 @@ bool profile_store_set_active_backup(profile_store_t *store, int id);
 const game_profile_t *profile_store_get_active_game(const profile_store_t *store);
 
 /**
+ * @brief Find a game profile by ID.
+ * @param store Pointer to profile_store_t.
+ * @param id Game profile ID to search for.
+ * @return Pointer to game_profile_t, or NULL if not found.
+ */
+const game_profile_t *profile_store_find_game_by_id(const profile_store_t *store, int id);
+
+/**
  * @brief Get the currently active backup profile.
  * @param store Pointer to profile_store_t.
  * @return Pointer to active backup_profile_t, or NULL if none is active.

@@ -59,6 +59,18 @@ const backup_profile_t *profile_store_get_active_backup(const profile_store_t *s
     return NULL;
 }
 
+const game_profile_t *profile_store_find_game_by_id(const profile_store_t *store, int id) {
+    if (store == NULL || id <= 0) {
+        return NULL;
+    }
+    for (size_t i = 0; i < store->game_count; i++) {
+        if (store->games[i].id == id) {
+            return &store->games[i];
+        }
+    }
+    return NULL;
+}
+
 bool profile_store_resolve_backup_root(const profile_store_t *store,
                                        int backup_id,
                                        wchar_t *out,

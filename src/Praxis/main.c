@@ -102,12 +102,7 @@ static const game_backend_t *get_active_backend(void) {
     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
 
     if (bp) {
-        for (size_t i = 0; i < g_profile_store.game_count; i++) {
-            if (g_profile_store.games[i].id == bp->parent_game_id) {
-                gp = &g_profile_store.games[i];
-                break;
-            }
-        }
+        gp = profile_store_find_game_by_id(&g_profile_store, bp->parent_game_id);
     }
 
     if (!gp) {
@@ -152,12 +147,7 @@ static bool resolve_save_path_for_active(wchar_t *out, size_t out_chars) {
     const game_backend_t *backend = get_active_backend();
 
     if (bp) {
-        for (size_t i = 0; i < g_profile_store.game_count; i++) {
-            if (g_profile_store.games[i].id == bp->parent_game_id) {
-                gp = &g_profile_store.games[i];
-                break;
-            }
-        }
+        gp = profile_store_find_game_by_id(&g_profile_store, bp->parent_game_id);
     }
 
     if (!gp) {
@@ -245,12 +235,7 @@ static void set_active_status_text(void) {
 
     bp = profile_store_get_active_backup(&g_profile_store);
     if (bp) {
-        for (size_t i = 0; i < g_profile_store.game_count; i++) {
-            if (g_profile_store.games[i].id == bp->parent_game_id) {
-                gp = &g_profile_store.games[i];
-                break;
-            }
-        }
+        gp = profile_store_find_game_by_id(&g_profile_store, bp->parent_game_id);
     }
     if (!gp) {
         gp = profile_store_get_active_game(&g_profile_store);
