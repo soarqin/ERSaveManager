@@ -88,6 +88,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Active: %s / %s",
         L"Show in File Explorer",
         L"Delete this backup? It will be moved to the Recycle Bin.",
+        L"Theme",
+        L"System",
+        L"Light",
+        L"Dark",
     },
     /* 1: Français */
     {
@@ -154,6 +158,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Actif : %s / %s",
         L"Afficher dans l'Explorateur de fichiers",
         L"Supprimer cette sauvegarde ? Elle sera déplacée vers la Corbeille.",
+        L"Thème",
+        L"Système",
+        L"Clair",
+        L"Sombre",
     },
     /* 2: Deutsch */
     {
@@ -220,6 +228,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Aktiv: %s / %s",
         L"Im Datei-Explorer anzeigen",
         L"Diese Sicherung löschen? Sie wird in den Papierkorb verschoben.",
+        L"Design",
+        L"System",
+        L"Hell",
+        L"Dunkel",
     },
     /* 3: Italiano */
     {
@@ -286,6 +298,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Attivo: %s / %s",
         L"Mostra in Esplora file",
         L"Eliminare questo backup? Verrà spostato nel Cestino.",
+        L"Tema",
+        L"Sistema",
+        L"Chiaro",
+        L"Scuro",
     },
     /* 4: Español */
     {
@@ -352,6 +368,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Activo: %s / %s",
         L"Mostrar en el Explorador de archivos",
         L"¿Eliminar este respaldo? Se moverá a la Papelera de reciclaje.",
+        L"Tema",
+        L"Sistema",
+        L"Claro",
+        L"Oscuro",
     },
     /* 5: Português */
     {
@@ -418,6 +438,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Ativo: %s / %s",
         L"Mostrar no Explorador de Arquivos",
         L"Excluir este backup? Ele será movido para a Lixeira.",
+        L"Tema",
+        L"Sistema",
+        L"Claro",
+        L"Escuro",
     },
     /* 6: Русский */
     {
@@ -484,6 +508,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Активно: %s / %s",
         L"Показать в Проводнике",
         L"Удалить эту копию? Она будет перемещена в корзину.",
+        L"Тема",
+        L"Системная",
+        L"Светлая",
+        L"Тёмная",
     },
     /* 7: 日本語 */
     {
@@ -550,6 +578,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"アクティブ: %s / %s",
         L"エクスプローラーで表示",
         L"このバックアップを削除しますか？ ごみ箱に移動されます。",
+        L"テーマ",
+        L"システム",
+        L"ライト",
+        L"ダーク",
     },
     /* 8: 한국어 */
     {
@@ -616,6 +648,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"활성: %s / %s",
         L"파일 탐색기에 표시",
         L"이 백업을 삭제하시겠습니까? 휴지통으로 이동됩니다.",
+        L"테마",
+        L"시스템",
+        L"라이트",
+        L"다크",
     },
     /* 9: 简体中文 */
     {
@@ -682,6 +718,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"活动：%s / %s",
         L"在文件浏览器中显示",
         L"要删除此备份吗？将被移至回收站。",
+        L"主题",
+        L"跟随系统",
+        L"浅色",
+        L"深色",
     },
     /* 10: 繁體中文 */
     {
@@ -748,6 +788,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"使用中：%s / %s",
         L"在檔案總管中顯示",
         L"要刪除此備份嗎？將被移至資源回收筒。",
+        L"主題",
+        L"跟隨系統",
+        L"淺色",
+        L"深色",
     },
 };
 

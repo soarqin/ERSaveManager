@@ -18,6 +18,13 @@
 #define IDM_OPTIONS_LANG    141
 #define IDM_LANG_FIRST      1500
 #define IDM_LANG_LAST       1599
+/* Theme submenu items - static, no dynamic rebuild. The placeholder
+ * IDM_OPTIONS_THEME is the sentinel that identifies the Theme popup
+ * during WM_INITMENUPOPUP (mirrors IDM_OPTIONS_LANG behaviour). */
+#define IDM_OPTIONS_THEME   142
+#define IDM_THEME_SYSTEM    1700
+#define IDM_THEME_LIGHT     1701
+#define IDM_THEME_DARK      1702
 
 /* Control IDs */
 #define IDC_TREE_VIEW       200

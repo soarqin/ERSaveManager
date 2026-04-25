@@ -35,6 +35,8 @@ add_project(praxis WIN32
     praxis_window_common.h
     toolbar.c
     toolbar.h
+    theme.c
+    theme.h
     bnd4_test_format.h
     dialogs/game_profile_manager.c
     dialogs/game_profile_manager.h
