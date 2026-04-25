@@ -644,6 +644,17 @@ static int run_selftest(void) {
                 }
             }
         }
+    } else if (wcscmp(sub, L"classify") == 0) {
+        if (argc < 4) {
+            st_printf(L"usage: --selftest classify <file>\n");
+            result = 2;
+        } else {
+            save_kind_t kind = save_compress_classify_backup(argv[3]);
+            if (kind == SAVE_KIND_FULL)        wprintf(L"FULL\n");
+            else if (kind == SAVE_KIND_SLOT)   wprintf(L"SLOT\n");
+            else                               wprintf(L"UNKNOWN\n");
+            result = 0;
+        }
     } else {
         /* Placeholder subcommands added in T18, T20-T22, T23, T25, T26, T29. */
         st_printf(L"unknown selftest subcommand: %ls\n", sub);

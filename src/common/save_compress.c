@@ -315,3 +315,33 @@ bool ersm_write_raw_bnd4_to_file(const wchar_t *path, const uint8_t *src, size_t
     CloseHandle(fh);
     return true;
 }
+
+save_kind_t save_compress_classify_backup(const wchar_t *path) {
+    if (!path) return SAVE_KIND_UNKNOWN;
+
+    HANDLE fh = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (fh == INVALID_HANDLE_VALUE) return SAVE_KIND_UNKNOWN;
+
+    uint8_t hdr[21];
+    DWORD bytes_read = 0;
+    ReadFile(fh, hdr, 21, &bytes_read, NULL);
+    CloseHandle(fh);
+
+    if (bytes_read < 4) return SAVE_KIND_UNKNOWN;
+
+    /* Check for BND4 magic (raw save file) */
+    if (memcmp(hdr, "BND4", 4) == 0) return SAVE_KIND_FULL;
+
+    /* Check for ERSM magic (compressed container) */
+    if (memcmp(hdr, "ERSM", 4) == 0) {
+        if (bytes_read < 6) return SAVE_KIND_UNKNOWN;
+
+        uint8_t data_type = hdr[5];
+        if (data_type == ERSM_TYPE_CHAR_SLOT) return SAVE_KIND_SLOT;
+        if (data_type == ERSM_TYPE_FULL_SAVE) return SAVE_KIND_FULL;
+        return SAVE_KIND_UNKNOWN;
+    }
+
+    return SAVE_KIND_UNKNOWN;
+}

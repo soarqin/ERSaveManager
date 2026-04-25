@@ -89,3 +89,20 @@ bool ersm_decompress_to_temp_file(const wchar_t *src_path,
  * @return true on success, false on magic validation failure or file I/O error
  */
 bool ersm_write_raw_bnd4_to_file(const wchar_t *path, const uint8_t *src, size_t src_len);
+
+typedef enum save_kind_e {
+    SAVE_KIND_UNKNOWN  = 0,
+    SAVE_KIND_FULL     = 1,  /* ERSM_FMT_BND4_RAW or ERSM with data_type=ERSM_TYPE_FULL_SAVE */
+    SAVE_KIND_SLOT     = 2   /* ERSM with data_type=ERSM_TYPE_CHAR_SLOT */
+} save_kind_t;
+
+/**
+ * @brief Classify a backup file as full-save, slot-save, or unknown.
+ * @details Reads up to 21 bytes from the file. Uses ersm_detect_file_format,
+ *          then for ERSM containers reads the data_type byte at offset 5.
+ *          Returns SAVE_KIND_UNKNOWN on file errors, truncated header,
+ *          or unrecognized format.
+ * @param path Wide-character path to the backup file
+ * @return SAVE_KIND_FULL, SAVE_KIND_SLOT, or SAVE_KIND_UNKNOWN
+ */
+save_kind_t save_compress_classify_backup(const wchar_t *path);
