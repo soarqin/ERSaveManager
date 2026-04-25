@@ -10,6 +10,7 @@
 #include "locale.h"
 #include "config.h"
 #include "resource.h"
+#include "theme.h"
 
 #include <stdbool.h>
 
@@ -63,6 +64,9 @@ void praxis_main_menu_apply_locale_strings(HWND hwnd) {
             ModifyMenuW(options_menu, 1, MF_BYPOSITION | MF_POPUP, (UINT_PTR)language_menu,
                 praxis_locale_str(STR_PRAXIS_LANGUAGE));
         }
+
+        /* Theme submenu at index 2 (after Hotkey Settings and Language). */
+        praxis_theme_apply_locale_strings(options_menu);
     }
 
     DrawMenuBar(hwnd);
@@ -126,6 +130,7 @@ void praxis_main_menu_init_popup(HWND hwnd, HMENU hmenu, const profile_store_t *
     int count = GetMenuItemCount(hmenu);
     bool is_game_menu = false;
     bool is_lang_menu = false;
+    bool is_theme_menu = praxis_theme_is_theme_menu(hmenu);
 
     (void)hwnd; /* reserved for future use */
 
@@ -133,21 +138,24 @@ void praxis_main_menu_init_popup(HWND hwnd, HMENU hmenu, const profile_store_t *
      *   - Game submenu always contains IDM_GAME_MANAGE.
      *   - Language submenu contains IDM_OPTIONS_LANG (the static
      *     "English" placeholder from the .rc) on first open, or any
-     *     id in [IDM_LANG_FIRST, IDM_LANG_LAST] after rebuild. */
-    for (int i = 0; i < count; i++) {
-        UINT id = GetMenuItemID(hmenu, i);
-        if (id == IDM_GAME_MANAGE) {
-            is_game_menu = true;
-            break;
-        }
-        if (id == IDM_OPTIONS_LANG ||
-            (id >= IDM_LANG_FIRST && id <= IDM_LANG_LAST)) {
-            is_lang_menu = true;
-            break;
+     *     id in [IDM_LANG_FIRST, IDM_LANG_LAST] after rebuild.
+     *   - Theme submenu identified separately via praxis_theme_is_theme_menu(). */
+    if (!is_theme_menu) {
+        for (int i = 0; i < count; i++) {
+            UINT id = GetMenuItemID(hmenu, i);
+            if (id == IDM_GAME_MANAGE) {
+                is_game_menu = true;
+                break;
+            }
+            if (id == IDM_OPTIONS_LANG ||
+                (id >= IDM_LANG_FIRST && id <= IDM_LANG_LAST)) {
+                is_lang_menu = true;
+                break;
+            }
         }
     }
 
-    if (!is_game_menu && !is_lang_menu) {
+    if (!is_game_menu && !is_lang_menu && !is_theme_menu) {
         return;
     }
 
@@ -156,11 +164,22 @@ void praxis_main_menu_init_popup(HWND hwnd, HMENU hmenu, const profile_store_t *
         return;
     }
 
+    if (is_theme_menu) {
+        praxis_theme_init_popup(hmenu);
+        return;
+    }
+
     rebuild_lang_submenu(hmenu);
 }
 
 bool praxis_main_menu_handle_command(HWND hwnd, WPARAM wparam, profile_store_t *store) {
     WORD id = LOWORD(wparam);
+
+    /* Theme submenu selection */
+    if (praxis_theme_is_menu_command(id)) {
+        praxis_theme_handle_menu_command(id);
+        return true;
+    }
 
     /* Dynamic Game submenu profile selection */
     if (id >= IDM_GAME_PROFILE_FIRST && id <= IDM_GAME_PROFILE_LAST) {

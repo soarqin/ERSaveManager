@@ -52,6 +52,10 @@ BEGIN
         BEGIN
             MENUITEM "English", IDM_OPTIONS_LANG
         END
+        POPUP "Theme"
+        BEGIN
+            MENUITEM "System", IDM_OPTIONS_THEME
+        END
     END
 END
 
