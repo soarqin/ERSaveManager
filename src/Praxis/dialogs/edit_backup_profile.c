@@ -77,6 +77,17 @@ static INT_PTR CALLBACK ebp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         SetWindowTextW(hwnd, praxis_locale_str(STR_PRAXIS_BACKUP_PROFILE));
         SetDlgItemTextW(hwnd, IDOK, praxis_locale_str(STR_PRAXIS_BTN_OK));
         SetDlgItemTextW(hwnd, IDCANCEL, praxis_locale_str(STR_PRAXIS_BTN_CANCEL));
+
+        /* Localize static labels (.rc embeds English fallback text). */
+        {
+            wchar_t name_label[64];
+            _snwprintf_s(name_label, _countof(name_label), _TRUNCATE,
+                         L"%ls:", praxis_locale_str(STR_PRAXIS_PROFILE_NAME));
+            SetDlgItemTextW(hwnd, IDC_EBP_LBL_NAME, name_label);
+        }
+        SetDlgItemTextW(hwnd, IDC_EBP_LBL_COMPRESSION,
+            praxis_locale_str(STR_PRAXIS_PROFILE_COMPRESSION));
+
         SetDlgItemTextW(hwnd, IDC_EBP_COMP_NONE, praxis_locale_str(STR_PRAXIS_COMPRESSION_NONE));
         SetDlgItemTextW(hwnd, IDC_EBP_COMP_LOW, praxis_locale_str(STR_PRAXIS_COMPRESSION_LOW));
         SetDlgItemTextW(hwnd, IDC_EBP_COMP_MEDIUM, praxis_locale_str(STR_PRAXIS_COMPRESSION_MEDIUM));
