@@ -12,6 +12,7 @@
 #include "toolbar.h"
 #include "resource.h"
 #include "locale.h"
+#include "../common/theme_core.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -60,15 +61,46 @@ struct toolbar_s {
  *
  * Forwards WM_COMMAND and WM_NOTIFY from the toolbar's child controls up to
  * the parent window so the main wnd proc can handle button clicks and
- * combobox selection-change notifications. All other messages fall through
- * to DefWindowProcW.
+ * combobox selection-change notifications. Handles WM_CTLCOLOR* and
+ * WM_ERASEBKGND locally so the toolbar background follows the active theme.
+ * All other messages fall through to DefWindowProcW.
  */
 static LRESULT CALLBACK toolbar_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_COMMAND || msg == WM_NOTIFY) {
+    switch (msg) {
+    case WM_COMMAND:
+    case WM_NOTIFY: {
         HWND parent = GetParent(hwnd);
         if (parent) {
             return SendMessageW(parent, msg, wp, lp);
         }
+        break;
+    }
+
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX: {
+        /* Apply theme to embedded controls (combobox dropdown etc.). */
+        HBRUSH br = theme_core_on_ctlcolor((HDC)wp, msg);
+        if (br) {
+            return (LRESULT)br;
+        }
+        break;
+    }
+
+    case WM_ERASEBKGND: {
+        /* Paint the toolbar container background using the dialog brush
+         * so it blends with the rest of the dark UI. Falls through to
+         * DefWindowProc when dark mode is inactive. */
+        if (theme_core_is_dark()) {
+            HDC hdc = (HDC)wp;
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRect(hdc, &rc, theme_core_palette()->brush_dlg_bg);
+            return 1;
+        }
+        break;
+    }
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }

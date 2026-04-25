@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "../common/config_core.h"
+#include "../common/theme_core.h"
 #include "backend_registry.h"
 #include "hotkey.h"
 #include "locale.h"
@@ -18,6 +19,7 @@
 #include "praxis_main_menu.h"
 #include "praxis_selftest.h"
 #include "praxis_window_common.h"
+#include "theme.h"
 #include "toolbar.h"
 #include "dialogs/edit_game_profile.h"
 #include "dialogs/game_profile_manager.h"
@@ -78,6 +80,8 @@ static void praxis_window_on_create(HWND hwnd, HINSTANCE instance) {
     g_app.main_window = hwnd;
     praxis_main_menu_apply_locale_strings(hwnd);
     register_hotkeys(hwnd);
+    /* Apply theme to top-level window AND every child created above. */
+    praxis_theme_apply_to_window(hwnd);
 }
 
 static void run_hotkey_action(HWND hwnd, hotkey_id_t hotkey_id) {
@@ -170,6 +174,61 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     case WM_CREATE:
         praxis_window_on_create(hwnd, ((CREATESTRUCTW *)lp)->hInstance);
         return (g_app.save_tree && g_app.status_bar) ? 0 : -1;
+
+    /* Theme: dark backgrounds for child controls. */
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLORSTATIC: {
+        HBRUSH br = theme_core_on_ctlcolor((HDC)wp, msg);
+        if (br) {
+            return (LRESULT)br;
+        }
+        break;
+    }
+
+    /* Theme: paint window client background with dark brush in dark mode. */
+    case WM_ERASEBKGND:
+        if (theme_core_on_erasebkgnd(hwnd, (HDC)wp)) {
+            return 1;
+        }
+        break;
+
+    /* UAH menu bar dark painting (Win10 1809+). We DO NOT intercept
+     * WM_UAHMEASUREMENUITEM: DefWindowProcW must run for that message so
+     * items get correct sizes. Intercepting without writing valid sizes
+     * produces zero-sized items (menu visually disappears). */
+    case WM_UAHDRAWMENU:
+        if (theme_core_on_uah_drawmenu(hwnd, lp)) {
+            return 0;
+        }
+        break;
+    case WM_UAHDRAWMENUITEM:
+        if (theme_core_on_uah_drawmenuitem(hwnd, lp)) {
+            return 0;
+        }
+        break;
+
+    /* Paint over the 1px light separator under the menu bar after non-client
+     * paint. theme_core_paint_uah_menu_underline is a no-op in light mode. */
+    case WM_NCACTIVATE: {
+        LRESULT r = DefWindowProcW(hwnd, msg, wp, lp);
+        theme_core_paint_uah_menu_underline(hwnd);
+        return r;
+    }
+
+    /* React to system theme changes when in System mode. */
+    case WM_SETTINGCHANGE:
+        if (theme_core_on_setting_change(lp)) {
+            theme_core_apply_to_window_and_children(hwnd);
+        }
+        break;
+
+    case WM_THEMECHANGED:
+        theme_core_apply_to_window_and_children(hwnd);
+        break;
+
     case WM_SIZE:
         layout_main_window(wp, lp);
         return 0;
@@ -177,6 +236,24 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         if (g_app.save_tree) {
             LRESULT notify_result = 0;
             if (save_tree_handle_notify(g_app.save_tree, (LPNMHDR)lp, &notify_result)) return notify_result;
+        }
+        /* Custom-draw fallback for any tree/listview not consumed above. */
+        {
+            NMHDR *nmhdr = (NMHDR *)lp;
+            if (nmhdr && nmhdr->code == NM_CUSTOMDRAW) {
+                wchar_t cls[64];
+                if (GetClassNameW(nmhdr->hwndFrom, cls, 64) > 0) {
+                    if (lstrcmpiW(cls, WC_TREEVIEWW) == 0) {
+                        return theme_core_on_treeview_customdraw((LPNMTVCUSTOMDRAW)lp);
+                    }
+                    if (lstrcmpiW(cls, WC_LISTVIEWW) == 0) {
+                        return theme_core_on_listview_customdraw((LPNMLVCUSTOMDRAW)lp);
+                    }
+                    if (lstrcmpiW(cls, TOOLBARCLASSNAMEW) == 0) {
+                        return theme_core_on_toolbar_customdraw((LPNMTBCUSTOMDRAW)lp);
+                    }
+                }
+            }
         }
         break;
     case WM_WATCHER_NOTIFY:
@@ -211,6 +288,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     case WM_DESTROY:
         KillTimer(hwnd, IDT_REFRESH_DEBOUNCE);
         destroy_main_children();
+        praxis_theme_cleanup();
         if (g_log_file != INVALID_HANDLE_VALUE) {
             CloseHandle(g_log_file);
             g_log_file = INVALID_HANDLE_VALUE;
@@ -260,6 +338,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
 
     praxis_load_config();
     praxis_locale_set_current(praxis_config.language);
+    /* Initialize theme before any window creation so dark titlebar applies on first paint. */
+    praxis_theme_init_from_config();
     if (config_core_get_app_ini_path(ini_path, MAX_PATH, L"Praxis.ini")) praxis_first_launch_setup(ini_path);
 
     window_class.cbSize = sizeof(window_class);

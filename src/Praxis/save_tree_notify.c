@@ -6,6 +6,7 @@
 #include "save_tree_notify.h"
 
 #include "locale.h"
+#include "../common/theme_core.h"
 
 #include "save_tree_internal.h"
 
@@ -231,6 +232,12 @@ bool save_tree_notify_handle(save_tree_t *t, NMHDR *nmhdr, LRESULT *result) {
     }
 
     switch (nmhdr->code) {
+    case NM_CUSTOMDRAW:
+        if (result) {
+            *result = theme_core_on_treeview_customdraw((LPNMTVCUSTOMDRAW)nmhdr);
+        }
+        return true;
+
     case TVN_BEGINLABELEDITW:
     case TVN_BEGINLABELEDITA:
         {
