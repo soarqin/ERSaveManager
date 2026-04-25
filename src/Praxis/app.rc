@@ -39,13 +39,10 @@ IDR_MAIN_MENU MENU
 BEGIN
      POPUP "&File"
      BEGIN
-         MENUITEM "Set Tree Root...", IDM_FILE_SET_ROOT
-         MENUITEM SEPARATOR
          MENUITEM "E&xit", IDM_FILE_EXIT
      END
     POPUP "&Game"
     BEGIN
-        MENUITEM SEPARATOR
         MENUITEM "Manage Game Profiles...", IDM_GAME_MANAGE
     END
     POPUP "&Options"
@@ -54,10 +51,6 @@ BEGIN
         POPUP "Language"
         BEGIN
             MENUITEM "English", IDM_OPTIONS_LANG
-        END
-        POPUP "Compression"
-        BEGIN
-            MENUITEM "Normal (5)", IDM_OPTIONS_COMP
         END
     END
 END

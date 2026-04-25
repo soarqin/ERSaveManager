@@ -606,24 +606,6 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 }
             }
             return 0;
-        case IDM_FILE_SET_ROOT:
-            {
-                wchar_t *new_root = file_dialog_open_folder(hwnd, praxis_config.tree_root);
-
-                if (new_root) {
-                    lstrcpynW(praxis_config.tree_root, new_root, MAX_PATH);
-                    CoTaskMemFree(new_root);
-                    if (g_save_tree) {
-                        save_tree_set_root(g_save_tree, praxis_config.tree_root);
-                    }
-                    if (g_save_watcher) {
-                        save_watcher_change_root(g_save_watcher, praxis_config.tree_root);
-                    } else if (praxis_config.tree_root[0] != L'\0') {
-                        g_save_watcher = save_watcher_start(hwnd, praxis_config.tree_root, WM_WATCHER_NOTIFY);
-                    }
-                }
-            }
-            return 0;
         case IDM_FILE_EXIT:
             SendMessageW(hwnd, WM_CLOSE, 0, 0);
             return 0;
@@ -642,8 +624,8 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 if (GetMenuItemID(sub, i) == IDM_GAME_MANAGE) { is_game_menu = true; break; }
             }
             if (is_game_menu) {
-                /* Remove dynamic items (keep only separator + Manage at bottom) */
-                while (GetMenuItemCount(sub) > 2) {
+                /* Keep ONLY the Manage item (1 item). Remove all dynamically inserted items. */
+                while (GetMenuItemCount(sub) > 1) {
                     DeleteMenu(sub, 0, MF_BYPOSITION);
                 }
                 /* Insert game profiles at top */
@@ -656,6 +638,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                                 IDM_GAME_PROFILE_FIRST + g_profile_store.games[i].id,
                                 g_profile_store.games[i].name);
                 }
+                /* Insert separator BEFORE the Manage item only when there ARE profiles. */
                 if (g_profile_store.game_count > 0) {
                     InsertMenuW(sub, (int)g_profile_store.game_count, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
                 }

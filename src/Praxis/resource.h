@@ -7,14 +7,12 @@
 
 /* Menu IDs */
 #define IDR_MAIN_MENU       100
-#define IDM_FILE_SET_ROOT   101
 #define IDM_FILE_EXIT       103
 #define IDM_GAME_MANAGE     131
 #define IDM_GAME_PROFILE_FIRST 1300
 #define IDM_GAME_PROFILE_LAST  1399
 #define IDM_OPTIONS_HOTKEYS 140
 #define IDM_OPTIONS_LANG    141
-#define IDM_OPTIONS_COMP    142
 
 /* Control IDs */
 #define IDC_TREE_VIEW       200
