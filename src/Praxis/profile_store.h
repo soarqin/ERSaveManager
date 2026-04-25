@@ -40,14 +40,15 @@ typedef struct game_profile_s {
 
 /**
  * @brief Backup profile: represents a named backup configuration for a game.
- * @details Stores backup-specific settings including compression level and tree root.
+ * @details Stores backup-specific settings including compression level. The on-disk
+ *          backup root is computed from the parent game profile's tree_root and the
+ *          backup profile name.
  *          id >= 1 is valid; id == 0 is invalid/uninitialized.
  */
 typedef struct backup_profile_s {
     int id;                                 /* Sequential ID; >= 1 is valid */
     int parent_game_id;                     /* References game_profile_t.id */
     wchar_t name[64];                       /* User-visible name */
-    wchar_t tree_root[MAX_PATH];            /* Backup directory; defaults to <game.tree_root>/<name> */
     compression_level_t compression_level;  /* Compression level for backups */
 } backup_profile_t;
 
@@ -170,6 +171,22 @@ const game_profile_t *profile_store_get_active_game(const profile_store_t *store
 const backup_profile_t *profile_store_get_active_backup(const profile_store_t *store);
 
 /**
+ * @brief Resolve the on-disk root directory for a backup profile.
+ * @details Computes `<game_profile.tree_root>\<backup_profile.name>` for the
+ *          backup with the given ID. Returns false if the backup ID is not
+ *          found or if its parent game profile is not found.
+ * @param store Profile store.
+ * @param backup_id Backup profile ID.
+ * @param out Buffer to receive the resolved path.
+ * @param out_chars Capacity of out (should be MAX_PATH).
+ * @return true on success, false if not found.
+ */
+bool profile_store_resolve_backup_root(const profile_store_t *store,
+                                       int backup_id,
+                                       wchar_t *out,
+                                       size_t out_chars);
+
+/**
  * @brief List all backup profiles for a given game.
  * @param store Pointer to profile_store_t.
  * @param game_id Game profile ID to filter by.
@@ -192,8 +209,9 @@ bool profile_store_needs_migration(const wchar_t *ini_path);
 /**
  * @brief Migrate old single-profile INI to multi-profile schema.
  * @details Reads legacy [Settings] keys, creates a game profile and backup profile
- *          using the provided names. The backup profile's tree_root is set equal to
- *          the legacy [Settings].TreeRoot (NOT nested) to preserve existing backup files.
+ *          using the provided names. The migrated backup root is computed as
+ *          `<game.tree_root>\<backup.name>`, so users upgrading from the legacy
+ *          single-root layout may need to move existing files manually.
  *          Hotkey collapse: uses HotkeyRestore (new unified key) for the restore hotkey;
  *          falls back to HotkeyRestoreFull for backward compatibility.
  *          The resulting store is saved to out_ini_path.

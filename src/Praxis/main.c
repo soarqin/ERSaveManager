@@ -170,18 +170,18 @@ static bool resolve_save_path_for_active(wchar_t *out, size_t out_chars) {
     return backend->resolve_save_path(out, out_chars);
 }
 
-static void make_backup_filename(const backup_profile_t *bp, const wchar_t *prefix,
+static void make_backup_filename(const wchar_t *base_dir, const wchar_t *prefix,
     const wchar_t *ext, wchar_t *out, size_t out_chars) {
     SYSTEMTIME st;
 
-    if (!bp || !prefix || !ext || !out || out_chars == 0) {
+    if (!base_dir || !prefix || !ext || !out || out_chars == 0) {
         return;
     }
 
     GetLocalTime(&st);
     _snwprintf_s(out, out_chars, _TRUNCATE,
         L"%ls\\%ls_%04d%02d%02d_%02d%02d%02d%ls",
-        bp->tree_root, prefix,
+        base_dir, prefix,
         st.wYear, st.wMonth, st.wDay,
         st.wHour, st.wMinute, st.wSecond, ext);
 }
@@ -260,20 +260,27 @@ static void set_active_status_text(void) {
 
 static void apply_active_profile_ui(HWND hwnd) {
     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+    wchar_t backup_root[MAX_PATH];
 
     if (g_toolbar) {
         toolbar_set_selected_backup_id(g_toolbar, bp ? bp->id : 0);
         toolbar_set_actions_enabled(g_toolbar, bp != NULL);
     }
 
-    if (bp && g_save_tree) {
-        save_tree_set_root(g_save_tree, bp->tree_root);
+    if (bp == NULL ||
+        !profile_store_resolve_backup_root(&g_profile_store, bp->id, backup_root, MAX_PATH)) {
+        set_active_status_text();
+        return;
     }
 
-    if (bp && g_save_watcher) {
-        save_watcher_change_root(g_save_watcher, bp->tree_root);
-    } else if (bp && !g_save_watcher) {
-        g_save_watcher = save_watcher_start(hwnd, bp->tree_root, WM_WATCHER_NOTIFY);
+    if (g_save_tree) {
+        save_tree_set_root(g_save_tree, backup_root);
+    }
+
+    if (g_save_watcher) {
+        save_watcher_change_root(g_save_watcher, backup_root);
+    } else {
+        g_save_watcher = save_watcher_start(hwnd, backup_root, WM_WATCHER_NOTIFY);
     }
 
     set_active_status_text();
@@ -284,15 +291,17 @@ static bool backup_full_active(void) {
     const game_backend_t *backend = get_active_backend();
     wchar_t save_path[MAX_PATH];
     wchar_t dst[MAX_PATH];
+    wchar_t backup_root[MAX_PATH];
     const wchar_t *ext;
     bool ok;
 
-    if (!bp || !backend || !resolve_save_path_for_active(save_path, MAX_PATH)) {
+    if (!bp || !backend || !resolve_save_path_for_active(save_path, MAX_PATH) ||
+        !profile_store_resolve_backup_root(&g_profile_store, bp->id, backup_root, MAX_PATH)) {
         return false;
     }
 
     ext = (bp->compression_level == COMP_LEVEL_NONE) ? L".sl2" : L".ersm";
-    make_backup_filename(bp, L"manual", ext, dst, MAX_PATH);
+    make_backup_filename(backup_root, L"manual", ext, dst, MAX_PATH);
 
     if (bp->compression_level == COMP_LEVEL_NONE) {
         ok = backup_full_raw(save_path, dst);
@@ -312,18 +321,20 @@ static bool backup_slot_active(void) {
     const game_backend_t *backend = get_active_backend();
     wchar_t save_path[MAX_PATH];
     wchar_t dst[MAX_PATH];
+    wchar_t backup_root[MAX_PATH];
     wchar_t prefix[32];
     int slot = -1;
     bool ok;
 
     if (!bp || !game_backend_supports_slot_ops(backend) ||
         !resolve_save_path_for_active(save_path, MAX_PATH) ||
-        !backend->get_active_slot(save_path, &slot)) {
+        !backend->get_active_slot(save_path, &slot) ||
+        !profile_store_resolve_backup_root(&g_profile_store, bp->id, backup_root, MAX_PATH)) {
         return false;
     }
 
     _snwprintf_s(prefix, 32, _TRUNCATE, L"slot%d_backup", slot);
-    make_backup_filename(bp, prefix, L".ersm", dst, MAX_PATH);
+    make_backup_filename(backup_root, prefix, L".ersm", dst, MAX_PATH);
     ok = backend->backup_slot(save_path, slot, dst, comp_level_to_lzma(bp->compression_level));
     if (ok && g_save_tree) {
         save_tree_refresh(g_save_tree);
@@ -337,16 +348,18 @@ static bool restore_active_selection(void) {
     const game_backend_t *backend = get_active_backend();
     wchar_t selected_path[MAX_PATH] = {0};
     wchar_t save_path[MAX_PATH];
+    wchar_t backup_root[MAX_PATH];
     bool ok;
 
     if (!bp || !backend || !g_save_tree ||
         !save_tree_get_selected_path(g_save_tree, selected_path, MAX_PATH) || !selected_path[0] ||
         !resolve_save_path_for_active(save_path, MAX_PATH) ||
-        !ring_backup_init(bp->tree_root, praxis_config.ring_size)) {
+        !profile_store_resolve_backup_root(&g_profile_store, bp->id, backup_root, MAX_PATH) ||
+        !ring_backup_init(backup_root, praxis_config.ring_size)) {
         return false;
     }
 
-    ok = restore_with_safety_auto(backend, selected_path, save_path, bp->tree_root,
+    ok = restore_with_safety_auto(backend, selected_path, save_path, backup_root,
         comp_level_to_lzma(bp->compression_level));
     if (ok && g_save_tree) {
         save_tree_refresh(g_save_tree);
@@ -358,13 +371,16 @@ static bool restore_active_selection(void) {
 static bool undo_active_restore(void) {
     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
     const game_backend_t *backend = get_active_backend();
+    wchar_t backup_root[MAX_PATH];
     bool ok;
 
-    if (!bp || !backend || !ring_backup_init(bp->tree_root, praxis_config.ring_size)) {
+    if (!bp || !backend ||
+        !profile_store_resolve_backup_root(&g_profile_store, bp->id, backup_root, MAX_PATH) ||
+        !ring_backup_init(backup_root, praxis_config.ring_size)) {
         return false;
     }
 
-    ok = undo_last_restore(backend, bp->tree_root, comp_level_to_lzma(bp->compression_level));
+    ok = undo_last_restore(backend, backup_root, comp_level_to_lzma(bp->compression_level));
     if (ok && g_save_tree) {
         save_tree_refresh(g_save_tree);
     }
@@ -579,7 +595,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 new_bp.parent_game_id = gp->id;
                 new_bp.compression_level = COMP_LEVEL_LOW;
 
-                if (edit_backup_profile(hwnd, &new_bp, gp->tree_root, true) != IDOK) {
+                if (edit_backup_profile(hwnd, &new_bp, true) != IDOK) {
                     return 0;
                 }
 
@@ -1253,7 +1269,6 @@ static int run_selftest(void) {
             store.backups[0].id = 1;
             store.backups[0].parent_game_id = 1;
             lstrcpyW(store.backups[0].name, L"Main");
-            lstrcpyW(store.backups[0].tree_root, L"C:\\Test\\Root\\Main");
             store.backups[0].compression_level = COMP_LEVEL_LOW;
             store.backup_count = 1;
             store.active_game_id = 1;
@@ -1323,21 +1338,22 @@ static int run_selftest(void) {
             }
         }
     } else if (wcscmp(sub, L"profile-add-backup") == 0) {
-        /* --selftest profile-add-backup <parent_game_id> <name> <tree_root> <comp_level> <ini> */
-        if (argc < 8) {
+        /* --selftest profile-add-backup <parent_game_id> <name> <comp_level> <ini> */
+        if (argc < 7) {
             result = 2;
         } else {
             profile_store_t store;
             profile_store_init(&store);
-            profile_store_load(&store, argv[7]);
+            profile_store_load(&store, argv[6]);
             backup_profile_t bp;
             ZeroMemory(&bp, sizeof(bp));
             bp.parent_game_id = _wtoi(argv[3]);
             lstrcpynW(bp.name, argv[4], 64);
-            lstrcpynW(bp.tree_root, argv[5], MAX_PATH);
-            const wchar_t *cl = argv[6];
+            const wchar_t *cl = argv[5];
             if (wcscmp(cl, L"none") == 0) {
                 bp.compression_level = COMP_LEVEL_NONE;
+            } else if (wcscmp(cl, L"medium") == 0) {
+                bp.compression_level = COMP_LEVEL_MEDIUM;
             } else if (wcscmp(cl, L"high") == 0) {
                 bp.compression_level = COMP_LEVEL_HIGH;
             } else {
@@ -1348,7 +1364,7 @@ static int run_selftest(void) {
                 st_printf(L"profile-add-backup: FAIL\n");
                 result = 1;
             } else {
-                profile_store_save(&store, argv[7]);
+                profile_store_save(&store, argv[6]);
                 st_printf(L"profile-add-backup: ok id=%d\n", new_id);
                 result = 0;
             }
@@ -1370,9 +1386,13 @@ static int run_selftest(void) {
                           (int)store.games[i].game_id, store.games[i].tree_root);
             }
             for (size_t i = 0; i < store.backup_count; i++) {
-                st_printf(L"  backup[%d] parent=%d name=%ls tree_root=%ls comp=%d\n",
+                wchar_t backup_root[MAX_PATH] = {0};
+                bool has_root = profile_store_resolve_backup_root(&store, store.backups[i].id,
+                    backup_root, MAX_PATH);
+
+                st_printf(L"  backup[%d] parent=%d name=%ls computed_root=%ls comp=%d\n",
                           store.backups[i].id, store.backups[i].parent_game_id,
-                          store.backups[i].name, store.backups[i].tree_root,
+                          store.backups[i].name, has_root ? backup_root : L"",
                           (int)store.backups[i].compression_level);
             }
             result = 0;

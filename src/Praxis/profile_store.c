@@ -59,6 +59,41 @@ const backup_profile_t *profile_store_get_active_backup(const profile_store_t *s
     return NULL;
 }
 
+bool profile_store_resolve_backup_root(const profile_store_t *store,
+                                       int backup_id,
+                                       wchar_t *out,
+                                       size_t out_chars) {
+    const backup_profile_t *bp = NULL;
+    const game_profile_t *gp = NULL;
+
+    if (store == NULL || out == NULL || out_chars == 0 || backup_id <= 0) {
+        return false;
+    }
+
+    for (size_t i = 0; i < store->backup_count; i++) {
+        if (store->backups[i].id == backup_id) {
+            bp = &store->backups[i];
+            break;
+        }
+    }
+    if (bp == NULL) {
+        return false;
+    }
+
+    for (size_t i = 0; i < store->game_count; i++) {
+        if (store->games[i].id == bp->parent_game_id) {
+            gp = &store->games[i];
+            break;
+        }
+    }
+    if (gp == NULL) {
+        return false;
+    }
+
+    _snwprintf_s(out, out_chars, _TRUNCATE, L"%ls\\%ls", gp->tree_root, bp->name);
+    return true;
+}
+
 /* ==== Game profile CRUD ==== */
 
 int profile_store_add_game(profile_store_t *store, const game_profile_t *gp) {
@@ -85,22 +120,21 @@ int profile_store_add_game(profile_store_t *store, const game_profile_t *gp) {
 
     /* Auto-create a Main backup profile for this game. */
     backup_profile_t main_bp;
+    wchar_t main_dir[MAX_PATH];
+
     ZeroMemory(&main_bp, sizeof(main_bp));
     main_bp.parent_game_id = id;
     lstrcpyW(main_bp.name, L"Main");
-    /* tree_root for Main = <game.tree_root>\Main */
-    _snwprintf(main_bp.tree_root, MAX_PATH, L"%ls\\Main", gp->tree_root);
-    main_bp.tree_root[MAX_PATH - 1] = L'\0';
     main_bp.compression_level = COMP_LEVEL_LOW;
-
-    /* Create the Main backup directory. */
-    SHCreateDirectoryExW(NULL, main_bp.tree_root, NULL);
 
     /* Inline-add the backup, bypassing parent validation (parent was just added). */
     int backup_id = store->next_backup_id++;
     if (store->backup_count < MAX_BACKUP_PROFILES) {
         main_bp.id = backup_id;
         store->backups[store->backup_count++] = main_bp;
+        if (profile_store_resolve_backup_root(store, main_bp.id, main_dir, MAX_PATH)) {
+            SHCreateDirectoryExW(NULL, main_dir, NULL);
+        }
     }
 
     /* Set both new profiles as active. */
@@ -183,7 +217,7 @@ int profile_store_add_backup(profile_store_t *store, const backup_profile_t *bp)
         return 0;
     }
     /* Validate required fields. */
-    if (bp->name[0] == L'\0' || bp->tree_root[0] == L'\0') {
+    if (bp->name[0] == L'\0') {
         return 0;
     }
     /* Validate that the parent game profile exists. */
@@ -198,14 +232,16 @@ int profile_store_add_backup(profile_store_t *store, const backup_profile_t *bp)
         return 0;
     }
 
-    /* Create backup directory if it does not already exist. */
-    SHCreateDirectoryExW(NULL, bp->tree_root, NULL);
-    /* Ignore return value — ERROR_ALREADY_EXISTS is acceptable. */
-
     int id = store->next_backup_id++;
+    wchar_t computed_dir[MAX_PATH];
     store->backups[store->backup_count] = *bp;
     store->backups[store->backup_count].id = id;
     store->backup_count++;
+
+    if (profile_store_resolve_backup_root(store, id, computed_dir, MAX_PATH)) {
+        SHCreateDirectoryExW(NULL, computed_dir, NULL);
+    }
+
     return id;
 }
 
@@ -370,8 +406,6 @@ static void load_kv_cb(const char *key, const char *value, void *user) {
             ctx->cur_backup.parent_game_id = atoi(value);
         } else if (strcmp(key, "Name") == 0) {
             config_core_store_wide_value(ctx->cur_backup.name, 64, value);
-        } else if (strcmp(key, "TreeRoot") == 0) {
-            config_core_store_wide_value(ctx->cur_backup.tree_root, MAX_PATH, value);
         } else if (strcmp(key, "CompressionLevel") == 0) {
             if (strcmp(value, "none") == 0) {
                 ctx->cur_backup.compression_level = COMP_LEVEL_NONE;
@@ -517,12 +551,14 @@ bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path) {
     _snwprintf(tmp_path, MAX_PATH, L"%ls.tmp", ini_path);
     tmp_path[MAX_PATH - 1] = L'\0';
 
-    /* Determine legacy TreeRoot: prefer active backup's tree_root for backward compat. */
+    /* Determine legacy TreeRoot: prefer active backup's computed root for backward compat. */
     const backup_profile_t *active_bp = profile_store_get_active_backup(store);
+    wchar_t legacy_tree_root[MAX_PATH] = {0};
 
     char tree_root_utf8[MAX_PATH * 4] = {0};
-    if (active_bp != NULL && active_bp->tree_root[0] != L'\0') {
-        WideCharToMultiByte(CP_UTF8, 0, active_bp->tree_root, -1,
+    if (active_bp != NULL &&
+        profile_store_resolve_backup_root(store, active_bp->id, legacy_tree_root, MAX_PATH)) {
+        WideCharToMultiByte(CP_UTF8, 0, legacy_tree_root, -1,
                             tree_root_utf8, (int)sizeof(tree_root_utf8), NULL, NULL);
     } else {
         WideCharToMultiByte(CP_UTF8, 0, praxis_config.tree_root, -1,
@@ -605,14 +641,11 @@ bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path) {
     /* [BackupProfile:N] sections. */
     for (size_t bi = 0; bi < store->backup_count; bi++) {
         const backup_profile_t *bp = &store->backups[bi];
-        char name_utf8[64 * 4]         = {0};
-        char bp_tree_utf8[MAX_PATH * 4] = {0};
+        char name_utf8[64 * 4] = {0};
         const char *comp_str;
 
         WideCharToMultiByte(CP_UTF8, 0, bp->name, -1,
                             name_utf8, (int)sizeof(name_utf8), NULL, NULL);
-        WideCharToMultiByte(CP_UTF8, 0, bp->tree_root, -1,
-                            bp_tree_utf8, (int)sizeof(bp_tree_utf8), NULL, NULL);
 
         switch (bp->compression_level) {
         case COMP_LEVEL_NONE:   comp_str = "none";   break;
@@ -624,7 +657,6 @@ bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path) {
         config_core_buf_append(&buf, "[BackupProfile:%d]\r\n", bp->id);
         config_core_buf_append(&buf, "ParentGameId=%d\r\n", bp->parent_game_id);
         config_core_buf_append(&buf, "Name=%s\r\n", name_utf8);
-        config_core_buf_append(&buf, "TreeRoot=%s\r\n", bp_tree_utf8);
         config_core_buf_append(&buf, "CompressionLevel=%s\r\n", comp_str);
         config_core_buf_append(&buf, "\r\n");
     }
@@ -808,8 +840,7 @@ bool profile_store_migrate(profile_store_t *store, const wchar_t *ini_path,
     /* Initialize the store fresh so no stale data leaks in. */
     profile_store_init(store);
 
-    /* Build the game profile inline, bypassing profile_store_add_game to avoid
-     * auto-creating a nested Main backup with the wrong tree_root. */
+    /* Build the game profile inline. */
     if (store->game_count >= MAX_GAME_PROFILES) {
         return false;
     }
@@ -824,20 +855,23 @@ bool profile_store_migrate(profile_store_t *store, const wchar_t *ini_path,
     store->games[store->game_count++] = gp;
     SHCreateDirectoryExW(NULL, gp.tree_root, NULL); /* OK if directory already exists */
 
-    /* Build the backup profile with tree_root == legacy.tree_root (NOT nested).
-     * This is critical: it preserves existing backup files at their current location. */
+    /* Build the backup profile. The backup root is now computed dynamically. */
     if (store->backup_count >= MAX_BACKUP_PROFILES) {
         return false;
     }
     backup_profile_t bp;
+    wchar_t backup_dir[MAX_PATH];
+
     ZeroMemory(&bp, sizeof(bp));
     bp.parent_game_id = new_game_id;
     lstrcpynW(bp.name, backup_name, 64);
-    lstrcpynW(bp.tree_root, legacy.tree_root, MAX_PATH);
     bp.compression_level = initial_comp;
     int new_backup_id = store->next_backup_id++;
     bp.id = new_backup_id;
     store->backups[store->backup_count++] = bp;
+    if (profile_store_resolve_backup_root(store, new_backup_id, backup_dir, MAX_PATH)) {
+        SHCreateDirectoryExW(NULL, backup_dir, NULL);
+    }
 
     /* Activate the newly created profiles. */
     store->active_game_id = new_game_id;
