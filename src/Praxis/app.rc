@@ -105,4 +105,28 @@ BEGIN
     PUSHBUTTON      "Cancel", IDCANCEL, 212, 78, 60, 14
 END
 
+/* Hotkey Settings dialog */
+IDD_HOTKEY_SETTINGS DIALOGEX 0, 0, 300, 140
+STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Hotkey Settings"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT       "Backup Full:",    IDC_HK_LBL_BACKUP_FULL, 8,  10, 100, 10
+    CONTROL     "", IDC_HK_BACKUP_FULL, "msctls_hotkey32",
+                WS_BORDER | WS_TABSTOP, 116, 8, 170, 14
+    LTEXT       "Backup Slot:",    IDC_HK_LBL_BACKUP_SLOT, 8,  30, 100, 10
+    CONTROL     "", IDC_HK_BACKUP_SLOT, "msctls_hotkey32",
+                WS_BORDER | WS_TABSTOP, 116, 28, 170, 14
+    LTEXT       "Restore:",        IDC_HK_LBL_RESTORE, 8,  50, 100, 10
+    CONTROL     "", IDC_HK_RESTORE, "msctls_hotkey32",
+                WS_BORDER | WS_TABSTOP, 116, 48, 170, 14
+    LTEXT       "Undo Restore:",   IDC_HK_LBL_UNDO, 8,  70, 100, 10
+    CONTROL     "", IDC_HK_UNDO, "msctls_hotkey32",
+                WS_BORDER | WS_TABSTOP, 116, 68, 170, 14
+    PUSHBUTTON  "Reset Defaults",  IDC_HK_RESET, 8,  118, 80, 14
+    DEFPUSHBUTTON "OK",            IDOK,         160, 118, 60, 14
+    PUSHBUTTON  "Cancel",          IDCANCEL,     226, 118, 60, 14
+END
+
+
 

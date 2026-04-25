@@ -12,7 +12,12 @@
 #define IDM_GAME_PROFILE_FIRST 1300
 #define IDM_GAME_PROFILE_LAST  1399
 #define IDM_OPTIONS_HOTKEYS 140
+/* Language submenu ids: dynamically replaced at WM_INITMENUPOPUP. The
+ * static "English" entry in IDR_MAIN_MENU keeps IDM_OPTIONS_LANG so its
+ * presence doubles as the sentinel that identifies the Language popup. */
 #define IDM_OPTIONS_LANG    141
+#define IDM_LANG_FIRST      1500
+#define IDM_LANG_LAST       1599
 
 /* Control IDs */
 #define IDC_TREE_VIEW       200
@@ -57,6 +62,17 @@
 #define IDC_EBP_COMP_LOW    4205
 #define IDC_EBP_COMP_HIGH   4206
 #define IDC_EBP_COMP_MEDIUM 4207
+
+/* === Hotkey Settings Dialog Controls === */
+#define IDC_HK_LBL_BACKUP_FULL 4301
+#define IDC_HK_LBL_BACKUP_SLOT 4302
+#define IDC_HK_LBL_RESTORE     4303
+#define IDC_HK_LBL_UNDO        4304
+#define IDC_HK_BACKUP_FULL     4311
+#define IDC_HK_BACKUP_SLOT     4312
+#define IDC_HK_RESTORE         4313
+#define IDC_HK_UNDO            4314
+#define IDC_HK_RESET           4321
 
 /* Icon */
 #define IDI_APPICON         1
