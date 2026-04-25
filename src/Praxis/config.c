@@ -35,9 +35,8 @@ static void apply_defaults(void) {
     praxis_config.compression_level = 5;
     praxis_config.ring_size = 5;
     lstrcpyW(praxis_config.hotkey_backup_full, L"Ctrl+Shift+F5");
-    lstrcpyW(praxis_config.hotkey_restore_full, L"Ctrl+Shift+F9");
     lstrcpyW(praxis_config.hotkey_backup_slot, L"Ctrl+Shift+F6");
-    lstrcpyW(praxis_config.hotkey_restore_slot, L"Ctrl+Shift+F10");
+    lstrcpyW(praxis_config.hotkey_restore, L"Ctrl+Shift+F9");
     lstrcpyW(praxis_config.hotkey_undo_restore, L"Ctrl+Shift+Z");
 }
 
@@ -62,12 +61,10 @@ static void kv_callback(const char *key, const char *value, void *user) {
         cfg->ring_size = config_core_parse_int(value, 5);
     } else if (strcmp(key, "HotkeyBackupFull") == 0) {
         config_core_store_wide_value(cfg->hotkey_backup_full, 32, value);
-    } else if (strcmp(key, "HotkeyRestoreFull") == 0) {
-        config_core_store_wide_value(cfg->hotkey_restore_full, 32, value);
     } else if (strcmp(key, "HotkeyBackupSlot") == 0) {
         config_core_store_wide_value(cfg->hotkey_backup_slot, 32, value);
-    } else if (strcmp(key, "HotkeyRestoreSlot") == 0) {
-        config_core_store_wide_value(cfg->hotkey_restore_slot, 32, value);
+    } else if (strcmp(key, "HotkeyRestore") == 0) {
+        config_core_store_wide_value(cfg->hotkey_restore, 32, value);
     } else if (strcmp(key, "HotkeyUndoRestore") == 0) {
         config_core_store_wide_value(cfg->hotkey_undo_restore, 32, value);
     }
@@ -122,16 +119,14 @@ void praxis_save_config(void) {
 
     char tree_root_utf8[MAX_PATH * 4] = {0};
     char hotkey_bf[32 * 4] = {0};
-    char hotkey_rf[32 * 4] = {0};
     char hotkey_bs[32 * 4] = {0};
-    char hotkey_rs[32 * 4] = {0};
+    char hotkey_r[32 * 4] = {0};
     char hotkey_ur[32 * 4] = {0};
 
     if (WideCharToMultiByte(CP_UTF8, 0, praxis_config.tree_root, -1, tree_root_utf8, (int)sizeof(tree_root_utf8), NULL, NULL) <= 0 ||
         WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_full, -1, hotkey_bf, (int)sizeof(hotkey_bf), NULL, NULL) <= 0 ||
-        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_restore_full, -1, hotkey_rf, (int)sizeof(hotkey_rf), NULL, NULL) <= 0 ||
         WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_slot, -1, hotkey_bs, (int)sizeof(hotkey_bs), NULL, NULL) <= 0 ||
-        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_restore_slot, -1, hotkey_rs, (int)sizeof(hotkey_rs), NULL, NULL) <= 0 ||
+        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_restore, -1, hotkey_r, (int)sizeof(hotkey_r), NULL, NULL) <= 0 ||
         WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_undo_restore, -1, hotkey_ur, (int)sizeof(hotkey_ur), NULL, NULL) <= 0) {
         return;
     }
@@ -148,9 +143,8 @@ void praxis_save_config(void) {
     config_core_buf_append(&buf, "CompressionLevel=%d\r\n", praxis_config.compression_level);
     config_core_buf_append(&buf, "RingSize=%d\r\n", praxis_config.ring_size);
     config_core_buf_append(&buf, "HotkeyBackupFull=%s\r\n", hotkey_bf);
-    config_core_buf_append(&buf, "HotkeyRestoreFull=%s\r\n", hotkey_rf);
     config_core_buf_append(&buf, "HotkeyBackupSlot=%s\r\n", hotkey_bs);
-    config_core_buf_append(&buf, "HotkeyRestoreSlot=%s\r\n", hotkey_rs);
+    config_core_buf_append(&buf, "HotkeyRestore=%s\r\n", hotkey_r);
     config_core_buf_append(&buf, "HotkeyUndoRestore=%s\r\n", hotkey_ur);
     config_core_buf_write_file(&buf, ini_path);
     config_core_buf_free(&buf);

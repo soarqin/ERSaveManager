@@ -20,9 +20,8 @@ typedef struct praxis_config_s {
     int compression_level;          /* LZMA compression level (1-9, default 5) */
     int ring_size;                  /* Ring backup slot count (default 5) */
     wchar_t hotkey_backup_full[32]; /* e.g. "Ctrl+Shift+F5" */
-    wchar_t hotkey_restore_full[32];
     wchar_t hotkey_backup_slot[32];
-    wchar_t hotkey_restore_slot[32];
+    wchar_t hotkey_restore[32];     /* unified restore (full or slot) */
     wchar_t hotkey_undo_restore[32];
 } praxis_config_t;
 

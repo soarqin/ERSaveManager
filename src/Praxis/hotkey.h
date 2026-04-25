@@ -12,10 +12,9 @@
 
 typedef enum hotkey_id_e {
     HOTKEY_BACKUP_FULL = 1,
-    HOTKEY_RESTORE_FULL = 2,
-    HOTKEY_BACKUP_SLOT = 3,
-    HOTKEY_RESTORE_SLOT = 4,
-    HOTKEY_UNDO_RESTORE = 5
+    HOTKEY_BACKUP_SLOT = 2,
+    HOTKEY_RESTORE = 3,  /* unified, auto-detects full vs slot */
+    HOTKEY_UNDO_RESTORE = 4
 } hotkey_id_t;
 
 typedef struct hotkey_binding_s {

@@ -107,12 +107,10 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             hotkey_init(hwnd);
             if (hotkey_parse_string(praxis_config.hotkey_backup_full, &b))
                 hotkey_register(HOTKEY_BACKUP_FULL, &b);
-            if (hotkey_parse_string(praxis_config.hotkey_restore_full, &b))
-                hotkey_register(HOTKEY_RESTORE_FULL, &b);
             if (hotkey_parse_string(praxis_config.hotkey_backup_slot, &b))
                 hotkey_register(HOTKEY_BACKUP_SLOT, &b);
-            if (hotkey_parse_string(praxis_config.hotkey_restore_slot, &b))
-                hotkey_register(HOTKEY_RESTORE_SLOT, &b);
+            if (hotkey_parse_string(praxis_config.hotkey_restore, &b))
+                hotkey_register(HOTKEY_RESTORE, &b);
             if (hotkey_parse_string(praxis_config.hotkey_undo_restore, &b))
                 hotkey_register(HOTKEY_UNDO_RESTORE, &b);
 
@@ -256,17 +254,6 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                     if (g_save_tree) save_tree_refresh(g_save_tree);
                     break;
                 }
-            case HOTKEY_RESTORE_FULL:
-                {
-                    wchar_t sel[MAX_PATH];
-
-                    if (g_save_tree && save_tree_get_selected_path(g_save_tree, sel, MAX_PATH)) {
-                        ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
-                        restore_with_safety(backend, sel, save_path, praxis_config.tree_root,
-                            praxis_config.compression_level, false, 0);
-                    }
-                    break;
-                }
             case HOTKEY_BACKUP_SLOT:
                 if (game_backend_supports_slot_ops(backend)) {
                     int slot = 0;
@@ -285,19 +272,16 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                     }
                 }
                 break;
-            case HOTKEY_RESTORE_SLOT:
+            case HOTKEY_RESTORE:
                 {
-                    wchar_t sel2[MAX_PATH];
+                    /* TODO(T19): wire to active profile and call restore_with_safety_auto */
+                    /* Placeholder: keep build green until T10/T19 complete */
+                    wchar_t sel[MAX_PATH];
 
-                    if (g_save_tree && save_tree_get_selected_path(g_save_tree, sel2, MAX_PATH) &&
-                        game_backend_supports_slot_ops(backend)) {
-                        int slot = 0;
-
-                        if (backend->get_active_slot(save_path, &slot)) {
-                            ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
-                            restore_with_safety(backend, sel2, save_path, praxis_config.tree_root,
-                                praxis_config.compression_level, true, slot);
-                        }
+                    if (g_save_tree && save_tree_get_selected_path(g_save_tree, sel, MAX_PATH)) {
+                        ring_backup_init(praxis_config.tree_root, praxis_config.ring_size);
+                        restore_with_safety(backend, sel, save_path, praxis_config.tree_root,
+                            praxis_config.compression_level, false, 0);
                     }
                     break;
                 }

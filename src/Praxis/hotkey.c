@@ -14,8 +14,8 @@
 #include <windows.h>
 
 static HWND g_target_window = NULL;
-static hotkey_binding_t g_bindings[6]; /* index 0 unused; 1-5 = hotkey_id_t */
-static bool g_registered[6];
+static hotkey_binding_t g_bindings[HOTKEY_UNDO_RESTORE + 1]; /* index 0 unused; 1-4 = hotkey_id_t */
+static bool g_registered[HOTKEY_UNDO_RESTORE + 1];
 
 bool hotkey_init(HWND target_window) {
     g_target_window = target_window;
