@@ -29,4 +29,5 @@ typedef struct praxis_config_s {
 extern praxis_config_t praxis_config;
 
 void praxis_load_config(void);
-void praxis_save_config(void);
+/* Note: there is no destructive [Settings]-only writer. Persist via
+ * profile_store_save(); see main.c::save_profile_store(). */

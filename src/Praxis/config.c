@@ -114,42 +114,9 @@ void praxis_load_config(void) {
     locale_core_set_current(praxis_config.language);
 }
 
-void praxis_save_config(void) {
-    wchar_t ini_path[MAX_PATH];
-    if (!config_core_get_app_ini_path(ini_path, MAX_PATH, L"Praxis.ini")) {
-        return;
-    }
-
-    char tree_root_utf8[MAX_PATH * 4] = {0};
-    char hotkey_bf[32 * 4] = {0};
-    char hotkey_bs[32 * 4] = {0};
-    char hotkey_r[32 * 4] = {0};
-    char hotkey_ur[32 * 4] = {0};
-
-    if (WideCharToMultiByte(CP_UTF8, 0, praxis_config.tree_root, -1, tree_root_utf8, (int)sizeof(tree_root_utf8), NULL, NULL) <= 0 ||
-        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_full, -1, hotkey_bf, (int)sizeof(hotkey_bf), NULL, NULL) <= 0 ||
-        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_slot, -1, hotkey_bs, (int)sizeof(hotkey_bs), NULL, NULL) <= 0 ||
-        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_restore, -1, hotkey_r, (int)sizeof(hotkey_r), NULL, NULL) <= 0 ||
-        WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_undo_restore, -1, hotkey_ur, (int)sizeof(hotkey_ur), NULL, NULL) <= 0) {
-        return;
-    }
-
-    config_core_buf_t buf;
-    config_core_buf_init(&buf);
-    config_core_buf_append(&buf, "[Settings]\r\n");
-    config_core_buf_append(&buf, "TreeRoot=%s\r\n", tree_root_utf8);
-    config_core_buf_append(&buf, "Language=%d\r\n", praxis_config.language);
-    config_core_buf_append(&buf, "WindowX=%d\r\n", praxis_config.window_x);
-    config_core_buf_append(&buf, "WindowY=%d\r\n", praxis_config.window_y);
-    config_core_buf_append(&buf, "WindowWidth=%d\r\n", praxis_config.window_width);
-    config_core_buf_append(&buf, "WindowHeight=%d\r\n", praxis_config.window_height);
-    config_core_buf_append(&buf, "CompressionLevel=%d\r\n", praxis_config.compression_level);
-    config_core_buf_append(&buf, "RingSize=%d\r\n", praxis_config.ring_size);
-    config_core_buf_append(&buf, "HotkeyBackupFull=%s\r\n", hotkey_bf);
-    config_core_buf_append(&buf, "HotkeyBackupSlot=%s\r\n", hotkey_bs);
-    config_core_buf_append(&buf, "HotkeyRestore=%s\r\n", hotkey_r);
-    config_core_buf_append(&buf, "HotkeyUndoRestore=%s\r\n", hotkey_ur);
-    config_core_buf_append(&buf, "MigrationDismissed=%d\r\n", praxis_config.migration_dismissed);
-    config_core_buf_write_file(&buf, ini_path);
-    config_core_buf_free(&buf);
-}
+/*
+ * praxis_save_config() removed. It wrote only the [Settings] section,
+ * which destructively overwrote any [GameProfile:N]/[BackupProfile:N]
+ * sections previously persisted by profile_store_save(). All Praxis-side
+ * INI writes now go through profile_store_save() via save_profile_store().
+ */

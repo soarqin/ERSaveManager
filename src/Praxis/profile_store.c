@@ -614,6 +614,7 @@ bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path) {
     config_core_buf_append(&buf, "HotkeyUndoRestore=%s\r\n", hotkey_ur);
     config_core_buf_append(&buf, "ActiveGameProfileId=%d\r\n", store->active_game_id);
     config_core_buf_append(&buf, "ActiveBackupProfileId=%d\r\n", store->active_backup_id);
+    config_core_buf_append(&buf, "MigrationDismissed=%d\r\n", praxis_config.migration_dismissed);
     config_core_buf_append(&buf, "\r\n");
 
     /* [GameProfile:N] sections. */

@@ -752,7 +752,10 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             }
         }
         praxis_config.language = praxis_locale_get_current();
-        praxis_save_config();
+        /* Persist the full INI (settings + profile sections). Using
+         * praxis_save_config() here would have erased every
+         * [GameProfile:N]/[BackupProfile:N] block on every shutdown. */
+        save_profile_store();
         hotkey_unregister_all();
         DestroyWindow(hwnd);
         return 0;
@@ -1597,12 +1600,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
         return selftest_result;
     }
 
-    /* Load configuration and apply language preference.
-     * Immediately persist so a default Praxis.ini materializes on first launch
-     * even if the user closes the app via a hard-kill that bypasses WM_DESTROY. */
+    /* Load configuration and apply language preference. We deliberately do NOT
+     * call praxis_save_config() here: it writes only the [Settings] section
+     * and would clobber any [GameProfile:N]/[BackupProfile:N] sections that
+     * profile_store_save() persisted in a previous session. The INI is
+     * written via profile_store_save() (which preserves all sections) on
+     * every profile mutation and on WM_CLOSE. */
     praxis_load_config();
     praxis_locale_set_current(praxis_config.language);
-    praxis_save_config();
 
     /* First-launch setup: when there are no game profiles AND user hasn't
      * dismissed migration, show the Add Game Profile dialog pre-filled with
@@ -1634,9 +1639,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
                     profile_store_add_game(&probe_store, &pre_gp);
                     profile_store_save(&probe_store, ini_path);
                 } else {
-                    /* User cancelled: set dismissed flag so we don't re-prompt. */
+                    /* User cancelled: set dismissed flag so we don't re-prompt.
+                     * Use profile_store_save (not praxis_save_config) so the
+                     * full INI -- including any pre-existing profile sections
+                     * loaded into probe_store -- is preserved. */
                     praxis_config.migration_dismissed = 1;
-                    praxis_save_config();
+                    profile_store_save(&probe_store, ini_path);
                 }
             }
         }
