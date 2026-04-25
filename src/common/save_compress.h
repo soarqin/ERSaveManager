@@ -82,8 +82,9 @@ bool ersm_decompress_to_temp_file(const wchar_t *src_path,
  * @details Used by full-save backups when compression_level == COMP_LEVEL_NONE.
  *          The destination file becomes a byte-identical copy of the source.
  *          Restore handles this transparently via ersm_detect_file_format()
- *          returning ERSM_FMT_BND4_RAW.
- * @param path Destination .sl2 path
+ *          returning ERSM_FMT_BND4_RAW. The on-disk extension is chosen by
+ *          the caller (the Praxis tool now uses `.ersm` uniformly).
+ * @param path Destination file path
  * @param src Source bytes (must start with "BND4" magic)
  * @param src_len Source data length
  * @return true on success, false on magic validation failure or file I/O error

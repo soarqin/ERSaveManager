@@ -14,7 +14,7 @@
  */
 typedef struct restore_safe_request_s {
     const game_backend_t *backend;  /**< Game backend vtable */
-    const wchar_t *backup_src;      /**< Path to backup file (.ersm or .sl2) */
+    const wchar_t *backup_src;      /**< Path to backup file; format detected by magic bytes (legacy `.sl2` and current `.ersm` both supported) */
     const wchar_t *save_dst;        /**< Path to active save file */
     const wchar_t *tree_root;       /**< Ring backup directory root */
     int compression_level;          /**< LZMA level for ring snapshot (1-9) */
@@ -42,7 +42,7 @@ bool restore_safe_full(const restore_safe_request_t *req);
  *          with slot_mode=true. For SAVE_KIND_UNKNOWN returns false.
  *          Always takes a pre-restore ring snapshot (via restore_safe_full).
  * @param backend Game backend vtable
- * @param backup_src Path to backup file (.ersm or .sl2)
+ * @param backup_src Path to backup file; format detected by magic bytes (legacy `.sl2` and current `.ersm` both supported)
  * @param save_dst Path to active save file
  * @param tree_root Ring backup directory root
  * @param compression_level LZMA level for ring snapshot (1-9)
