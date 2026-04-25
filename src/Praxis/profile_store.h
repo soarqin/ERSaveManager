@@ -187,3 +187,20 @@ bool profile_store_resolve_backup_root(const profile_store_t *store,
  * @return Number of backup profiles found (may exceed out_cap if truncated).
  */
 size_t profile_store_list_backups_for_game(const profile_store_t *store, int game_id, const backup_profile_t **out, size_t out_cap);
+
+/**
+ * @brief Compute a unique game profile name based on a desired base name.
+ * @details Returns base_name as-is when no existing game profile uses that name.
+ *          Otherwise, appends " (2)", " (3)", ... up to " (99)" until a unique
+ *          name is found. Comparison is case-insensitive.
+ * @param store Profile store to check against (NULL is treated as empty store).
+ * @param base_name Desired base name (e.g. L"Elden Ring"). Must not be NULL/empty.
+ * @param out Buffer to receive the unique name. Always null-terminated on success.
+ * @param out_chars Capacity of out in wchar_t units (typical: 64).
+ * @return true on success; false if base_name is empty/NULL, out is invalid,
+ *         the result would not fit in out, or no unique suffix was found.
+ */
+bool profile_store_find_unique_game_name(const profile_store_t *store,
+                                         const wchar_t *base_name,
+                                         wchar_t *out,
+                                         size_t out_chars);

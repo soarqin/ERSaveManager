@@ -325,4 +325,58 @@ size_t profile_store_list_backups_for_game(const profile_store_t *store, int gam
     return count;
 }
 
+/* Return true when a game profile with the given (case-insensitive) name exists. */
+static bool game_name_in_use(const profile_store_t *store, const wchar_t *name) {
+    if (store == NULL) return false;
+    for (size_t i = 0; i < store->game_count; i++) {
+        if (lstrcmpiW(store->games[i].name, name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool profile_store_find_unique_game_name(const profile_store_t *store,
+                                         const wchar_t *base_name,
+                                         wchar_t *out,
+                                         size_t out_chars) {
+    if (out == NULL || out_chars == 0) {
+        return false;
+    }
+    out[0] = L'\0';
+    if (base_name == NULL || base_name[0] == L'\0') {
+        return false;
+    }
+
+    /* Try the base name first; fall through to numeric suffixes if taken. */
+    if (!game_name_in_use(store, base_name)) {
+        size_t base_len = (size_t)lstrlenW(base_name);
+        if (base_len >= out_chars) {
+            return false;
+        }
+        lstrcpyW(out, base_name);
+        return true;
+    }
+
+    /* Append " (N)" with N from 2 upward until we find a free slot. */
+    for (int suffix = 2; suffix < 100; suffix++) {
+        wchar_t candidate[80];
+        int written = _snwprintf_s(candidate, _countof(candidate), _TRUNCATE,
+                                   L"%ls (%d)", base_name, suffix);
+        if (written < 0) {
+            /* Truncated by _snwprintf_s; cannot guarantee uniqueness. */
+            return false;
+        }
+        if (!game_name_in_use(store, candidate)) {
+            if ((size_t)lstrlenW(candidate) >= out_chars) {
+                return false;
+            }
+            lstrcpyW(out, candidate);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
