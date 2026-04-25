@@ -73,33 +73,27 @@ static bool read_last_restore_meta(const wchar_t *tree_root, wchar_t *out_ring_p
     return true;
 }
 
-bool restore_safe_full(const game_backend_t *backend,
-                          const wchar_t *backup_src,
-                          const wchar_t *save_dst,
-                          const wchar_t *tree_root,
-                         int compression_level,
-                         bool slot_mode,
-                         int slot_index) {
-    if (!backend || !backup_src || !save_dst || !tree_root) return false;
+bool restore_safe_full(const restore_safe_request_t *req) {
+    if (!req || !req->backend || !req->backup_src || !req->save_dst || !req->tree_root) return false;
 
     /* Step 1: Ring snapshot of current save */
-    const wchar_t *label = slot_mode ? L"pre_slot_restore" : L"pre_full_restore";
+    const wchar_t *label = req->slot_mode ? L"pre_slot_restore" : L"pre_full_restore";
     wchar_t ring_path[MAX_PATH];
-    if (!ring_backup_snapshot(backend, save_dst, label, compression_level, ring_path, MAX_PATH)) {
+    if (!ring_backup_snapshot(req->backend, req->save_dst, label, req->compression_level, ring_path, MAX_PATH)) {
         return false; /* Abort restore if ring fails */
     }
 
     /* Step 2: Perform restore */
     bool ok;
-    if (slot_mode && backend->restore_slot) {
-        ok = backend->restore_slot(backup_src, save_dst, slot_index);
+    if (req->slot_mode && req->backend->restore_slot) {
+        ok = req->backend->restore_slot(req->backup_src, req->save_dst, req->slot_index);
     } else {
-        ok = backend->restore_full(backup_src, save_dst);
+        ok = req->backend->restore_full(req->backup_src, req->save_dst);
     }
     if (!ok) return false;
 
     /* Step 3: Write last_restore metadata (save_path lets undo target the same file) */
-    write_last_restore_meta(tree_root, ring_path, save_dst, slot_mode, slot_index);
+    write_last_restore_meta(req->tree_root, ring_path, req->save_dst, req->slot_mode, req->slot_index);
     return true;
 }
 
@@ -115,8 +109,16 @@ bool restore_safe_auto(const game_backend_t *backend,
     save_kind_t kind = save_compress_classify_backup(backup_src);
 
     if (kind == SAVE_KIND_FULL) {
-        return restore_safe_full(backend, backup_src, save_dst, tree_root,
-                                   compression_level, false, 0);
+        restore_safe_request_t req = {
+            .backend = backend,
+            .backup_src = backup_src,
+            .save_dst = save_dst,
+            .tree_root = tree_root,
+            .compression_level = compression_level,
+            .slot_mode = false,
+            .slot_index = 0,
+        };
+        return restore_safe_full(&req);
     }
 
     if (kind == SAVE_KIND_SLOT) {
@@ -128,8 +130,16 @@ bool restore_safe_auto(const game_backend_t *backend,
         if (!backend->get_active_slot(save_dst, &slot)) {
             return false;
         }
-        return restore_safe_full(backend, backup_src, save_dst, tree_root,
-                                   compression_level, true, slot);
+        restore_safe_request_t req = {
+            .backend = backend,
+            .backup_src = backup_src,
+            .save_dst = save_dst,
+            .tree_root = tree_root,
+            .compression_level = compression_level,
+            .slot_mode = true,
+            .slot_index = slot,
+        };
+        return restore_safe_full(&req);
     }
 
     return false;
@@ -147,5 +157,14 @@ bool restore_safe_undo(const game_backend_t *backend, const wchar_t *tree_root, 
                                 &slot_mode, &slot_index)) return false;
 
     /* Undo IS a restore — so it also snapshots first (enables redo) */
-    return restore_safe_full(backend, ring_path, save_path, tree_root, compression_level, slot_mode, slot_index);
+    restore_safe_request_t req = {
+        .backend = backend,
+        .backup_src = ring_path,
+        .save_dst = save_path,
+        .tree_root = tree_root,
+        .compression_level = compression_level,
+        .slot_mode = slot_mode,
+        .slot_index = slot_index,
+    };
+    return restore_safe_full(&req);
 }

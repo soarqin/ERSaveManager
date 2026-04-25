@@ -10,27 +10,28 @@
 #include <wchar.h>
 
 /**
+ * @brief Parameters for a safe restore operation.
+ */
+typedef struct restore_safe_request_s {
+    const game_backend_t *backend;  /**< Game backend vtable */
+    const wchar_t *backup_src;      /**< Path to backup file (.ersm or .sl2) */
+    const wchar_t *save_dst;        /**< Path to active save file */
+    const wchar_t *tree_root;       /**< Ring backup directory root */
+    int compression_level;          /**< LZMA level for ring snapshot (1-9) */
+    bool slot_mode;                 /**< false=full restore, true=single slot restore */
+    int slot_index;                 /**< Slot index (0-based); ignored when slot_mode is false */
+} restore_safe_request_t;
+
+/**
  * @brief Restore a backup file to the active save, taking a ring snapshot first.
  * @details Calls ring_backup_snapshot before restoring so the restore can be
  *          undone via restore_safe_undo. For slot_mode=true uses
  *          backend->restore_slot; otherwise uses backend->restore_full.
  *          Writes last_restore metadata after a successful restore.
- * @param backend Game backend vtable
- * @param backup_src Path to backup file (.ersm or .sl2)
- * @param save_dst Path to active save file
- * @param tree_root Ring backup directory root
- * @param compression_level LZMA level for ring snapshot (1-9)
- * @param slot_mode true to restore a single character slot
- * @param slot_index Slot index (0-based); ignored when slot_mode is false
+ * @param req Pointer to a populated restore_safe_request_t struct
  * @return true on success, false if ring snapshot or restore fails
  */
-bool restore_safe_full(const game_backend_t *backend,
-                         const wchar_t *backup_src,
-                         const wchar_t *save_dst,
-                         const wchar_t *tree_root,
-                         int compression_level,
-                         bool slot_mode,
-                         int slot_index);
+bool restore_safe_full(const restore_safe_request_t *req);
 
 /**
  * @brief Restore from backup file, auto-detecting full vs slot save.

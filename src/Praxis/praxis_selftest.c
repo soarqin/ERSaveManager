@@ -538,7 +538,16 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
             } else {
                 const game_backend_t *b = backend_registry_get_default();
                 ring_backup_init(argv[3], 5);
-                result = restore_safe_full(b, argv[4], argv[5], argv[3], 5, false, 0) ? 0 : 1;
+                restore_safe_request_t req = {
+                    .backend = b,
+                    .backup_src = argv[4],
+                    .save_dst = argv[5],
+                    .tree_root = argv[3],
+                    .compression_level = 5,
+                    .slot_mode = false,
+                    .slot_index = 0,
+                };
+                result = restore_safe_full(&req) ? 0 : 1;
             }
         } else if (wcscmp(sub, L"restore-auto-detect") == 0) {
             if (argc < 4) {
