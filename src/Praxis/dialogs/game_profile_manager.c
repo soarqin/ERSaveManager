@@ -12,6 +12,8 @@
 #include "../profile_store.h"
 #include "../profile_store_io.h"
 #include "../resource.h"
+#include "../theme.h"
+#include "../../common/theme_core.h"
 
 #include <commctrl.h>
 #include <stdbool.h>
@@ -212,6 +214,25 @@ static INT_PTR CALLBACK gpm_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     gpm_state_t *state = (gpm_state_t *)GetWindowLongPtrW(hwnd, DWLP_USER);
 
     switch (msg) {
+    /* Theme: paint dialog body and child controls in dark colors. */
+    case WM_ERASEBKGND:
+        if (theme_core_on_erasebkgnd(hwnd, (HDC)wp)) {
+            SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, 1);
+            return TRUE;
+        }
+        return FALSE;
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLORSTATIC: {
+        INT_PTR br = theme_core_dlg_ctlcolor((HDC)wp, msg);
+        if (br) {
+            return br;
+        }
+        return FALSE;
+    }
+
     case WM_INITDIALOG:
         SetWindowLongPtrW(hwnd, DWLP_USER, (LONG_PTR)lp);
         state = (gpm_state_t *)lp;
@@ -224,6 +245,7 @@ static INT_PTR CALLBACK gpm_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         if (state) {
             gpm_refresh_list(GetDlgItem(hwnd, IDC_GPM_LIST), state->store);
         }
+        praxis_theme_apply_to_window(hwnd);
         return TRUE;
 
     case WM_COMMAND:
@@ -250,6 +272,11 @@ static INT_PTR CALLBACK gpm_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
 
     case WM_NOTIFY: {
             LPNMHDR nmh = (LPNMHDR)lp;
+            if (nmh && nmh->idFrom == IDC_GPM_LIST && nmh->code == NM_CUSTOMDRAW) {
+                LRESULT r = theme_core_on_listview_customdraw((LPNMLVCUSTOMDRAW)lp);
+                SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, r);
+                return TRUE;
+            }
             if (nmh && nmh->idFrom == IDC_GPM_LIST && nmh->code == NM_DBLCLK && state) {
                 gpm_handle_edit(hwnd, state);
                 return TRUE;

@@ -13,6 +13,8 @@
 #include "../hotkey.h"
 #include "../locale.h"
 #include "../resource.h"
+#include "../theme.h"
+#include "../../common/theme_core.h"
 
 #include <commctrl.h>
 #include <stdbool.h>
@@ -179,6 +181,25 @@ static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
     (void)lp;
 
     switch (msg) {
+    /* Theme: paint dialog body and child controls in dark colors. */
+    case WM_ERASEBKGND:
+        if (theme_core_on_erasebkgnd(hwnd, (HDC)wp)) {
+            SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, 1);
+            return TRUE;
+        }
+        return FALSE;
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLORSTATIC: {
+        INT_PTR br = theme_core_dlg_ctlcolor((HDC)wp, msg);
+        if (br) {
+            return br;
+        }
+        return FALSE;
+    }
+
     case WM_INITDIALOG:
         SetWindowTextW(hwnd, praxis_locale_str(STR_PRAXIS_HOTKEY_SETTINGS));
         SetDlgItemTextW(hwnd, IDC_HK_LBL_BACKUP_FULL,
@@ -212,6 +233,7 @@ static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
         hk_set_control_from_string(hwnd, IDC_HK_BACKUP_SLOT, praxis_config.hotkey_backup_slot);
         hk_set_control_from_string(hwnd, IDC_HK_RESTORE,     praxis_config.hotkey_restore);
         hk_set_control_from_string(hwnd, IDC_HK_UNDO,        praxis_config.hotkey_undo_restore);
+        praxis_theme_apply_to_window(hwnd);
         return TRUE;
 
     case WM_COMMAND:
