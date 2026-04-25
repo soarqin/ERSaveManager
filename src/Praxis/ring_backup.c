@@ -11,6 +11,56 @@
 static wchar_t g_ring_dir[MAX_PATH];
 static int g_ring_size = 5;
 
+/**
+ * @brief List ring backup files in directory, sorted by name (descending = newest first).
+ * @param ring_dir Directory to search (e.g., .praxis_ring/)
+ * @param out_paths Array of MAX_PATH buffers to populate with full paths
+ * @param out_capacity Maximum number of paths to return
+ * @return Number of files found (0 if none), or -1 on error.
+ *         Closes FindFirstFile/FindNextFile handles on every path.
+ */
+static int ring_list_files(const wchar_t *ring_dir, wchar_t out_paths[][MAX_PATH], int out_capacity) {
+    if (!ring_dir || !out_paths || out_capacity <= 0) return -1;
+
+    wchar_t search[MAX_PATH];
+    lstrcpyW(search, ring_dir);
+    PathAppendW(search, L"ring_*.ersm");
+
+    wchar_t temp_files[64][MAX_PATH];
+    int count = 0;
+    WIN32_FIND_DATAW fd;
+    HANDLE h = FindFirstFileW(search, &fd);
+    if (h == INVALID_HANDLE_VALUE) return 0;
+
+    do {
+        if (count < 64) {
+            lstrcpyW(temp_files[count], ring_dir);
+            PathAppendW(temp_files[count], fd.cFileName);
+            count++;
+        }
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+
+    /* Sort lexically (timestamp prefix = chronological), then reverse for descending */
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = i + 1; j < count; j++) {
+            if (lstrcmpW(temp_files[i], temp_files[j]) < 0) {
+                wchar_t tmp[MAX_PATH];
+                lstrcpyW(tmp, temp_files[i]);
+                lstrcpyW(temp_files[i], temp_files[j]);
+                lstrcpyW(temp_files[j], tmp);
+            }
+        }
+    }
+
+    /* Copy to output, respecting capacity */
+    int result = count < out_capacity ? count : out_capacity;
+    for (int i = 0; i < result; i++) {
+        lstrcpyW(out_paths[i], temp_files[i]);
+    }
+    return result;
+}
+
 bool ring_backup_init(const wchar_t *tree_root, int ring_size) {
     lstrcpyW(g_ring_dir, tree_root);
     PathAppendW(g_ring_dir, PRAXIS_RING_DIR_NAME);
@@ -41,42 +91,13 @@ bool ring_backup_snapshot(const game_backend_t *backend, const wchar_t *current_
 
     /* Rotate: delete oldest if count >= ring_size */
     {
-        wchar_t search[MAX_PATH];
-        lstrcpyW(search, g_ring_dir);
-        PathAppendW(search, L"ring_*.ersm");
-
-        /* Collect all ring files */
         wchar_t ring_files[64][MAX_PATH];
-        int ring_count = 0;
-        WIN32_FIND_DATAW fd;
-        HANDLE h = FindFirstFileW(search, &fd);
-        if (h != INVALID_HANDLE_VALUE) {
-            do {
-                if (ring_count < 64) {
-                    lstrcpyW(ring_files[ring_count], g_ring_dir);
-                    PathAppendW(ring_files[ring_count], fd.cFileName);
-                    ring_count++;
-                }
-            } while (FindNextFileW(h, &fd));
-            FindClose(h);
-        }
+        int ring_count = ring_list_files(g_ring_dir, ring_files, 64);
+        if (ring_count < 0) ring_count = 0;
 
-        /* Sort lexically (timestamp prefix = chronological) */
-        for (int i = 0; i < ring_count - 1; i++) {
-            for (int j = i + 1; j < ring_count; j++) {
-                if (lstrcmpW(ring_files[i], ring_files[j]) > 0) {
-                    wchar_t tmp[MAX_PATH];
-                    lstrcpyW(tmp, ring_files[i]);
-                    lstrcpyW(ring_files[i], ring_files[j]);
-                    lstrcpyW(ring_files[j], tmp);
-                }
-            }
-        }
-
-        /* Delete oldest until count < ring_size */
+        /* Delete oldest (last in descending-sorted list) until count < ring_size */
         while (ring_count >= g_ring_size) {
-            DeleteFileW(ring_files[0]);
-            for (int i = 0; i < ring_count - 1; i++) lstrcpyW(ring_files[i], ring_files[i + 1]);
+            DeleteFileW(ring_files[ring_count - 1]);
             ring_count--;
         }
     }
@@ -99,24 +120,12 @@ bool ring_backup_get_latest(const wchar_t *tree_root, wchar_t *out_path, size_t 
     lstrcpyW(ring_dir, tree_root);
     PathAppendW(ring_dir, PRAXIS_RING_DIR_NAME);
 
-    wchar_t search[MAX_PATH];
-    lstrcpyW(search, ring_dir);
-    PathAppendW(search, L"ring_*.ersm");
+    wchar_t ring_files[64][MAX_PATH];
+    int ring_count = ring_list_files(ring_dir, ring_files, 64);
+    if (ring_count <= 0) return false;
 
-    wchar_t latest[MAX_PATH] = {0};
-    WIN32_FIND_DATAW fd;
-    HANDLE h = FindFirstFileW(search, &fd);
-    if (h == INVALID_HANDLE_VALUE) return false;
-    do {
-        wchar_t candidate[MAX_PATH];
-        lstrcpyW(candidate, ring_dir);
-        PathAppendW(candidate, fd.cFileName);
-        if (lstrcmpW(candidate, latest) > 0) lstrcpyW(latest, candidate);
-    } while (FindNextFileW(h, &fd));
-    FindClose(h);
-
-    if (latest[0] == L'\0') return false;
-    if ((size_t)lstrlenW(latest) >= out_chars) return false;
-    lstrcpyW(out_path, latest);
+    /* First file is newest (descending sort) */
+    if ((size_t)lstrlenW(ring_files[0]) >= out_chars) return false;
+    lstrcpyW(out_path, ring_files[0]);
     return true;
 }
