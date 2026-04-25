@@ -613,6 +613,37 @@ static int run_selftest(void) {
             ring_backup_init(argv[3], 5);
             result = undo_last_restore(b, argv[3], 5) ? 0 : 1;
         }
+    } else if (wcscmp(sub, L"write-raw-bnd4") == 0) {
+        if (argc < 5) {
+            st_printf(L"usage: --selftest write-raw-bnd4 <src> <dst>\n");
+            result = 2;
+        } else {
+            HANDLE fh = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (fh == INVALID_HANDLE_VALUE) {
+                st_printf(L"write-raw-bnd4: cannot open source\n");
+                result = 1;
+            } else {
+                DWORD fsz = GetFileSize(fh, NULL);
+                uint8_t *buf = (uint8_t *)LocalAlloc(LMEM_FIXED, fsz);
+                if (!buf) {
+                    CloseHandle(fh);
+                    result = 1;
+                } else {
+                    DWORD rd = 0;
+                    ReadFile(fh, buf, fsz, &rd, NULL);
+                    CloseHandle(fh);
+                    bool ok = ersm_write_raw_bnd4_to_file(argv[4], buf, (size_t)rd);
+                    LocalFree(buf);
+                    if (!ok) {
+                        st_printf(L"write-raw-bnd4: write failed (bad magic or I/O)\n");
+                        result = 1;
+                    } else {
+                        st_printf(L"write-raw-bnd4: ok\n");
+                        result = 0;
+                    }
+                }
+            }
+        }
     } else {
         /* Placeholder subcommands added in T18, T20-T22, T23, T25, T26, T29. */
         st_printf(L"unknown selftest subcommand: %ls\n", sub);

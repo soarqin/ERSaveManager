@@ -74,5 +74,18 @@ uint8_t *ersm_decompress_from_file(const wchar_t *path,
  * @return true on success (caller must DeleteFileW out_temp_path), false on failure
  */
 bool ersm_decompress_to_temp_file(const wchar_t *src_path,
-                                  wchar_t *out_temp_path,
-                                  uint8_t *out_type);
+                                   wchar_t *out_temp_path,
+                                   uint8_t *out_type);
+
+/**
+ * @brief Write raw BND4 file (no ERSM wrapper, no compression).
+ * @details Used by full-save backups when compression_level == COMP_LEVEL_NONE.
+ *          The destination file becomes a byte-identical copy of the source.
+ *          Restore handles this transparently via ersm_detect_file_format()
+ *          returning ERSM_FMT_BND4_RAW.
+ * @param path Destination .sl2 path
+ * @param src Source bytes (must start with "BND4" magic)
+ * @param src_len Source data length
+ * @return true on success, false on magic validation failure or file I/O error
+ */
+bool ersm_write_raw_bnd4_to_file(const wchar_t *path, const uint8_t *src, size_t src_len);

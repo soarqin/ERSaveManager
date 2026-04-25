@@ -294,3 +294,24 @@ bool ersm_decompress_to_temp_file(const wchar_t *src_path, wchar_t *out_temp_pat
     if (out_type) *out_type = local_type;
     return true;
 }
+
+bool ersm_write_raw_bnd4_to_file(const wchar_t *path, const uint8_t *src, size_t src_len) {
+    if (!path || !src || src_len < 4 || memcmp(src, "BND4", 4) != 0) {
+        return false;
+    }
+
+    HANDLE fh = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (fh == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    DWORD written = 0;
+    if (!WriteFile(fh, src, (DWORD)src_len, &written, NULL) || written != (DWORD)src_len) {
+        CloseHandle(fh);
+        DeleteFileW(path);
+        return false;
+    }
+
+    CloseHandle(fh);
+    return true;
+}
