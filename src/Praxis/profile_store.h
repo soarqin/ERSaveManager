@@ -177,3 +177,35 @@ const backup_profile_t *profile_store_get_active_backup(const profile_store_t *s
  * @return Number of backup profiles found (may exceed out_cap if truncated).
  */
 size_t profile_store_list_backups_for_game(const profile_store_t *store, int game_id, const backup_profile_t **out, size_t out_cap);
+
+/**
+ * @brief Detect if an INI file needs migration from old single-profile format.
+ * @details Returns true iff file exists AND has [Settings] with non-empty TreeRoot
+ *          AND has zero [GameProfile:*] sections. Returns false for new-format INIs,
+ *          empty INIs, or non-existent INIs.
+ * @param ini_path Path to Praxis.ini
+ * @return true if migration needed, false otherwise
+ */
+bool profile_store_needs_migration(const wchar_t *ini_path);
+
+/**
+ * @brief Migrate old single-profile INI to multi-profile schema.
+ * @details Reads legacy [Settings] keys, creates a game profile and backup profile
+ *          using the provided names. The backup profile's tree_root is set equal to
+ *          the legacy [Settings].TreeRoot (NOT nested) to preserve existing backup files.
+ *          Hotkey collapse: uses HotkeyRestore (new unified key) for the restore hotkey;
+ *          falls back to HotkeyRestoreFull for backward compatibility.
+ *          The resulting store is saved to out_ini_path.
+ * @param store        Profile store to populate (will be re-initialized).
+ * @param ini_path     Source INI (legacy format).
+ * @param game_name    Name for the new game profile (e.g. L"Default").
+ * @param backup_name  Name for the new backup profile (e.g. L"Main").
+ * @param game_id      Game type (e.g. GAME_ID_ELDEN_RING).
+ * @param initial_comp Compression level to apply to the backup profile.
+ * @param out_ini_path Output INI path (may equal ini_path for in-place migration).
+ * @return true on success, false on failure.
+ */
+bool profile_store_migrate(profile_store_t *store, const wchar_t *ini_path,
+                           const wchar_t *game_name, const wchar_t *backup_name,
+                           game_id_t game_id, compression_level_t initial_comp,
+                           const wchar_t *out_ini_path);

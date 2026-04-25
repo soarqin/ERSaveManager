@@ -1009,6 +1009,39 @@ static int run_selftest(void) {
                 result = 1;
             }
         }
+    } else if (wcscmp(sub, L"migration-detect") == 0) {
+        /* --selftest migration-detect <ini> */
+        if (argc < 4) {
+            result = 2;
+        } else {
+            bool needs = profile_store_needs_migration(argv[3]);
+            st_printf(needs ? L"true\n" : L"false\n");
+            result = 0;
+        }
+    } else if (wcscmp(sub, L"migration-run") == 0) {
+        /* --selftest migration-run <ini> <name> <backup_name> <game_id> <comp_level> <out_ini> */
+        if (argc < 9) {
+            result = 2;
+        } else {
+            compression_level_t comp = COMP_LEVEL_LOW;
+            if (wcscmp(argv[7], L"none") == 0) {
+                comp = COMP_LEVEL_NONE;
+            } else if (wcscmp(argv[7], L"high") == 0) {
+                comp = COMP_LEVEL_HIGH;
+            }
+            profile_store_t store;
+            profile_store_init(&store);
+            bool ok = profile_store_migrate(&store, argv[3], argv[4], argv[5],
+                                            (game_id_t)_wtoi(argv[6]), comp, argv[8]);
+            if (!ok) {
+                st_printf(L"migration-run: FAIL\n");
+                result = 1;
+            } else {
+                st_printf(L"migration-run: ok games=%zu backups=%zu\n",
+                          store.game_count, store.backup_count);
+                result = 0;
+            }
+        }
     } else {
         /* Placeholder subcommands added in T18, T20-T22, T23, T25, T26, T29. */
         st_printf(L"unknown selftest subcommand: %ls\n", sub);

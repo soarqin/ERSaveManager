@@ -504,6 +504,7 @@ bool profile_store_load(profile_store_t *store, const wchar_t *ini_path) {
 
 /* ==== Save ==== */
 
+
 bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path) {
     if (store == NULL || ini_path == NULL) {
         return false;
@@ -638,4 +639,220 @@ bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path) {
     }
 
     return true;
+}
+
+/* ==== Migration ==== */
+
+/* Maximum legacy INI size accepted by migration functions (64 KiB). */
+#define MIGRATION_MAX_BYTES (64u * 1024u)
+
+/* Detection context for profile_store_needs_migration. */
+typedef struct {
+    bool has_tree_root;    /* Found a non-empty TreeRoot key in any section */
+    bool has_game_profile; /* Found any [GameProfile:N] section header */
+} migration_detect_ctx_t;
+
+static void mig_section_cb(const char *section, void *user) {
+    migration_detect_ctx_t *ctx = (migration_detect_ctx_t *)user;
+    if (strncmp(section, "GameProfile:", 12) == 0) {
+        ctx->has_game_profile = true;
+    }
+}
+
+static void mig_kv_cb(const char *key, const char *value, void *user) {
+    migration_detect_ctx_t *ctx = (migration_detect_ctx_t *)user;
+    if (strcmp(key, "TreeRoot") == 0 && value[0] != '\0') {
+        ctx->has_tree_root = true;
+    }
+}
+
+bool profile_store_needs_migration(const wchar_t *ini_path) {
+    if (ini_path == NULL) {
+        return false;
+    }
+
+    HANDLE fh = CreateFileW(ini_path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (fh == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    DWORD file_size = GetFileSize(fh, NULL);
+    if (file_size == INVALID_FILE_SIZE || file_size == 0 || file_size > MIGRATION_MAX_BYTES) {
+        CloseHandle(fh);
+        return false;
+    }
+
+    char *buf = (char *)LocalAlloc(LMEM_FIXED, file_size + 1u);
+    if (buf == NULL) {
+        CloseHandle(fh);
+        return false;
+    }
+
+    DWORD bytes_read = 0;
+    if (!ReadFile(fh, buf, file_size, &bytes_read, NULL)) {
+        LocalFree(buf);
+        CloseHandle(fh);
+        return false;
+    }
+    buf[bytes_read] = '\0';
+    CloseHandle(fh);
+
+    migration_detect_ctx_t ctx;
+    ZeroMemory(&ctx, sizeof(ctx));
+    config_core_parse_ini_ex(buf, (size_t)bytes_read, mig_section_cb, mig_kv_cb, &ctx);
+    LocalFree(buf);
+
+    return ctx.has_tree_root && !ctx.has_game_profile;
+}
+
+/* Legacy INI parse context for profile_store_migrate. */
+typedef struct {
+    wchar_t tree_root[MAX_PATH];      /* Legacy [Settings].TreeRoot */
+    int compression_level;            /* Legacy numeric 1-9 */
+    wchar_t hotkey_backup_full[32];   /* HotkeyBackupFull */
+    wchar_t hotkey_backup_slot[32];   /* HotkeyBackupSlot */
+    wchar_t hotkey_restore[32];       /* Unified restore (from HotkeyRestore or HotkeyRestoreFull) */
+    wchar_t hotkey_undo_restore[32];  /* HotkeyUndoRestore */
+    bool in_settings;                 /* Currently inside [Settings] section */
+} legacy_parse_ctx_t;
+
+static void legacy_section_cb(const char *section, void *user) {
+    legacy_parse_ctx_t *ctx = (legacy_parse_ctx_t *)user;
+    ctx->in_settings = (strcmp(section, "Settings") == 0);
+}
+
+static void legacy_kv_cb(const char *key, const char *value, void *user) {
+    legacy_parse_ctx_t *ctx = (legacy_parse_ctx_t *)user;
+    if (!ctx->in_settings) {
+        return;
+    }
+    if (strcmp(key, "TreeRoot") == 0) {
+        config_core_store_wide_value(ctx->tree_root, MAX_PATH, value);
+    } else if (strcmp(key, "CompressionLevel") == 0) {
+        ctx->compression_level = atoi(value);
+    } else if (strcmp(key, "HotkeyBackupFull") == 0) {
+        config_core_store_wide_value(ctx->hotkey_backup_full, 32, value);
+    } else if (strcmp(key, "HotkeyBackupSlot") == 0) {
+        config_core_store_wide_value(ctx->hotkey_backup_slot, 32, value);
+    } else if (strcmp(key, "HotkeyRestore") == 0) {
+        config_core_store_wide_value(ctx->hotkey_restore, 32, value);
+    } else if (strcmp(key, "HotkeyRestoreFull") == 0) {
+        /* Backward compat: use as restore hotkey only if HotkeyRestore not already set. */
+        if (ctx->hotkey_restore[0] == L'\0') {
+            config_core_store_wide_value(ctx->hotkey_restore, 32, value);
+        }
+    } else if (strcmp(key, "HotkeyUndoRestore") == 0) {
+        config_core_store_wide_value(ctx->hotkey_undo_restore, 32, value);
+    }
+}
+
+bool profile_store_migrate(profile_store_t *store, const wchar_t *ini_path,
+                           const wchar_t *game_name, const wchar_t *backup_name,
+                           game_id_t game_id, compression_level_t initial_comp,
+                           const wchar_t *out_ini_path) {
+    if (store == NULL || ini_path == NULL || game_name == NULL ||
+        backup_name == NULL || out_ini_path == NULL) {
+        return false;
+    }
+
+    /* Read the legacy INI file. */
+    HANDLE fh = CreateFileW(ini_path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (fh == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    DWORD file_size = GetFileSize(fh, NULL);
+    if (file_size == INVALID_FILE_SIZE || file_size == 0 || file_size > MIGRATION_MAX_BYTES) {
+        CloseHandle(fh);
+        return false;
+    }
+
+    char *buf = (char *)LocalAlloc(LMEM_FIXED, file_size + 1u);
+    if (buf == NULL) {
+        CloseHandle(fh);
+        return false;
+    }
+
+    DWORD bytes_read = 0;
+    if (!ReadFile(fh, buf, file_size, &bytes_read, NULL)) {
+        LocalFree(buf);
+        CloseHandle(fh);
+        return false;
+    }
+    buf[bytes_read] = '\0';
+    CloseHandle(fh);
+
+    /* Parse legacy [Settings] keys with sane defaults in case keys are absent. */
+    legacy_parse_ctx_t legacy;
+    ZeroMemory(&legacy, sizeof(legacy));
+    legacy.compression_level = 5; /* safe default */
+    lstrcpyW(legacy.hotkey_backup_full, L"Ctrl+Shift+F5");
+    lstrcpyW(legacy.hotkey_backup_slot, L"Ctrl+Shift+F6");
+    lstrcpyW(legacy.hotkey_restore, L"Ctrl+Shift+F9");
+    lstrcpyW(legacy.hotkey_undo_restore, L"Ctrl+Shift+Z");
+
+    config_core_parse_ini_ex(buf, (size_t)bytes_read, legacy_section_cb, legacy_kv_cb, &legacy);
+    LocalFree(buf);
+
+    /* A non-empty legacy TreeRoot is required. */
+    if (legacy.tree_root[0] == L'\0') {
+        return false;
+    }
+
+    /* Initialize the store fresh so no stale data leaks in. */
+    profile_store_init(store);
+
+    /* Build the game profile inline, bypassing profile_store_add_game to avoid
+     * auto-creating a nested Main backup with the wrong tree_root. */
+    if (store->game_count >= MAX_GAME_PROFILES) {
+        return false;
+    }
+    game_profile_t gp;
+    ZeroMemory(&gp, sizeof(gp));
+    lstrcpynW(gp.name, game_name, 64);
+    gp.game_id = game_id;
+    lstrcpynW(gp.tree_root, legacy.tree_root, MAX_PATH);
+    /* original_save_dir left empty — use backend auto-discovery. */
+    int new_game_id = store->next_game_id++;
+    gp.id = new_game_id;
+    store->games[store->game_count++] = gp;
+    SHCreateDirectoryExW(NULL, gp.tree_root, NULL); /* OK if directory already exists */
+
+    /* Build the backup profile with tree_root == legacy.tree_root (NOT nested).
+     * This is critical: it preserves existing backup files at their current location. */
+    if (store->backup_count >= MAX_BACKUP_PROFILES) {
+        return false;
+    }
+    backup_profile_t bp;
+    ZeroMemory(&bp, sizeof(bp));
+    bp.parent_game_id = new_game_id;
+    lstrcpynW(bp.name, backup_name, 64);
+    lstrcpynW(bp.tree_root, legacy.tree_root, MAX_PATH);
+    bp.compression_level = initial_comp;
+    int new_backup_id = store->next_backup_id++;
+    bp.id = new_backup_id;
+    store->backups[store->backup_count++] = bp;
+
+    /* Activate the newly created profiles. */
+    store->active_game_id = new_game_id;
+    store->active_backup_id = new_backup_id;
+
+    /* Update praxis_config hotkeys with migrated values so profile_store_save writes them. */
+    if (legacy.hotkey_backup_full[0] != L'\0') {
+        lstrcpyW(praxis_config.hotkey_backup_full, legacy.hotkey_backup_full);
+    }
+    if (legacy.hotkey_backup_slot[0] != L'\0') {
+        lstrcpyW(praxis_config.hotkey_backup_slot, legacy.hotkey_backup_slot);
+    }
+    if (legacy.hotkey_restore[0] != L'\0') {
+        lstrcpyW(praxis_config.hotkey_restore, legacy.hotkey_restore);
+    }
+    if (legacy.hotkey_undo_restore[0] != L'\0') {
+        lstrcpyW(praxis_config.hotkey_undo_restore, legacy.hotkey_undo_restore);
+    }
+
+    /* Write the new multi-profile schema. */
+    return profile_store_save(store, out_ini_path);
 }
