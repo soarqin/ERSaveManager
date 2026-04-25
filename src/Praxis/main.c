@@ -14,6 +14,7 @@
 #include "save_tree.h"
 #include "save_watcher.h"
 #include "profile_store.h"
+#include "praxis_main_menu.h"
 #include "praxis_selftest.h"
 #include "toolbar.h"
 #include "dialogs/edit_game_profile.h"
@@ -48,7 +49,6 @@ static HANDLE g_log_file = INVALID_HANDLE_VALUE;
 
 /* Forward declarations */
 static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
-static void apply_main_menu_locale_strings(HWND hwnd);
 
 #define IDT_REFRESH_DEBOUNCE 1001
 #define WM_WATCHER_NOTIFY (WM_APP + 1)
@@ -153,56 +153,6 @@ static void apply_active_profile_ui(HWND hwnd) {
     set_active_status_text();
 }
 
-static void apply_main_menu_locale_strings(HWND hwnd) {
-    HMENU menu;
-    HMENU file_menu;
-    HMENU game_menu;
-    HMENU options_menu;
-    HMENU language_menu;
-
-    if (!hwnd) {
-        return;
-    }
-
-    menu = GetMenu(hwnd);
-    if (!menu) {
-        return;
-    }
-
-    file_menu = GetSubMenu(menu, 0);
-    game_menu = GetSubMenu(menu, 1);
-    options_menu = GetSubMenu(menu, 2);
-
-    if (file_menu) {
-        ModifyMenuW(menu, 0, MF_BYPOSITION | MF_POPUP, (UINT_PTR)file_menu,
-            praxis_locale_str(STR_PRAXIS_FILE));
-        ModifyMenuW(file_menu, IDM_FILE_EXIT, MF_BYCOMMAND | MF_STRING, IDM_FILE_EXIT,
-            praxis_locale_str(STR_PRAXIS_EXIT));
-    }
-
-    if (game_menu) {
-        ModifyMenuW(menu, 1, MF_BYPOSITION | MF_POPUP, (UINT_PTR)game_menu,
-            praxis_locale_str(STR_PRAXIS_GAME));
-        ModifyMenuW(game_menu, IDM_GAME_MANAGE, MF_BYCOMMAND | MF_STRING, IDM_GAME_MANAGE,
-            praxis_locale_str(STR_PRAXIS_MANAGE_GAME_PROFILES));
-    }
-
-    if (options_menu) {
-        ModifyMenuW(menu, 2, MF_BYPOSITION | MF_POPUP, (UINT_PTR)options_menu,
-            praxis_locale_str(STR_PRAXIS_OPTIONS));
-        ModifyMenuW(options_menu, IDM_OPTIONS_HOTKEYS, MF_BYCOMMAND | MF_STRING, IDM_OPTIONS_HOTKEYS,
-            praxis_locale_str(STR_PRAXIS_HOTKEY_SETTINGS));
-
-        language_menu = GetSubMenu(options_menu, 1);
-        if (language_menu) {
-            ModifyMenuW(options_menu, 1, MF_BYPOSITION | MF_POPUP, (UINT_PTR)language_menu,
-                praxis_locale_str(STR_PRAXIS_LANGUAGE));
-        }
-    }
-
-    DrawMenuBar(hwnd);
-}
-
 static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_CREATE:
@@ -261,7 +211,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             apply_active_profile_ui(hwnd);
 
             g_main_window = hwnd;
-            apply_main_menu_locale_strings(hwnd);
+            praxis_main_menu_apply_locale_strings(hwnd);
 
             hotkey_init(hwnd);
             if (hotkey_parse_string(praxis_config.hotkey_backup_full, &b))
@@ -342,41 +292,16 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         return 0;
 
     case WM_COMMAND:
-        /* Dynamic Game submenu profile selection */
-        if (LOWORD(wp) >= IDM_GAME_PROFILE_FIRST && LOWORD(wp) <= IDM_GAME_PROFILE_LAST) {
-            int game_id = (int)(LOWORD(wp) - IDM_GAME_PROFILE_FIRST);
-            const backup_profile_t *backups[1] = {0};
-
-            profile_store_set_active_game(&g_profile_store, game_id);
-            if (profile_store_list_backups_for_game(&g_profile_store, game_id, backups, 1) > 0 && backups[0]) {
-                profile_store_set_active_backup(&g_profile_store, backups[0]->id);
-            } else {
-                g_profile_store.active_backup_id = 0;
+        /* Dynamic Game/Language submenu commands — delegate to menu module. */
+        if (praxis_main_menu_handle_command(hwnd, wp, &g_profile_store)) {
+            /* Refresh toolbar and active profile UI after any dynamic menu command.
+             * populate_profiles and apply_locale_strings cover both the game-profile
+             * and language-change cases; over-calling either is harmless. */
+            if (g_toolbar) {
+                toolbar_populate_profiles(g_toolbar, &g_profile_store);
+                toolbar_apply_locale_strings(g_toolbar);
             }
-            /* Save updated active game */
-            save_profile_store();
-            /* Repopulate toolbar with backups for new active game */
-            if (g_toolbar) toolbar_populate_profiles(g_toolbar, &g_profile_store);
             apply_active_profile_ui(hwnd);
-            return 0;
-        }
-        /* Dynamic Language submenu selection */
-        if (LOWORD(wp) >= IDM_LANG_FIRST && LOWORD(wp) <= IDM_LANG_LAST) {
-            int idx = (int)(LOWORD(wp) - IDM_LANG_FIRST);
-            if (idx >= 0 && idx < praxis_locale_count() && idx != praxis_locale_get_current()) {
-                praxis_locale_set_current(idx);
-                praxis_config.language = idx;
-                save_profile_store();
-                /* Refresh visible UI strings without requiring a restart.
-                 * The Language submenu itself is rebuilt on next
-                 * WM_INITMENUPOPUP so its checkmark moves automatically. */
-                if (g_toolbar) {
-                    toolbar_apply_locale_strings(g_toolbar);
-                }
-                SetWindowTextW(hwnd, praxis_locale_str(STR_PRAXIS_APP_TITLE));
-                apply_main_menu_locale_strings(hwnd);
-                set_active_status_text();
-            }
             return 0;
         }
         if (HIWORD(wp) == CBN_SELCHANGE && LOWORD(wp) == IDC_PROFILE_COMBO) {
@@ -488,78 +413,9 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         }
         return 0;
 
-    case WM_INITMENUPOPUP: {
-            HMENU sub = (HMENU)wp;
-            int count = GetMenuItemCount(sub);
-            bool is_game_menu = false;
-            bool is_lang_menu = false;
-
-            /* Identify the popup by inspecting its current item IDs:
-             *   - Game submenu always contains IDM_GAME_MANAGE.
-             *   - Language submenu contains IDM_OPTIONS_LANG (the static
-             *     "English" placeholder from the .rc) on first open, or any
-             *     id in [IDM_LANG_FIRST, IDM_LANG_LAST] after rebuild. */
-            for (int i = 0; i < count; i++) {
-                UINT id = GetMenuItemID(sub, i);
-                if (id == IDM_GAME_MANAGE) {
-                    is_game_menu = true;
-                    break;
-                }
-                if (id == IDM_OPTIONS_LANG ||
-                    (id >= IDM_LANG_FIRST && id <= IDM_LANG_LAST)) {
-                    is_lang_menu = true;
-                    break;
-                }
-            }
-
-            if (is_game_menu) {
-                /* Keep ONLY the Manage item (1 item). Remove all dynamically inserted items. */
-                while (GetMenuItemCount(sub) > 1) {
-                    DeleteMenu(sub, 0, MF_BYPOSITION);
-                }
-                /* Insert game profiles at top */
-                for (int i = 0; i < (int)g_profile_store.game_count; i++) {
-                    UINT flags = MF_BYPOSITION | MF_STRING;
-                    if (g_profile_store.games[i].id == g_profile_store.active_game_id) {
-                        flags |= MF_CHECKED;
-                    }
-                    InsertMenuW(sub, i, flags,
-                                IDM_GAME_PROFILE_FIRST + g_profile_store.games[i].id,
-                                g_profile_store.games[i].name);
-                }
-                /* Insert separator BEFORE the Manage item only when there ARE profiles. */
-                if (g_profile_store.game_count > 0) {
-                    InsertMenuW(sub, (int)g_profile_store.game_count, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
-                }
-                return 0;
-            }
-
-            if (is_lang_menu) {
-                /* Wipe the entire submenu (sentinel placeholder + any prior
-                 * dynamic items) and rebuild it from the locale catalog with
-                 * the active locale checked. */
-                int n;
-                int cur;
-
-                while (GetMenuItemCount(sub) > 0) {
-                    DeleteMenu(sub, 0, MF_BYPOSITION);
-                }
-
-                n = praxis_locale_count();
-                cur = praxis_locale_get_current();
-                for (int i = 0; i < n; i++) {
-                    UINT flags = MF_BYPOSITION | MF_STRING;
-                    if (i == cur) {
-                        flags |= MF_CHECKED;
-                    }
-                    InsertMenuW(sub, i, flags,
-                                (UINT_PTR)(IDM_LANG_FIRST + i),
-                                praxis_locale_name(i));
-                }
-                return 0;
-            }
-            return 0;
-        }
+    case WM_INITMENUPOPUP:
+        praxis_main_menu_init_popup(hwnd, (HMENU)wp, &g_profile_store);
+        return 0;
 
     case WM_HOTKEY: {
             wchar_t log_msg[64];
