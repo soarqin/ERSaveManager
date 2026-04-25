@@ -37,6 +37,13 @@ ERSaveManager/
         ├── CMakeLists.txt
         ├── backends/
         │   └── er_backend.c
+        ├── bnd4_test_format.h          # BND4 selftest constants (magic bytes, offsets)
+        ├── praxis_selftest.c/h         # Selftest subcommand dispatcher
+        ├── praxis_hotkey_actions.c/h   # Hotkey action handlers (backup/restore/undo)
+        ├── praxis_main_menu.c/h        # Dynamic main menu construction
+        ├── save_tree_notify.c/h        # Save tree WM_NOTIFY handler
+        ├── save_tree_internal.h        # Save tree internal types (shared between save_tree.c and save_tree_notify.c)
+        ├── profile_store_io.c/h        # Profile store INI persistence (read/write Praxis.ini)
         └── ...
 ```
 
@@ -107,7 +114,6 @@ cmake --build build --config Release
   - `profile-add-backup <parent_id> <name> <tree_root> <comp> <ini>` — create backup profile
   - `profile-list <ini>` — list all profiles
   - `profile-delete-game <id> <ini>`, `profile-delete-backup <id> <ini>`
-  - `migration-detect <ini>`, `migration-run <ini> ...` — migration logic
   - `restore-auto-detect <backup>` — classify backup type
   - `tree-preserve-selection-walkup <root> <sel> <del>` — walk-up selection logic
   - `watcher-state <root>` — start watcher briefly, verify clean exit

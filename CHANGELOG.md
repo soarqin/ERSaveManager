@@ -36,9 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed (BREAKING)
 - Praxis: Legacy INI migration logic removed (software was still pre-release)
 - Praxis: `migration-detect` / `migration-run` selftest subcommands removed
-- Praxis: 7-argument `restore_with_safety` signature (to be replaced with struct in T15)
+- Praxis: 7-argument `restore_with_safety` signature (replaced by `restore_safe_params_t` struct)
 - Praxis: Backup and Restore main-menu entries (now toolbar buttons)
 - Praxis: File→Refresh menu item (auto-refresh via filesystem watcher)
+
+### Refactored
+- Praxis: Selftest dispatcher extracted to `praxis_selftest.c/h` (was inline in `main.c`)
+- Praxis: Hotkey action handlers extracted to `praxis_hotkey_actions.c/h`
+- Praxis: Dynamic main menu logic extracted to `praxis_main_menu.c/h`
+- Praxis: Save tree `WM_NOTIFY` handler extracted to `save_tree_notify.c/h`
+- Praxis: Profile store INI persistence extracted to `profile_store_io.c/h`
+- Praxis: BND4 selftest constants consolidated in `bnd4_test_format.h`
+- Praxis: Save tree internal types consolidated in `save_tree_internal.h`
 
 ### Fixed
 - Praxis: Pre-existing `.ersm` extension on raw-BND4 ring snapshots was misleading (new files now use `.sl2`)
