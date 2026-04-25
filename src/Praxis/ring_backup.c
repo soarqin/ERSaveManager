@@ -13,7 +13,7 @@ static int g_ring_size = 5;
 
 bool ring_backup_init(const wchar_t *tree_root, int ring_size) {
     lstrcpyW(g_ring_dir, tree_root);
-    PathAppendW(g_ring_dir, L".praxis_ring");
+    PathAppendW(g_ring_dir, PRAXIS_RING_DIR_NAME);
     g_ring_size = ring_size > 0 ? ring_size : 5;
     if (!CreateDirectoryW(g_ring_dir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
     SetFileAttributesW(g_ring_dir, FILE_ATTRIBUTE_HIDDEN);
@@ -97,7 +97,7 @@ bool ring_backup_snapshot(const game_backend_t *backend, const wchar_t *current_
 bool ring_backup_get_latest(const wchar_t *tree_root, wchar_t *out_path, size_t out_chars) {
     wchar_t ring_dir[MAX_PATH];
     lstrcpyW(ring_dir, tree_root);
-    PathAppendW(ring_dir, L".praxis_ring");
+    PathAppendW(ring_dir, PRAXIS_RING_DIR_NAME);
 
     wchar_t search[MAX_PATH];
     lstrcpyW(search, ring_dir);

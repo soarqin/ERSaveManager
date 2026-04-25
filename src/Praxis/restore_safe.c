@@ -18,8 +18,8 @@ static bool write_last_restore_meta(const wchar_t *tree_root, const wchar_t *rin
                                     const wchar_t *save_path, bool slot_mode, int slot_index) {
     wchar_t meta_path[MAX_PATH];
     lstrcpyW(meta_path, tree_root);
-    PathAppendW(meta_path, L".praxis_ring");
-    PathAppendW(meta_path, L"last_restore.txt");
+    PathAppendW(meta_path, PRAXIS_RING_DIR_NAME);
+    PathAppendW(meta_path, PRAXIS_RING_LAST_RESTORE_FILE);
 
     /* Format: ring_path|save_path|slot_mode|slot_index */
     char buf[MAX_PATH * 8 + 32];
@@ -43,8 +43,8 @@ static bool read_last_restore_meta(const wchar_t *tree_root, wchar_t *out_ring_p
                                    bool *out_slot_mode, int *out_slot_index) {
     wchar_t meta_path[MAX_PATH];
     lstrcpyW(meta_path, tree_root);
-    PathAppendW(meta_path, L".praxis_ring");
-    PathAppendW(meta_path, L"last_restore.txt");
+    PathAppendW(meta_path, PRAXIS_RING_DIR_NAME);
+    PathAppendW(meta_path, PRAXIS_RING_LAST_RESTORE_FILE);
 
     HANDLE fh = CreateFileW(meta_path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (fh == INVALID_HANDLE_VALUE) return false;
