@@ -24,6 +24,17 @@
 #define ID_SAVE_TREE_DELETE           50003
 #define ID_SAVE_TREE_SHOW_IN_EXPLORER 50004
 
+/* Show a Yes/No confirmation dialog before deleting a save tree item.
+ * The parent is the main window (tree's parent) so the dialog is centered
+ * on the application rather than on the tree control. */
+static bool confirm_save_tree_delete(const save_tree_t *t) {
+    HWND parent = (t && t->hwnd) ? GetParent(t->hwnd) : NULL;
+    return MessageBoxW(parent,
+        praxis_locale_str(STR_PRAXIS_CONFIRM_DELETE_SAVE),
+        praxis_locale_str(STR_PRAXIS_CONFIRM),
+        MB_YESNO | MB_ICONQUESTION) == IDYES;
+}
+
 /* Compute the visual display name for a tree item.
  *  - For directories: identical to leaf name.
  *  - For files: leaf name with extension stripped. We display ext-less names
@@ -303,7 +314,8 @@ bool save_tree_notify_handle(save_tree_t *t, NMHDR *nmhdr, LRESULT *result) {
                 }
                 break;
             case VK_DELETE:
-                if (have_item && sel_item.relative_path[0] != L'\0') {
+                if (have_item && sel_item.relative_path[0] != L'\0'
+                    && confirm_save_tree_delete(t)) {
                     save_tree_delete(t, sel_item.relative_path);
                 }
                 break;
@@ -389,7 +401,9 @@ bool save_tree_notify_handle(save_tree_t *t, NMHDR *nmhdr, LRESULT *result) {
                 break;
 
             case ID_SAVE_TREE_DELETE:
-                if (hit.hItem && save_tree_get_item_info(t, hit.hItem, NULL, &sel_item)) {
+                if (hit.hItem && save_tree_get_item_info(t, hit.hItem, NULL, &sel_item)
+                    && sel_item.relative_path[0] != L'\0'
+                    && confirm_save_tree_delete(t)) {
                     save_tree_delete(t, sel_item.relative_path);
                 }
                 break;

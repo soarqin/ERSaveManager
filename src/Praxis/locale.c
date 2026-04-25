@@ -87,6 +87,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"No profile selected. Use + to add a backup profile.",
         L"Active: %s / %s",
         L"Show in File Explorer",
+        L"Delete this backup? It will be moved to the Recycle Bin.",
     },
     /* 1: Français */
     {
@@ -152,6 +153,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Aucun profil sélectionné. Utilisez + pour ajouter un profil de sauvegarde.",
         L"Actif : %s / %s",
         L"Afficher dans l'Explorateur de fichiers",
+        L"Supprimer cette sauvegarde ? Elle sera déplacée vers la Corbeille.",
     },
     /* 2: Deutsch */
     {
@@ -217,6 +219,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Kein Profil ausgewählt. Verwenden Sie +, um ein Sicherungsprofil hinzuzufügen.",
         L"Aktiv: %s / %s",
         L"Im Datei-Explorer anzeigen",
+        L"Diese Sicherung löschen? Sie wird in den Papierkorb verschoben.",
     },
     /* 3: Italiano */
     {
@@ -282,6 +285,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Nessun profilo selezionato. Usa + per aggiungere un profilo backup.",
         L"Attivo: %s / %s",
         L"Mostra in Esplora file",
+        L"Eliminare questo backup? Verrà spostato nel Cestino.",
     },
     /* 4: Español */
     {
@@ -347,6 +351,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"No hay perfil seleccionado. Usa + para agregar un perfil de respaldo.",
         L"Activo: %s / %s",
         L"Mostrar en el Explorador de archivos",
+        L"¿Eliminar este respaldo? Se moverá a la Papelera de reciclaje.",
     },
     /* 5: Português */
     {
@@ -412,6 +417,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Nenhum perfil selecionado. Use + para adicionar um perfil de backup.",
         L"Ativo: %s / %s",
         L"Mostrar no Explorador de Arquivos",
+        L"Excluir este backup? Ele será movido para a Lixeira.",
     },
     /* 6: Русский */
     {
@@ -477,6 +483,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Профиль не выбран. Используйте +, чтобы добавить профиль копий.",
         L"Активно: %s / %s",
         L"Показать в Проводнике",
+        L"Удалить эту копию? Она будет перемещена в корзину.",
     },
     /* 7: 日本語 */
     {
@@ -542,6 +549,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"プロファイルが選択されていません。+ でバックアッププロファイルを追加してください。",
         L"アクティブ: %s / %s",
         L"エクスプローラーで表示",
+        L"このバックアップを削除しますか？ ごみ箱に移動されます。",
     },
     /* 8: 한국어 */
     {
@@ -607,6 +615,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"선택한 프로필이 없습니다. +를 사용해 백업 프로필을 추가하세요.",
         L"활성: %s / %s",
         L"파일 탐색기에 표시",
+        L"이 백업을 삭제하시겠습니까? 휴지통으로 이동됩니다.",
     },
     /* 9: 简体中文 */
     {
@@ -672,6 +681,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"未选择配置文件。使用 + 添加备份配置文件。",
         L"活动：%s / %s",
         L"在文件浏览器中显示",
+        L"要删除此备份吗？将被移至回收站。",
     },
     /* 10: 繁體中文 */
     {
@@ -737,6 +747,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"未選取設定檔。使用 + 新增備份設定檔。",
         L"使用中：%s / %s",
         L"在檔案總管中顯示",
+        L"要刪除此備份嗎？將被移至資源回收筒。",
     },
 };
 
