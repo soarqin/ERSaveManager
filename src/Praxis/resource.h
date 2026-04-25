@@ -33,7 +33,6 @@
 #define IDD_GAME_PROFILE_MANAGER 310
 #define IDD_EDIT_GAME_PROFILE    311
 #define IDD_EDIT_BACKUP_PROFILE  312
-#define IDD_MIGRATION_WIZARD     313
 
 /* === Game Profile Manager Dialog Controls === */
 #define IDC_GPM_LIST   4001
@@ -58,16 +57,6 @@
 #define IDC_EBP_COMP_LOW    4205
 #define IDC_EBP_COMP_HIGH   4206
 #define IDC_EBP_COMP_MEDIUM 4207
-
-/* === Migration Wizard Dialog Controls === */
-#define IDC_MW_LABEL      4301
-#define IDC_MW_NAME       4302
-#define IDC_MW_TREE_ROOT  4303
-#define IDC_MW_BROWSE     4304
-#define IDC_MW_COMP_GROUP 4305
-#define IDC_MW_BACK       4306
-#define IDC_MW_NEXT       4307
-#define IDC_MW_FINISH     4308
 
 /* Icon */
 #define IDI_APPICON         1

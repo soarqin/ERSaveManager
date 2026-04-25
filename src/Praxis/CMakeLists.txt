@@ -27,8 +27,6 @@ add_project(praxis WIN32
     dialogs/edit_game_profile.h
     dialogs/edit_backup_profile.c
     dialogs/edit_backup_profile.h
-    dialogs/migration_wizard.c
-    dialogs/migration_wizard.h
     backends/er_backend.c
     resource.h
     app.rc

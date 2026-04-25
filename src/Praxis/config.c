@@ -38,6 +38,7 @@ static void apply_defaults(void) {
     lstrcpyW(praxis_config.hotkey_backup_slot, L"Ctrl+Shift+F6");
     lstrcpyW(praxis_config.hotkey_restore, L"Ctrl+Shift+F9");
     lstrcpyW(praxis_config.hotkey_undo_restore, L"Ctrl+Shift+Z");
+    praxis_config.migration_dismissed = 0;
 }
 
 static void kv_callback(const char *key, const char *value, void *user) {
@@ -67,6 +68,8 @@ static void kv_callback(const char *key, const char *value, void *user) {
         config_core_store_wide_value(cfg->hotkey_restore, 32, value);
     } else if (strcmp(key, "HotkeyUndoRestore") == 0) {
         config_core_store_wide_value(cfg->hotkey_undo_restore, 32, value);
+    } else if (strcmp(key, "MigrationDismissed") == 0) {
+        cfg->migration_dismissed = config_core_parse_int(value, 0);
     }
 }
 
@@ -146,6 +149,7 @@ void praxis_save_config(void) {
     config_core_buf_append(&buf, "HotkeyBackupSlot=%s\r\n", hotkey_bs);
     config_core_buf_append(&buf, "HotkeyRestore=%s\r\n", hotkey_r);
     config_core_buf_append(&buf, "HotkeyUndoRestore=%s\r\n", hotkey_ur);
+    config_core_buf_append(&buf, "MigrationDismissed=%d\r\n", praxis_config.migration_dismissed);
     config_core_buf_write_file(&buf, ini_path);
     config_core_buf_free(&buf);
 }

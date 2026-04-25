@@ -23,6 +23,7 @@ typedef struct praxis_config_s {
     wchar_t hotkey_backup_slot[32];
     wchar_t hotkey_restore[32];     /* unified restore (full or slot) */
     wchar_t hotkey_undo_restore[32];
+    int migration_dismissed;        /* 1 = user cancelled first-launch setup, don't re-prompt */
 } praxis_config_t;
 
 extern praxis_config_t praxis_config;

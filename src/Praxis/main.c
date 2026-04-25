@@ -16,7 +16,7 @@
 #include "save_watcher.h"
 #include "profile_store.h"
 #include "toolbar.h"
-#include "dialogs/migration_wizard.h"
+#include "dialogs/edit_game_profile.h"
 #include "dialogs/game_profile_manager.h"
 #include "dialogs/edit_backup_profile.h"
 
@@ -1533,22 +1533,41 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     praxis_locale_set_current(praxis_config.language);
     praxis_save_config();
 
-    /* First-launch migration wizard: detect a legacy single-profile INI and
-     * walk the user through converting it to the multi-profile schema. The
-     * wizard re-runs on every launch until completed (no Skip button). */
+    /* First-launch setup: when there are no game profiles AND user hasn't
+     * dismissed migration, show the Add Game Profile dialog pre-filled with
+     * legacy values (if a legacy Praxis.ini exists). Skipped if user clicked
+     * Cancel previously (MigrationDismissed=1). */
     {
         wchar_t ini_path[MAX_PATH];
-
         if (config_core_get_app_ini_path(ini_path, MAX_PATH, L"Praxis.ini") &&
-            profile_store_needs_migration(ini_path)) {
-            profile_store_t migrated_store;
-            profile_store_init(&migrated_store);
-            run_migration_wizard(NULL, &migrated_store, ini_path,
-                praxis_config.tree_root, praxis_config.compression_level);
-            /* Migration writes a new INI on success; reload praxis_config so the
-             * tree_root and other settings reflect any user edits. */
-            praxis_load_config();
-            praxis_locale_set_current(praxis_config.language);
+            !praxis_config.migration_dismissed) {
+            /* Detect: profile store empty? */
+            profile_store_t probe_store;
+            profile_store_init(&probe_store);
+            profile_store_load(&probe_store, ini_path);
+            bool needs_first_launch_setup = (probe_store.game_count == 0);
+
+            if (needs_first_launch_setup) {
+                /* Pre-fill from legacy [Settings].TreeRoot if present. */
+                game_profile_t pre_gp;
+                ZeroMemory(&pre_gp, sizeof(pre_gp));
+                pre_gp.game_id = GAME_ID_ELDEN_RING;
+                lstrcpynW(pre_gp.name, L"Default", 64);
+                if (praxis_config.tree_root[0] != L'\0') {
+                    lstrcpynW(pre_gp.tree_root, praxis_config.tree_root, MAX_PATH);
+                }
+
+                INT_PTR result = edit_game_profile(NULL, &pre_gp, true);
+                if (result == IDOK) {
+                    /* User confirmed -- add the profile (auto-creates Main backup). */
+                    profile_store_add_game(&probe_store, &pre_gp);
+                    profile_store_save(&probe_store, ini_path);
+                } else {
+                    /* User cancelled: set dismissed flag so we don't re-prompt. */
+                    praxis_config.migration_dismissed = 1;
+                    praxis_save_config();
+                }
+            }
         }
     }
 
