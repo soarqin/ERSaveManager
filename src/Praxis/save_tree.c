@@ -22,6 +22,7 @@
 #include <shlwapi.h>
 
 #define SAVE_TREE_MAX_DEPTH 16
+#define SAVE_TREE_MAX_EXPANDED_PATHS 256
 #define ID_SAVE_TREE_NEW_FOLDER 50001
 #define ID_SAVE_TREE_RENAME 50002
 #define ID_SAVE_TREE_DELETE 50003
@@ -256,6 +257,47 @@ static HTREEITEM find_hitem_by_lparam(HWND hwnd, HTREEITEM hitem, LPARAM target)
     }
 
     return NULL;
+}
+
+/**
+ * @brief Recursively collect relative_paths of all expanded directory items.
+ * @details Performs a depth-first walk through TreeView items. Each expanded
+ *          directory contributes its relative path to the output buffer until
+ *          the provided capacity is reached.
+ * @param t Save tree instance.
+ * @param hitem Tree item to start from.
+ * @param out_paths Destination array of relative paths.
+ * @param out_capacity Number of available path slots in @p out_paths.
+ * @param count Running number of captured paths.
+ */
+static void collect_expanded_paths(save_tree_t *t, HTREEITEM hitem,
+    wchar_t (*out_paths)[MAX_PATH], size_t out_capacity, size_t *count) {
+    while (t && hitem && out_paths && count && *count < out_capacity) {
+        TVITEMW tvi = {0};
+        HTREEITEM child;
+        size_t index;
+
+        tvi.hItem = hitem;
+        tvi.mask = TVIF_PARAM | TVIF_STATE;
+        tvi.stateMask = TVIS_EXPANDED;
+        if (TreeView_GetItem(t->hwnd, &tvi)) {
+            index = (size_t)(uintptr_t)tvi.lParam;
+            if ((tvi.state & TVIS_EXPANDED) && index < t->item_count) {
+                const save_item_t *item = &t->items[index];
+                if (item->is_directory) {
+                    lstrcpynW(out_paths[*count], item->relative_path, MAX_PATH);
+                    (*count)++;
+                }
+            }
+
+            child = TreeView_GetChild(t->hwnd, hitem);
+            if (child) {
+                collect_expanded_paths(t, child, out_paths, out_capacity, count);
+            }
+        }
+
+        hitem = TreeView_GetNextSibling(t->hwnd, hitem);
+    }
 }
 
 static bool choose_drop_parent(const save_tree_t *t, HTREEITEM target, wchar_t *dst_parent_relpath, size_t out_chars) {
@@ -580,6 +622,8 @@ void save_tree_refresh(save_tree_t *t) {
 
 void save_tree_refresh_preserve_selection(save_tree_t *t) {
     wchar_t saved_relpath[MAX_PATH] = {0};
+    wchar_t (*expanded_paths)[MAX_PATH] = NULL;
+    size_t expanded_count = 0;
     wchar_t try_path[MAX_PATH];
 
     if (!t) {
@@ -597,12 +641,49 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
         if (selection && get_item_info(t, selection, NULL, &item)) {
             lstrcpynW(saved_relpath, item.relative_path, MAX_PATH);
         }
+
+        expanded_paths = (wchar_t (*)[MAX_PATH])LocalAlloc(
+            LMEM_FIXED, SAVE_TREE_MAX_EXPANDED_PATHS * sizeof(wchar_t[MAX_PATH]));
+        if (expanded_paths) {
+            HTREEITEM root = TreeView_GetRoot(t->hwnd);
+            if (root) {
+                collect_expanded_paths(t, root, expanded_paths,
+                    SAVE_TREE_MAX_EXPANDED_PATHS, &expanded_count);
+            }
+        }
     }
 
     save_tree_refresh(t);
 
     if (!t->hwnd) {
+        if (expanded_paths) {
+            LocalFree(expanded_paths);
+        }
         return;
+    }
+
+    if (expanded_paths) {
+        HTREEITEM root = TreeView_GetRoot(t->hwnd);
+
+        for (size_t i = 0; i < expanded_count; i++) {
+            size_t index;
+            HTREEITEM found;
+
+            if (expanded_paths[i][0] == L'\0') {
+                continue;
+            }
+
+            if (!find_item_index_by_relpath(t, expanded_paths[i], &index)) {
+                continue;
+            }
+
+            found = find_hitem_by_lparam(t->hwnd, root, (LPARAM)(uintptr_t)index);
+            if (found) {
+                TreeView_Expand(t->hwnd, found, TVE_EXPAND);
+            }
+        }
+
+        LocalFree(expanded_paths);
     }
 
     if (saved_relpath[0] == L'\0') {
