@@ -1,8 +1,7 @@
 /**
  * @file locale.c
  * @brief Praxis locale string table implementation.
- * @details Provides 11-language string table for the Praxis application.
- *          Non-English rows are English placeholders pending translation (v1).
+ * @details Provides an 11-language string table for the Praxis application.
  */
 
 #include "locale.h"
@@ -26,71 +25,6 @@ static const wchar_t *praxis_language_codes[11] = {
 static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
     /* 0: English */
     {
-        L"Praxis - Practice Save Tool",          /* STR_PRAXIS_APP_TITLE */
-        L"Backup Full Save",                     /* STR_PRAXIS_BACKUP_FULL */
-        L"Restore Full Save",                    /* STR_PRAXIS_RESTORE_FULL */
-        L"Backup Current Slot",                  /* STR_PRAXIS_BACKUP_SLOT */
-        L"Restore Current Slot",                 /* STR_PRAXIS_RESTORE_SLOT */
-        L"Undo Last Restore",                    /* STR_PRAXIS_UNDO_RESTORE */
-        L"Tree Root",                            /* STR_PRAXIS_TREE_ROOT */
-        L"New Folder",                           /* STR_PRAXIS_NEW_FOLDER */
-        L"Rename",                               /* STR_PRAXIS_RENAME */
-        L"Delete",                               /* STR_PRAXIS_DELETE */
-        L"Hotkey Conflict",                      /* STR_PRAXIS_HOTKEY_CONFLICT */
-        L"Close the game before restoring.",     /* STR_PRAXIS_GAME_RUNNING_WARNING */
-        L"Ring backup failed. Restore aborted.", /* STR_PRAXIS_RING_BACKUP_FAILED */
-        L"Restore this backup?",                 /* STR_PRAXIS_RESTORE_CONFIRMATION */
-        L"Language",                             /* STR_PRAXIS_LANGUAGE */
-        L"Options",                              /* STR_PRAXIS_OPTIONS */
-        L"Hotkey Settings",                      /* STR_PRAXIS_HOTKEY_SETTINGS */
-        L"Game",                                 /* STR_PRAXIS_GAME */
-        L"File",                                 /* STR_PRAXIS_FILE */
-        L"Confirm",                              /* STR_PRAXIS_CONFIRM */
-        L"Cancel",                               /* STR_PRAXIS_CANCEL */
-        L"Error",                                /* STR_PRAXIS_ERROR */
-        L"Success",                              /* STR_PRAXIS_SUCCESS */
-        L"Set Tree Root...",                     /* STR_PRAXIS_SET_TREE_ROOT */
-        L"Refresh",                              /* STR_PRAXIS_REFRESH */
-        L"Exit",                                 /* STR_PRAXIS_EXIT */
-        L"Backup",                               /* STR_PRAXIS_BACKUP */
-        L"Restore",                              /* STR_PRAXIS_RESTORE */
-        L"Game Profile",                         /* STR_PRAXIS_GAME_PROFILE */
-        L"Backup Profile",                       /* STR_PRAXIS_BACKUP_PROFILE */
-        L"Manage Game Profiles...",              /* STR_PRAXIS_MANAGE_GAME_PROFILES */
-        L"Name",                                 /* STR_PRAXIS_PROFILE_NAME */
-        L"Game",                                 /* STR_PRAXIS_PROFILE_GAME */
-        L"Save Directory",                       /* STR_PRAXIS_PROFILE_SAVE_DIR */
-        L"Backup Root",                          /* STR_PRAXIS_PROFILE_TREE_ROOT */
-        L"Compression",                          /* STR_PRAXIS_PROFILE_COMPRESSION */
-        L"None",                                 /* STR_PRAXIS_COMPRESSION_NONE */
-        L"Low",                                  /* STR_PRAXIS_COMPRESSION_LOW */
-        L"Medium",                               /* STR_PRAXIS_COMPRESSION_MEDIUM */
-        L"High",                                 /* STR_PRAXIS_COMPRESSION_HIGH */
-        L"Add",                                  /* STR_PRAXIS_BTN_ADD */
-        L"Edit",                                 /* STR_PRAXIS_BTN_EDIT */
-        L"Delete",                               /* STR_PRAXIS_BTN_DELETE */
-        L"Close",                                /* STR_PRAXIS_BTN_CLOSE */
-        L"OK",                                   /* STR_PRAXIS_BTN_OK */
-        L"Cancel",                               /* STR_PRAXIS_BTN_CANCEL */
-        L"Backup Full Save",                     /* STR_PRAXIS_TIP_BACKUP_FULL */
-        L"Backup Current Slot",                  /* STR_PRAXIS_TIP_BACKUP_SLOT */
-        L"Restore",                              /* STR_PRAXIS_TIP_RESTORE */
-        L"Undo Last Restore",                    /* STR_PRAXIS_TIP_UNDO */
-        L"Add Backup Profile",                   /* STR_PRAXIS_TIP_ADD_BACKUP */
-        L"Delete Backup Profile",                /* STR_PRAXIS_TIP_DELETE_BACKUP */
-        L"Migration Wizard",                     /* STR_PRAXIS_MIGRATION_TITLE */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* STR_PRAXIS_MIGRATION_WELCOME */
-        L"Step 1: Name your game profile",       /* STR_PRAXIS_MIGRATION_GAME_PAGE */
-        L"Step 2: Configure your backup profile", /* STR_PRAXIS_MIGRATION_BACKUP_PAGE */
-        L"Step 3: Confirm migration",            /* STR_PRAXIS_MIGRATION_CONFIRM */
-        L"Delete this game profile and all its backup profiles?", /* STR_PRAXIS_CONFIRM_DELETE_GAME */
-        L"Delete this backup profile?",          /* STR_PRAXIS_CONFIRM_DELETE_BACKUP */
-        L"No profile selected. Use + to add a backup profile.", /* STR_PRAXIS_NO_PROFILE_HINT */
-        L"Active: %s / %s",                      /* STR_PRAXIS_STATUS_ACTIVE */
-        L"Show in File Explorer",                /* STR_PRAXIS_SHOW_IN_EXPLORER */
-    },
-    /* TODO: translate — 1: Français (placeholder: English) */
-    {
         L"Praxis - Practice Save Tool",
         L"Backup Full Save",
         L"Restore Full Save",
@@ -119,625 +53,690 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Exit",
         L"Backup",
         L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
-    },
-    /* TODO: translate — 2: Deutsch (placeholder: English) */
-    {
-        L"Praxis - Practice Save Tool",
-        L"Backup Full Save",
-        L"Restore Full Save",
-        L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
-        L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
-        L"Options",
-        L"Hotkey Settings",
+        L"Game Profile",
+        L"Backup Profile",
+        L"Manage Game Profiles...",
+        L"Name",
         L"Game",
-        L"File",
-        L"Confirm",
-        L"Cancel",
-        L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
-        L"Backup",
-        L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
-    },
-    /* TODO: translate — 3: Italiano (placeholder: English) */
-    {
-        L"Praxis - Practice Save Tool",
-        L"Backup Full Save",
-        L"Restore Full Save",
-        L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
+        L"Save Directory",
+        L"Backup Root",
+        L"Compression",
+        L"None",
+        L"Low",
+        L"Medium",
+        L"High",
+        L"Add",
+        L"Edit",
         L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
-        L"Options",
-        L"Hotkey Settings",
-        L"Game",
-        L"File",
-        L"Confirm",
+        L"Close",
+        L"OK",
         L"Cancel",
-        L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
-        L"Backup",
-        L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
-    },
-    /* TODO: translate — 4: Español (placeholder: English) */
-    {
-        L"Praxis - Practice Save Tool",
         L"Backup Full Save",
-        L"Restore Full Save",
         L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
-        L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
-        L"Options",
-        L"Hotkey Settings",
-        L"Game",
-        L"File",
-        L"Confirm",
-        L"Cancel",
-        L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
-        L"Backup",
         L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
+        L"Undo Last Restore",
+        L"Add Backup Profile",
+        L"Delete Backup Profile",
+        L"Migration Wizard",
+        L"Welcome to Praxis 2.0 - Multi-Profile Setup",
+        L"Step 1: Name your game profile",
+        L"Step 2: Configure your backup profile",
+        L"Step 3: Confirm migration",
+        L"Delete this game profile and all its backup profiles?",
+        L"Delete this backup profile?",
+        L"No profile selected. Use + to add a backup profile.",
+        L"Active: %s / %s",
+        L"Show in File Explorer",
     },
-    /* TODO: translate — 5: Português (placeholder: English) */
+    /* 1: Français */
     {
-        L"Praxis - Practice Save Tool",
-        L"Backup Full Save",
-        L"Restore Full Save",
-        L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
-        L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
+        L"Praxis - Outil de sauvegarde d'entraînement",
+        L"Sauvegarder la sauvegarde complète",
+        L"Restaurer la sauvegarde complète",
+        L"Sauvegarder l'emplacement actuel",
+        L"Restaurer l'emplacement actuel",
+        L"Annuler la dernière restauration",
+        L"Racine de l'arborescence",
+        L"Nouveau dossier",
+        L"Renommer",
+        L"Supprimer",
+        L"Conflit de raccourci",
+        L"Fermez le jeu avant de restaurer.",
+        L"La sauvegarde circulaire a échoué. Restauration annulée.",
+        L"Restaurer cette sauvegarde ?",
+        L"Langue",
         L"Options",
-        L"Hotkey Settings",
-        L"Game",
-        L"File",
-        L"Confirm",
-        L"Cancel",
-        L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
-        L"Backup",
-        L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
+        L"Paramètres des raccourcis",
+        L"Jeu",
+        L"Fichier",
+        L"Confirmer",
+        L"Annuler",
+        L"Erreur",
+        L"Succès",
+        L"Définir la racine...",
+        L"Actualiser",
+        L"Quitter",
+        L"Sauvegarde",
+        L"Restauration",
+        L"Profil de jeu",
+        L"Profil de sauvegarde",
+        L"Gérer les profils de jeu...",
+        L"Nom",
+        L"Jeu",
+        L"Dossier de sauvegarde",
+        L"Racine des sauvegardes",
+        L"Compression",
+        L"Aucune",
+        L"Faible",
+        L"Moyenne",
+        L"Élevée",
+        L"Ajouter",
+        L"Modifier",
+        L"Supprimer",
+        L"Fermer",
+        L"OK",
+        L"Annuler",
+        L"Sauvegarder la sauvegarde complète",
+        L"Sauvegarder l'emplacement actuel",
+        L"Restaurer",
+        L"Annuler la dernière restauration",
+        L"Ajouter un profil de sauvegarde",
+        L"Supprimer le profil de sauvegarde",
+        L"Assistant de migration",
+        L"Bienvenue dans Praxis 2.0 - Configuration multiprofil",
+        L"Étape 1 : nommez votre profil de jeu",
+        L"Étape 2 : configurez votre profil de sauvegarde",
+        L"Étape 3 : confirmez la migration",
+        L"Supprimer ce profil de jeu et tous ses profils de sauvegarde ?",
+        L"Supprimer ce profil de sauvegarde ?",
+        L"Aucun profil sélectionné. Utilisez + pour ajouter un profil de sauvegarde.",
+        L"Actif : %s / %s",
+        L"Afficher dans l'Explorateur de fichiers",
     },
-    /* TODO: translate — 6: Русский (placeholder: English) */
+    /* 2: Deutsch */
     {
-        L"Praxis - Practice Save Tool",
-        L"Backup Full Save",
-        L"Restore Full Save",
-        L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
-        L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
-        L"Options",
-        L"Hotkey Settings",
-        L"Game",
-        L"File",
-        L"Confirm",
-        L"Cancel",
-        L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
-        L"Backup",
-        L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
+        L"Praxis - Übungs-Speicherwerkzeug",
+        L"Kompletten Spielstand sichern",
+        L"Kompletten Spielstand wiederherstellen",
+        L"Aktuellen Slot sichern",
+        L"Aktuellen Slot wiederherstellen",
+        L"Letzte Wiederherstellung rückgängig machen",
+        L"Baumwurzel",
+        L"Neuer Ordner",
+        L"Umbenennen",
+        L"Löschen",
+        L"Hotkey-Konflikt",
+        L"Schließen Sie das Spiel vor der Wiederherstellung.",
+        L"Ringsicherung fehlgeschlagen. Wiederherstellung abgebrochen.",
+        L"Diese Sicherung wiederherstellen?",
+        L"Sprache",
+        L"Optionen",
+        L"Hotkey-Einstellungen",
+        L"Spiel",
+        L"Datei",
+        L"Bestätigen",
+        L"Abbrechen",
+        L"Fehler",
+        L"Erfolg",
+        L"Baumwurzel festlegen...",
+        L"Aktualisieren",
+        L"Beenden",
+        L"Sichern",
+        L"Wiederherstellen",
+        L"Spielprofil",
+        L"Sicherungsprofil",
+        L"Spielprofile verwalten...",
+        L"Name",
+        L"Spiel",
+        L"Speicherverzeichnis",
+        L"Sicherungswurzel",
+        L"Komprimierung",
+        L"Keine",
+        L"Niedrig",
+        L"Mittel",
+        L"Hoch",
+        L"Hinzufügen",
+        L"Bearbeiten",
+        L"Löschen",
+        L"Schließen",
+        L"OK",
+        L"Abbrechen",
+        L"Kompletten Spielstand sichern",
+        L"Aktuellen Slot sichern",
+        L"Wiederherstellen",
+        L"Letzte Wiederherstellung rückgängig machen",
+        L"Sicherungsprofil hinzufügen",
+        L"Sicherungsprofil löschen",
+        L"Migrationsassistent",
+        L"Willkommen bei Praxis 2.0 - Multiprofil-Einrichtung",
+        L"Schritt 1: Benennen Sie Ihr Spielprofil",
+        L"Schritt 2: Konfigurieren Sie Ihr Sicherungsprofil",
+        L"Schritt 3: Migration bestätigen",
+        L"Dieses Spielprofil und alle zugehörigen Sicherungsprofile löschen?",
+        L"Dieses Sicherungsprofil löschen?",
+        L"Kein Profil ausgewählt. Verwenden Sie +, um ein Sicherungsprofil hinzuzufügen.",
+        L"Aktiv: %s / %s",
+        L"Im Datei-Explorer anzeigen",
     },
-    /* TODO: translate — 7: 日本語 (placeholder: English) */
+    /* 3: Italiano */
     {
-        L"Praxis - Practice Save Tool",
-        L"Backup Full Save",
-        L"Restore Full Save",
-        L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
-        L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
-        L"Options",
-        L"Hotkey Settings",
-        L"Game",
+        L"Praxis - Strumento salvataggi per pratica",
+        L"Backup del salvataggio completo",
+        L"Ripristina salvataggio completo",
+        L"Backup dello slot corrente",
+        L"Ripristina slot corrente",
+        L"Annulla ultimo ripristino",
+        L"Radice albero",
+        L"Nuova cartella",
+        L"Rinomina",
+        L"Elimina",
+        L"Conflitto scorciatoia",
+        L"Chiudi il gioco prima del ripristino.",
+        L"Backup ad anello non riuscito. Ripristino annullato.",
+        L"Ripristinare questo backup?",
+        L"Lingua",
+        L"Opzioni",
+        L"Impostazioni scorciatoie",
+        L"Gioco",
         L"File",
-        L"Confirm",
-        L"Cancel",
-        L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
+        L"Conferma",
+        L"Annulla",
+        L"Errore",
+        L"Successo",
+        L"Imposta radice albero...",
+        L"Aggiorna",
+        L"Esci",
         L"Backup",
-        L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
+        L"Ripristina",
+        L"Profilo gioco",
+        L"Profilo backup",
+        L"Gestisci profili gioco...",
+        L"Nome",
+        L"Gioco",
+        L"Cartella salvataggi",
+        L"Radice backup",
+        L"Compressione",
+        L"Nessuna",
+        L"Bassa",
+        L"Media",
+        L"Alta",
+        L"Aggiungi",
+        L"Modifica",
+        L"Elimina",
+        L"Chiudi",
+        L"OK",
+        L"Annulla",
+        L"Backup del salvataggio completo",
+        L"Backup dello slot corrente",
+        L"Ripristina",
+        L"Annulla ultimo ripristino",
+        L"Aggiungi profilo backup",
+        L"Elimina profilo backup",
+        L"Procedura guidata migrazione",
+        L"Benvenuto in Praxis 2.0 - Configurazione multiprofilo",
+        L"Passo 1: assegna un nome al profilo gioco",
+        L"Passo 2: configura il profilo backup",
+        L"Passo 3: conferma la migrazione",
+        L"Eliminare questo profilo gioco e tutti i suoi profili backup?",
+        L"Eliminare questo profilo backup?",
+        L"Nessun profilo selezionato. Usa + per aggiungere un profilo backup.",
+        L"Attivo: %s / %s",
+        L"Mostra in Esplora file",
     },
-    /* TODO: translate — 8: 한국어 (placeholder: English) */
+    /* 4: Español */
     {
-        L"Praxis - Practice Save Tool",
-        L"Backup Full Save",
-        L"Restore Full Save",
-        L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
-        L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
-        L"Options",
-        L"Hotkey Settings",
-        L"Game",
-        L"File",
-        L"Confirm",
-        L"Cancel",
+        L"Praxis - Herramienta de guardados de práctica",
+        L"Respaldar guardado completo",
+        L"Restaurar guardado completo",
+        L"Respaldar ranura actual",
+        L"Restaurar ranura actual",
+        L"Deshacer última restauración",
+        L"Raíz del árbol",
+        L"Nueva carpeta",
+        L"Renombrar",
+        L"Eliminar",
+        L"Conflicto de atajo",
+        L"Cierra el juego antes de restaurar.",
+        L"Falló el respaldo circular. Restauración cancelada.",
+        L"¿Restaurar este respaldo?",
+        L"Idioma",
+        L"Opciones",
+        L"Configuración de atajos",
+        L"Juego",
+        L"Archivo",
+        L"Confirmar",
+        L"Cancelar",
         L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
-        L"Backup",
-        L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
+        L"Éxito",
+        L"Establecer raíz del árbol...",
+        L"Actualizar",
+        L"Salir",
+        L"Respaldo",
+        L"Restaurar",
+        L"Perfil de juego",
+        L"Perfil de respaldo",
+        L"Administrar perfiles de juego...",
+        L"Nombre",
+        L"Juego",
+        L"Directorio de guardado",
+        L"Raíz de respaldos",
+        L"Compresión",
+        L"Ninguna",
+        L"Baja",
+        L"Media",
+        L"Alta",
+        L"Agregar",
+        L"Editar",
+        L"Eliminar",
+        L"Cerrar",
+        L"OK",
+        L"Cancelar",
+        L"Respaldar guardado completo",
+        L"Respaldar ranura actual",
+        L"Restaurar",
+        L"Deshacer última restauración",
+        L"Agregar perfil de respaldo",
+        L"Eliminar perfil de respaldo",
+        L"Asistente de migración",
+        L"Bienvenido a Praxis 2.0 - Configuración multiperfil",
+        L"Paso 1: nombra tu perfil de juego",
+        L"Paso 2: configura tu perfil de respaldo",
+        L"Paso 3: confirma la migración",
+        L"¿Eliminar este perfil de juego y todos sus perfiles de respaldo?",
+        L"¿Eliminar este perfil de respaldo?",
+        L"No hay perfil seleccionado. Usa + para agregar un perfil de respaldo.",
+        L"Activo: %s / %s",
+        L"Mostrar en el Explorador de archivos",
     },
-    /* TODO: translate — 9: 简体中文 (placeholder: English) */
+    /* 5: Português */
     {
-        L"Praxis - Practice Save Tool",
-        L"Backup Full Save",
-        L"Restore Full Save",
-        L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
-        L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
-        L"Options",
-        L"Hotkey Settings",
-        L"Game",
-        L"File",
-        L"Confirm",
-        L"Cancel",
-        L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
+        L"Praxis - Ferramenta de saves de prática",
+        L"Fazer backup do save completo",
+        L"Restaurar save completo",
+        L"Fazer backup do slot atual",
+        L"Restaurar slot atual",
+        L"Desfazer última restauração",
+        L"Raiz da árvore",
+        L"Nova pasta",
+        L"Renomear",
+        L"Excluir",
+        L"Conflito de atalho",
+        L"Feche o jogo antes de restaurar.",
+        L"Falha no backup em anel. Restauração cancelada.",
+        L"Restaurar este backup?",
+        L"Idioma",
+        L"Opções",
+        L"Configurações de atalhos",
+        L"Jogo",
+        L"Arquivo",
+        L"Confirmar",
+        L"Cancelar",
+        L"Erro",
+        L"Sucesso",
+        L"Definir raiz da árvore...",
+        L"Atualizar",
+        L"Sair",
         L"Backup",
-        L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"在文件浏览器中显示",     /* STR_PRAXIS_SHOW_IN_EXPLORER */
+        L"Restaurar",
+        L"Perfil de jogo",
+        L"Perfil de backup",
+        L"Gerenciar perfis de jogo...",
+        L"Nome",
+        L"Jogo",
+        L"Diretório de saves",
+        L"Raiz de backups",
+        L"Compressão",
+        L"Nenhuma",
+        L"Baixa",
+        L"Média",
+        L"Alta",
+        L"Adicionar",
+        L"Editar",
+        L"Excluir",
+        L"Fechar",
+        L"OK",
+        L"Cancelar",
+        L"Fazer backup do save completo",
+        L"Fazer backup do slot atual",
+        L"Restaurar",
+        L"Desfazer última restauração",
+        L"Adicionar perfil de backup",
+        L"Excluir perfil de backup",
+        L"Assistente de migração",
+        L"Bem-vindo ao Praxis 2.0 - Configuração multiperfil",
+        L"Etapa 1: nomeie seu perfil de jogo",
+        L"Etapa 2: configure seu perfil de backup",
+        L"Etapa 3: confirme a migração",
+        L"Excluir este perfil de jogo e todos os seus perfis de backup?",
+        L"Excluir este perfil de backup?",
+        L"Nenhum perfil selecionado. Use + para adicionar um perfil de backup.",
+        L"Ativo: %s / %s",
+        L"Mostrar no Explorador de Arquivos",
     },
-    /* TODO: translate — 10: 繁體中文 (placeholder: English) */
+    /* 6: Русский */
     {
-        L"Praxis - Practice Save Tool",
-        L"Backup Full Save",
-        L"Restore Full Save",
-        L"Backup Current Slot",
-        L"Restore Current Slot",
-        L"Undo Last Restore",
-        L"Tree Root",
-        L"New Folder",
-        L"Rename",
-        L"Delete",
-        L"Hotkey Conflict",
-        L"Close the game before restoring.",
-        L"Ring backup failed. Restore aborted.",
-        L"Restore this backup?",
-        L"Language",
-        L"Options",
-        L"Hotkey Settings",
-        L"Game",
-        L"File",
-        L"Confirm",
-        L"Cancel",
-        L"Error",
-        L"Success",
-        L"Set Tree Root...",
-        L"Refresh",
-        L"Exit",
-        L"Backup",
-        L"Restore",
-        L"Game Profile", /* TODO: translate */
-        L"Backup Profile", /* TODO: translate */
-        L"Manage Game Profiles...", /* TODO: translate */
-        L"Name", /* TODO: translate */
-        L"Game", /* TODO: translate */
-        L"Save Directory", /* TODO: translate */
-        L"Backup Root", /* TODO: translate */
-        L"Compression", /* TODO: translate */
-        L"None", /* TODO: translate */
-        L"Low", /* TODO: translate */
-        L"Medium", /* TODO: translate */
-        L"High", /* TODO: translate */
-        L"Add", /* TODO: translate */
-        L"Edit", /* TODO: translate */
-        L"Delete", /* TODO: translate */
-        L"Close", /* TODO: translate */
-        L"OK", /* TODO: translate */
-        L"Cancel", /* TODO: translate */
-        L"Backup Full Save", /* TODO: translate */
-        L"Backup Current Slot", /* TODO: translate */
-        L"Restore", /* TODO: translate */
-        L"Undo Last Restore", /* TODO: translate */
-        L"Add Backup Profile", /* TODO: translate */
-        L"Delete Backup Profile", /* TODO: translate */
-        L"Migration Wizard", /* TODO: translate */
-        L"Welcome to Praxis 2.0 - Multi-Profile Setup", /* TODO: translate */
-        L"Step 1: Name your game profile", /* TODO: translate */
-        L"Step 2: Configure your backup profile", /* TODO: translate */
-        L"Step 3: Confirm migration", /* TODO: translate */
-        L"Delete this game profile and all its backup profiles?", /* TODO: translate */
-        L"Delete this backup profile?", /* TODO: translate */
-        L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
-        L"Active: %s / %s", /* TODO: translate */
-        L"在檔案總管中顯示",       /* STR_PRAXIS_SHOW_IN_EXPLORER */
+        L"Praxis - инструмент сохранений для практики",
+        L"Создать полную копию сохранения",
+        L"Восстановить полное сохранение",
+        L"Создать копию текущего слота",
+        L"Восстановить текущий слот",
+        L"Отменить последнее восстановление",
+        L"Корень дерева",
+        L"Новая папка",
+        L"Переименовать",
+        L"Удалить",
+        L"Конфликт горячих клавиш",
+        L"Закройте игру перед восстановлением.",
+        L"Кольцевая копия не создана. Восстановление отменено.",
+        L"Восстановить эту копию?",
+        L"Язык",
+        L"Параметры",
+        L"Настройки горячих клавиш",
+        L"Игра",
+        L"Файл",
+        L"Подтвердить",
+        L"Отмена",
+        L"Ошибка",
+        L"Успех",
+        L"Задать корень дерева...",
+        L"Обновить",
+        L"Выход",
+        L"Копия",
+        L"Восстановить",
+        L"Профиль игры",
+        L"Профиль копий",
+        L"Управление профилями игр...",
+        L"Имя",
+        L"Игра",
+        L"Папка сохранений",
+        L"Корень копий",
+        L"Сжатие",
+        L"Нет",
+        L"Низкое",
+        L"Среднее",
+        L"Высокое",
+        L"Добавить",
+        L"Изменить",
+        L"Удалить",
+        L"Закрыть",
+        L"OK",
+        L"Отмена",
+        L"Создать полную копию сохранения",
+        L"Создать копию текущего слота",
+        L"Восстановить",
+        L"Отменить последнее восстановление",
+        L"Добавить профиль копий",
+        L"Удалить профиль копий",
+        L"Мастер миграции",
+        L"Добро пожаловать в Praxis 2.0 - настройка нескольких профилей",
+        L"Шаг 1: назовите профиль игры",
+        L"Шаг 2: настройте профиль копий",
+        L"Шаг 3: подтвердите миграцию",
+        L"Удалить этот профиль игры и все его профили копий?",
+        L"Удалить этот профиль копий?",
+        L"Профиль не выбран. Используйте +, чтобы добавить профиль копий.",
+        L"Активно: %s / %s",
+        L"Показать в Проводнике",
+    },
+    /* 7: 日本語 */
+    {
+        L"Praxis - 練習用セーブツール",
+        L"フルセーブをバックアップ",
+        L"フルセーブを復元",
+        L"現在のスロットをバックアップ",
+        L"現在のスロットを復元",
+        L"前回の復元を元に戻す",
+        L"ツリーのルート",
+        L"新しいフォルダー",
+        L"名前を変更",
+        L"削除",
+        L"ホットキーの競合",
+        L"復元する前にゲームを終了してください。",
+        L"リングバックアップに失敗しました。復元を中止しました。",
+        L"このバックアップを復元しますか？",
+        L"言語",
+        L"オプション",
+        L"ホットキー設定",
+        L"ゲーム",
+        L"ファイル",
+        L"確認",
+        L"キャンセル",
+        L"エラー",
+        L"成功",
+        L"ツリーのルートを設定...",
+        L"更新",
+        L"終了",
+        L"バックアップ",
+        L"復元",
+        L"ゲームプロファイル",
+        L"バックアッププロファイル",
+        L"ゲームプロファイルを管理...",
+        L"名前",
+        L"ゲーム",
+        L"セーブディレクトリ",
+        L"バックアップルート",
+        L"圧縮",
+        L"なし",
+        L"低",
+        L"中",
+        L"高",
+        L"追加",
+        L"編集",
+        L"削除",
+        L"閉じる",
+        L"OK",
+        L"キャンセル",
+        L"フルセーブをバックアップ",
+        L"現在のスロットをバックアップ",
+        L"復元",
+        L"前回の復元を元に戻す",
+        L"バックアッププロファイルを追加",
+        L"バックアッププロファイルを削除",
+        L"移行ウィザード",
+        L"Praxis 2.0 へようこそ - マルチプロファイル設定",
+        L"ステップ 1: ゲームプロファイルに名前を付ける",
+        L"ステップ 2: バックアッププロファイルを設定する",
+        L"ステップ 3: 移行を確認する",
+        L"このゲームプロファイルとすべてのバックアッププロファイルを削除しますか？",
+        L"このバックアッププロファイルを削除しますか？",
+        L"プロファイルが選択されていません。+ でバックアッププロファイルを追加してください。",
+        L"アクティブ: %s / %s",
+        L"エクスプローラーで表示",
+    },
+    /* 8: 한국어 */
+    {
+        L"Praxis - 연습용 저장 도구",
+        L"전체 저장 백업",
+        L"전체 저장 복원",
+        L"현재 슬롯 백업",
+        L"현재 슬롯 복원",
+        L"마지막 복원 실행 취소",
+        L"트리 루트",
+        L"새 폴더",
+        L"이름 바꾸기",
+        L"삭제",
+        L"단축키 충돌",
+        L"복원하기 전에 게임을 종료하세요.",
+        L"링 백업에 실패했습니다. 복원을 중단했습니다.",
+        L"이 백업을 복원하시겠습니까?",
+        L"언어",
+        L"옵션",
+        L"단축키 설정",
+        L"게임",
+        L"파일",
+        L"확인",
+        L"취소",
+        L"오류",
+        L"성공",
+        L"트리 루트 설정...",
+        L"새로 고침",
+        L"종료",
+        L"백업",
+        L"복원",
+        L"게임 프로필",
+        L"백업 프로필",
+        L"게임 프로필 관리...",
+        L"이름",
+        L"게임",
+        L"저장 디렉터리",
+        L"백업 루트",
+        L"압축",
+        L"없음",
+        L"낮음",
+        L"보통",
+        L"높음",
+        L"추가",
+        L"편집",
+        L"삭제",
+        L"닫기",
+        L"OK",
+        L"취소",
+        L"전체 저장 백업",
+        L"현재 슬롯 백업",
+        L"복원",
+        L"마지막 복원 실행 취소",
+        L"백업 프로필 추가",
+        L"백업 프로필 삭제",
+        L"마이그레이션 마법사",
+        L"Praxis 2.0에 오신 것을 환영합니다 - 다중 프로필 설정",
+        L"1단계: 게임 프로필 이름 지정",
+        L"2단계: 백업 프로필 구성",
+        L"3단계: 마이그레이션 확인",
+        L"이 게임 프로필과 모든 백업 프로필을 삭제하시겠습니까?",
+        L"이 백업 프로필을 삭제하시겠습니까?",
+        L"선택한 프로필이 없습니다. +를 사용해 백업 프로필을 추가하세요.",
+        L"활성: %s / %s",
+        L"파일 탐색기에 표시",
+    },
+    /* 9: 简体中文 */
+    {
+        L"Praxis - 练习存档工具",
+        L"备份完整存档",
+        L"恢复完整存档",
+        L"备份当前角色槽",
+        L"恢复当前角色槽",
+        L"撤销上次恢复",
+        L"树根目录",
+        L"新建文件夹",
+        L"重命名",
+        L"删除",
+        L"快捷键冲突",
+        L"恢复前请先关闭游戏。",
+        L"环形备份失败，已取消恢复。",
+        L"要恢复此备份吗？",
+        L"语言",
+        L"选项",
+        L"快捷键设置",
+        L"游戏",
+        L"文件",
+        L"确认",
+        L"取消",
+        L"错误",
+        L"成功",
+        L"设置树根目录...",
+        L"刷新",
+        L"退出",
+        L"备份",
+        L"恢复",
+        L"游戏配置文件",
+        L"备份配置文件",
+        L"管理游戏配置文件...",
+        L"名称",
+        L"游戏",
+        L"存档目录",
+        L"备份根目录",
+        L"压缩",
+        L"无",
+        L"低",
+        L"中",
+        L"高",
+        L"添加",
+        L"编辑",
+        L"删除",
+        L"关闭",
+        L"确定",
+        L"取消",
+        L"备份完整存档",
+        L"备份当前角色槽",
+        L"恢复",
+        L"撤销上次恢复",
+        L"添加备份配置文件",
+        L"删除备份配置文件",
+        L"迁移向导",
+        L"欢迎使用 Praxis 2.0 - 多配置文件设置",
+        L"步骤 1：命名游戏配置文件",
+        L"步骤 2：配置备份配置文件",
+        L"步骤 3：确认迁移",
+        L"要删除此游戏配置文件及其所有备份配置文件吗？",
+        L"要删除此备份配置文件吗？",
+        L"未选择配置文件。使用 + 添加备份配置文件。",
+        L"活动：%s / %s",
+        L"在文件浏览器中显示",
+    },
+    /* 10: 繁體中文 */
+    {
+        L"Praxis - 練習存檔工具",
+        L"備份完整存檔",
+        L"還原完整存檔",
+        L"備份目前角色欄位",
+        L"還原目前角色欄位",
+        L"復原上次還原",
+        L"樹狀根目錄",
+        L"新增資料夾",
+        L"重新命名",
+        L"刪除",
+        L"快捷鍵衝突",
+        L"還原前請先關閉遊戲。",
+        L"環狀備份失敗，已取消還原。",
+        L"要還原此備份嗎？",
+        L"語言",
+        L"選項",
+        L"快捷鍵設定",
+        L"遊戲",
+        L"檔案",
+        L"確認",
+        L"取消",
+        L"錯誤",
+        L"成功",
+        L"設定樹狀根目錄...",
+        L"重新整理",
+        L"結束",
+        L"備份",
+        L"還原",
+        L"遊戲設定檔",
+        L"備份設定檔",
+        L"管理遊戲設定檔...",
+        L"名稱",
+        L"遊戲",
+        L"存檔目錄",
+        L"備份根目錄",
+        L"壓縮",
+        L"無",
+        L"低",
+        L"中",
+        L"高",
+        L"新增",
+        L"編輯",
+        L"刪除",
+        L"關閉",
+        L"確定",
+        L"取消",
+        L"備份完整存檔",
+        L"備份目前角色欄位",
+        L"還原",
+        L"復原上次還原",
+        L"新增備份設定檔",
+        L"刪除備份設定檔",
+        L"遷移精靈",
+        L"歡迎使用 Praxis 2.0 - 多設定檔設定",
+        L"步驟 1：命名遊戲設定檔",
+        L"步驟 2：設定備份設定檔",
+        L"步驟 3：確認遷移",
+        L"要刪除此遊戲設定檔及其所有備份設定檔嗎？",
+        L"要刪除此備份設定檔嗎？",
+        L"未選取設定檔。使用 + 新增備份設定檔。",
+        L"使用中：%s / %s",
+        L"在檔案總管中顯示",
     },
 };
 
