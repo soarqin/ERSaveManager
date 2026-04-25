@@ -6,6 +6,8 @@
 
 #include <wchar.h>
 
+#ifdef PRAXIS_ENABLE_SELFTEST
+
 /**
  * @brief Run selftest from --selftest command-line. Allocates console as needed.
  * @param argc Argument count (total argc from wWinMain)
@@ -13,3 +15,12 @@
  * @return Exit code: 0=success, 1=assertion failed, 2=usage error
  */
 int praxis_selftest_run(int argc, wchar_t **argv);
+
+#else
+
+/* Stub implementation when selftest is disabled. */
+static inline int praxis_selftest_run(int argc, wchar_t **argv) {
+    (void)argc; (void)argv; return 2;
+}
+
+#endif /* PRAXIS_ENABLE_SELFTEST */

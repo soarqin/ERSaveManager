@@ -5,6 +5,8 @@
  *          routines that are only used by selftest subcommands.
  */
 
+#ifdef PRAXIS_ENABLE_SELFTEST
+
 #include "praxis_selftest.h"
 
 #include "config.h"
@@ -933,6 +935,71 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     exit_code = 0;
                 }
             }
+        } else if (wcscmp(sub, L"detect-system-language-debug") == 0) {
+            /* Print intermediate state of locale_core_detect_system_language. */
+            wchar_t dsl_locale[LOCALE_NAME_MAX_LENGTH] = {0};
+            wchar_t dsl_scripts[64] = {0};
+            int dsl_ret = GetUserDefaultLocaleName(dsl_locale, LOCALE_NAME_MAX_LENGTH);
+            st_printf(L"GetUserDefaultLocaleName ret=%d locale=\"%ls\"\n", dsl_ret, dsl_locale);
+            int dsl_scripts_ret = GetLocaleInfoEx(dsl_locale, LOCALE_SSCRIPTS, dsl_scripts,
+                (int)(sizeof(dsl_scripts) / sizeof(dsl_scripts[0])));
+            st_printf(L"GetLocaleInfoEx LOCALE_SSCRIPTS ret=%d scripts=\"%ls\"\n",
+                dsl_scripts_ret, dsl_scripts);
+            int detected = praxis_locale_detect_system();
+            st_printf(L"praxis_locale_detect_system=%d\n", detected);
+            for (int i = 0; i < praxis_locale_count(); i++) {
+                st_printf(L"  [%d] name=%ls\n", i, praxis_locale_name(i));
+            }
+            exit_code = 0;
+        } else if (wcscmp(sub, L"unique-game-name") == 0) {
+            /* unique-game-name <ini> <base_name>
+             * Loads the profile store from <ini> and prints the unique name that
+             * profile_store_find_unique_game_name returns for <base_name>. */
+            if (argc < 5) {
+                st_printf(L"usage: --selftest unique-game-name <ini> <base_name>\n");
+                exit_code = 2;
+            } else {
+                profile_store_t ugn_store;
+                wchar_t ugn_out[64];
+
+                profile_store_init(&ugn_store);
+                profile_store_io_load(&ugn_store, argv[3]);
+                if (profile_store_find_unique_game_name(&ugn_store, argv[4], ugn_out, 64)) {
+                    st_printf(L"unique-game-name: %ls\n", ugn_out);
+                    exit_code = 0;
+                } else {
+                    st_printf(L"unique-game-name: FAIL\n");
+                    exit_code = 1;
+                }
+            }
+        } else if (wcscmp(sub, L"backend-default-save-dir") == 0) {
+            /* backend-default-save-dir <game_id>
+             * Calls the backend's get_default_save_dir method (if any) and prints
+             * the result. Exit 0 even when no save directory is found, since this
+             * depends on the test machine. Exit 1 only when the backend or method
+             * is missing. */
+            if (argc < 4) {
+                st_printf(L"usage: --selftest backend-default-save-dir <game_id>\n");
+                exit_code = 2;
+            } else {
+                game_id_t gid = (game_id_t)_wtoi(argv[3]);
+                const game_backend_t *bds = backend_registry_get_by_id(gid);
+                if (!bds) {
+                    st_printf(L"backend-default-save-dir: no backend for id=%d\n", (int)gid);
+                    exit_code = 1;
+                } else if (!bds->get_default_save_dir) {
+                    st_printf(L"backend-default-save-dir: not supported by id=%d\n", (int)gid);
+                    exit_code = 1;
+                } else {
+                    wchar_t bds_out[MAX_PATH] = {0};
+                    if (bds->get_default_save_dir(bds_out, MAX_PATH)) {
+                        st_printf(L"backend-default-save-dir: %ls\n", bds_out);
+                    } else {
+                        st_printf(L"backend-default-save-dir: not found\n");
+                    }
+                    exit_code = 0;
+                }
+            }
         } else if (wcscmp(sub, L"watcher-debounce-timing") == 0) {
             if (argc < 4) {
                 st_printf(L"usage: --selftest watcher-debounce-timing <root>\n");
@@ -967,3 +1034,5 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
     /* FreeConsole not called: selftest exits the process immediately after returning. */
     return exit_code;
 }
+
+#endif /* PRAXIS_ENABLE_SELFTEST */

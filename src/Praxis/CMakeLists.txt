@@ -61,6 +61,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}"
 # Enable Unicode character set
 target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE _UNICODE)
 
+# Enable selftest subcommand only in Debug builds to keep Release binary lean
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Debug>:PRAXIS_ENABLE_SELFTEST>
+)
+
 # Link against required libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE ersave_common uxtheme shell32)
 
