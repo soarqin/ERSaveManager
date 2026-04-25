@@ -24,6 +24,7 @@ typedef struct praxis_config_s {
     wchar_t hotkey_restore[32];     /* unified restore (full or slot) */
     wchar_t hotkey_undo_restore[32];
     int migration_dismissed;        /* 1 = user cancelled first-launch setup, don't re-prompt */
+    int theme;                      /* Theme mode: 0=System, 1=Light, 2=Dark. Default 0. */
 } praxis_config_t;
 
 extern praxis_config_t praxis_config;
