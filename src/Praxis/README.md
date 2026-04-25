@@ -16,9 +16,8 @@ Praxis is a practice save tool for Elden Ring (and potentially other games) that
 | Action | Default Hotkey |
 |--------|---------------|
 | Backup Full Save | Ctrl+Shift+F5 |
-| Restore Full Save | Ctrl+Shift+F9 |
 | Backup Current Slot | Ctrl+Shift+F6 |
-| Restore Current Slot | Ctrl+Shift+F10 |
+| Restore (auto-detect full or slot) | Ctrl+Shift+F9 |
 | Undo Last Restore | Ctrl+Shift+Z |
 
 ## Tree Storage
@@ -36,3 +35,24 @@ Refer to the root [README.md](../../README.md) for build instructions. Once buil
 ## Backend Interface
 
 Praxis uses a compile-time vtable (`game_backend_t`) defined in `src/Praxis/game_backend.h`. This allows the core logic to remain game-agnostic while specific backends (like `er_backend.c`) handle the details of save file locations and slot manipulation.
+
+## Profiles
+
+Praxis 2.0 introduces a multi-profile system:
+
+- **Game Profiles** — One entry per game/account combination. Each game profile has a name, game type, optional override for the save directory, and a backup root directory.
+- **Backup Profiles** — Subordinate to a game profile. Each backup profile defines a tree root directory and compression level. You can have multiple backup profiles per game (e.g., `Main`, `SpeedrunPractice`, `PvP`).
+
+### Profile Hierarchy
+
+```
+Game Profile: "Elden Ring - Main Account"
+└── Backup Profile: "Main"    → C:\Backups\ER-Main\
+└── Backup Profile: "Route B" → C:\Backups\ER-Main\RouteB\
+```
+
+Profiles are managed via the **Game** menu → **Manage Game Profiles** (for game profiles) or the `+` / `−` buttons on the toolbar (for backup profiles).
+
+## Migration
+
+If you are upgrading from a previous version of Praxis, a one-time migration wizard will automatically launch on first run. It will convert your existing `[Settings].TreeRoot` configuration into a game/backup profile pair, preserving all existing backup files in place.

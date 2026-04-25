@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Praxis: Multi-profile support — game profiles (per-account/version) and backup profiles (per game) via `Praxis.ini` multi-section schema
+- Praxis: Game Profile Manager dialog (modal ListView) for managing game configurations
+- Praxis: Toolbar with backup profile combobox + Backup Full / Backup Slot / Restore / Undo Restore buttons
+- Praxis: Filesystem watcher with auto-refresh (ReadDirectoryChangesW worker thread, 200ms debounce) and selection preservation
+- Praxis: First-launch migration wizard for users upgrading from single-profile `[Settings].TreeRoot` format
+- Praxis: 3 compression levels (none / low / high) per backup profile
+- Praxis: `Praxis.exe --selftest locale-dump`, `watcher-state`, and other new headless QA subcommands
+
+### Changed
+- Praxis: Restore is now a single unified action (auto-detects full vs slot save from backup file header)
+- Praxis: Hotkey count reduced from 5 to 4 — `HOTKEY_RESTORE` replaces `HOTKEY_RESTORE_FULL` + `HOTKEY_RESTORE_SLOT`; unified default: `Ctrl+Shift+F9`
+- Praxis: Cyclic backup (pre-restore snapshot) is explicitly always a full save
+- Praxis: New ring backup files use `.sl2` extension (raw BND4); existing `.ersm` ring files still readable
+
+### Removed
+- Praxis: Backup and Restore main-menu entries (now toolbar buttons)
+- Praxis: File→Refresh menu item (auto-refresh via filesystem watcher)
+
+### Fixed
+- Praxis: Pre-existing `.ersm` extension on raw-BND4 ring snapshots was misleading (new files now use `.sl2`)
+
 ## [1.1.0] - 2026-04-25
 
 ### Added

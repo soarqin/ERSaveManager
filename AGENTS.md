@@ -94,12 +94,24 @@ cmake --build build --config Release
 
 - **Default Hotkeys**:
   - Backup Full Save: `Ctrl+Shift+F5`
-  - Restore Full Save: `Ctrl+Shift+F9`
+  - Restore (auto-detect full or slot): `Ctrl+Shift+F9`
   - Backup Current Slot: `Ctrl+Shift+F6`
-  - Restore Current Slot: `Ctrl+Shift+F10`
   - Undo Last Restore: `Ctrl+Shift+Z`
 - **Ring Backup Location**: `<tree_root>/.praxis_ring/` (hidden directory).
 - **Backend Interface**: Compile-time vtable defined in `src/Praxis/game_backend.h`.
+- **New `--selftest` subcommands** (Phase 2):
+  - `locale-dump` — print all STR_PRAXIS_* string values
+  - `profile-roundtrip <ini>` — write/reload profile store, assert byte-equal
+  - `profile-load <ini>` — dump store contents
+  - `profile-add-game <name> <save_dir> <tree_root> <game_id> <ini>` — create game profile
+  - `profile-add-backup <parent_id> <name> <tree_root> <comp> <ini>` — create backup profile
+  - `profile-list <ini>` — list all profiles
+  - `profile-delete-game <id> <ini>`, `profile-delete-backup <id> <ini>`
+  - `migration-detect <ini>`, `migration-run <ini> ...` — migration logic
+  - `restore-auto-detect <backup>` — classify backup type
+  - `tree-preserve-selection-walkup <root> <sel> <del>` — walk-up selection logic
+  - `watcher-state <root>` — start watcher briefly, verify clean exit
+  - `write-raw-bnd4 <src> <dst>`, `classify <file>` — save format helpers
 
 ---
 
