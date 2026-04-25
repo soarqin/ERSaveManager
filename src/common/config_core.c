@@ -246,6 +246,126 @@ bool config_core_parse_ini(const char *buffer, size_t length, config_core_kv_cal
     return true;
 }
 
+bool config_core_parse_ini_ex(const char *buffer, size_t length,
+                               config_core_section_callback section_cb,
+                               config_core_kv_callback kv_cb,
+                               void *user) {
+    if (buffer == NULL) {
+        return false;
+    }
+
+    const char *p = buffer;
+    const char *end = buffer + length;
+
+    /* Skip UTF-8 BOM if present so the first line parses as expected. */
+    if (length >= 3
+        && (unsigned char)p[0] == 0xEF
+        && (unsigned char)p[1] == 0xBB
+        && (unsigned char)p[2] == 0xBF) {
+        p += 3;
+    }
+
+    while (p < end) {
+        /* Skip leading whitespace so indented lines are still recognised. */
+        while (p < end && (*p == ' ' || *p == '\t')) {
+            p++;
+        }
+
+        /* Locate the end of the current line (before the line terminator). */
+        const char *line_start = p;
+        while (p < end && *p != '\r' && *p != '\n') {
+            p++;
+        }
+        const char *line_end = p;
+
+        /* Consume line-terminator bytes so the next iteration starts cleanly. */
+        while (p < end && (*p == '\r' || *p == '\n')) {
+            p++;
+        }
+
+        size_t line_len = (size_t)(line_end - line_start);
+        if (line_len == 0) {
+            continue;
+        }
+
+        /* Comments: lines starting with ';' or '#'. */
+        if (line_start[0] == ';' || line_start[0] == '#') {
+            continue;
+        }
+
+        /* Section header: [Name] — notify caller for ALL sections. */
+        if (line_start[0] == '[') {
+            const char *close = line_start + 1;
+            while (close < line_end && *close != ']') {
+                close++;
+            }
+            if (close < line_end && section_cb != NULL) {
+                size_t sec_len = (size_t)(close - line_start - 1);
+                char sec_buf[CONFIG_CORE_MAX_KEY];
+                if (sec_len >= sizeof(sec_buf)) {
+                    sec_len = sizeof(sec_buf) - 1;
+                }
+                memcpy(sec_buf, line_start + 1, sec_len);
+                sec_buf[sec_len] = '\0';
+                section_cb(sec_buf, user);
+            }
+            continue;
+        }
+
+        /* Skip key=value lines if no kv callback was provided. */
+        if (kv_cb == NULL) {
+            continue;
+        }
+
+        /* Find the '=' separator. Lines without one are ignored. */
+        const char *eq = line_start;
+        while (eq < line_end && *eq != '=') {
+            eq++;
+        }
+        if (eq >= line_end) {
+            continue;
+        }
+
+        /* Trim trailing whitespace from the key. */
+        const char *key = line_start;
+        size_t key_len = (size_t)(eq - line_start);
+        while (key_len > 0 && (key[key_len - 1] == ' ' || key[key_len - 1] == '\t')) {
+            key_len--;
+        }
+        if (key_len == 0) {
+            continue;
+        }
+
+        /* Trim surrounding whitespace from the value. */
+        const char *val = eq + 1;
+        while (val < line_end && (*val == ' ' || *val == '\t')) {
+            val++;
+        }
+        size_t val_len = (size_t)(line_end - val);
+        while (val_len > 0 && (val[val_len - 1] == ' ' || val[val_len - 1] == '\t')) {
+            val_len--;
+        }
+
+        /* Copy to null-terminated buffers so the callback receives plain C strings. */
+        char key_buf[CONFIG_CORE_MAX_KEY];
+        char val_buf[CONFIG_CORE_MAX_VALUE];
+        if (key_len >= sizeof(key_buf)) {
+            key_len = sizeof(key_buf) - 1;
+        }
+        if (val_len >= sizeof(val_buf)) {
+            val_len = sizeof(val_buf) - 1;
+        }
+        memcpy(key_buf, key, key_len);
+        key_buf[key_len] = '\0';
+        memcpy(val_buf, val, val_len);
+        val_buf[val_len] = '\0';
+
+        kv_cb(key_buf, val_buf, user);
+    }
+
+    return true;
+}
+
 /* ==== Growable buffer ==== */
 
 void config_core_buf_init(config_core_buf_t *b) {

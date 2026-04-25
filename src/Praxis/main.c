@@ -12,6 +12,7 @@
 #include "ring_backup.h"
 #include "restore_safe.h"
 #include "save_tree.h"
+#include "profile_store.h"
 
 #include "ersave.h"
 #include "save_compress.h"
@@ -634,6 +635,66 @@ static int run_selftest(void) {
             if (kind == SAVE_KIND_FULL)        wprintf(L"FULL\n");
             else if (kind == SAVE_KIND_SLOT)   wprintf(L"SLOT\n");
             else                               wprintf(L"UNKNOWN\n");
+            result = 0;
+        }
+    } else if (wcscmp(sub, L"profile-roundtrip") == 0) {
+        if (argc < 4) {
+            result = 2;
+        } else {
+            profile_store_t store;
+            profile_store_init(&store);
+            /* Build a fixed test store to write and reload. */
+            store.games[0].id = 1;
+            lstrcpyW(store.games[0].name, L"TestGame");
+            store.games[0].game_id = GAME_ID_ELDEN_RING;
+            lstrcpyW(store.games[0].tree_root, L"C:\\Test\\Root");
+            store.game_count = 1;
+            store.backups[0].id = 1;
+            store.backups[0].parent_game_id = 1;
+            lstrcpyW(store.backups[0].name, L"Main");
+            lstrcpyW(store.backups[0].tree_root, L"C:\\Test\\Root\\Main");
+            store.backups[0].compression_level = COMP_LEVEL_LOW;
+            store.backup_count = 1;
+            store.active_game_id = 1;
+            store.active_backup_id = 1;
+            store.next_game_id = 2;
+            store.next_backup_id = 2;
+
+            if (!profile_store_save(&store, argv[3])) {
+                st_printf(L"profile-roundtrip: FAIL (save)\n");
+                result = 1;
+            } else {
+                profile_store_t store2;
+                profile_store_init(&store2);
+                if (!profile_store_load(&store2, argv[3])) {
+                    st_printf(L"profile-roundtrip: FAIL (load)\n");
+                    result = 1;
+                } else {
+                    int ok = (int)(store2.game_count == 1)
+                           & (int)(store2.backup_count == 1)
+                           & (lstrcmpW(store2.games[0].name, L"TestGame") == 0 ? 1 : 0)
+                           & (lstrcmpW(store2.backups[0].name, L"Main") == 0 ? 1 : 0)
+                           & (store2.active_game_id == 1 ? 1 : 0)
+                           & (store2.active_backup_id == 1 ? 1 : 0);
+                    result = ok ? 0 : 1;
+                    if (result == 0) {
+                        st_printf(L"profile-roundtrip: ok\n");
+                    } else {
+                        st_printf(L"profile-roundtrip: FAIL (compare)\n");
+                    }
+                }
+            }
+        }
+    } else if (wcscmp(sub, L"profile-load") == 0) {
+        if (argc < 4) {
+            result = 2;
+        } else {
+            profile_store_t store;
+            profile_store_init(&store);
+            profile_store_load(&store, argv[3]);
+            st_printf(L"games=%u backups=%u active_game=%d active_backup=%d\n",
+                      (unsigned)store.game_count, (unsigned)store.backup_count,
+                      store.active_game_id, store.active_backup_id);
             result = 0;
         }
     } else {

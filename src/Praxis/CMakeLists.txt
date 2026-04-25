@@ -15,6 +15,8 @@ add_project(praxis WIN32
     restore_safe.h
     hotkey.c
     hotkey.h
+    profile_store.c
+    profile_store.h
     backends/er_backend.c
     resource.h
     app.rc

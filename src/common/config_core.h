@@ -98,3 +98,29 @@ bool config_core_buf_append(config_core_buf_t *b, const char *fmt, ...);
  * @return true on success; false if the file cannot be created or the write fails.
  */
 bool config_core_buf_write_file(const config_core_buf_t *b, const wchar_t *path);
+
+/**
+ * @brief Callback invoked when a new section header is encountered.
+ * @param section Null-terminated section name (e.g. "Settings", "GameProfile:1").
+ * @param user    Opaque pointer supplied to config_core_parse_ini_ex.
+ */
+typedef void (*config_core_section_callback)(const char *section, void *user);
+
+/**
+ * @brief Extended INI parser supporting multiple sections with section-change notification.
+ * @details Calls section_cb when a [SectionName] header is found (for ALL sections).
+ *          Calls kv_cb for every key=value pair in the current section (for ALL sections).
+ *          Unlike config_core_parse_ini, does NOT restrict to [Settings] only.
+ *          If section_cb is NULL, still parses all sections but only calls kv_cb.
+ *          If kv_cb is NULL, only calls section_cb.
+ * @param buffer     Raw INI bytes.
+ * @param length     Number of bytes in buffer.
+ * @param section_cb Called when a section header is encountered (may be NULL).
+ * @param kv_cb      Called for each key=value pair in any section (may be NULL).
+ * @param user       Opaque pointer forwarded to both callbacks.
+ * @return true on success; false if buffer is NULL.
+ */
+bool config_core_parse_ini_ex(const char *buffer, size_t length,
+                               config_core_section_callback section_cb,
+                               config_core_kv_callback kv_cb,
+                               void *user);
