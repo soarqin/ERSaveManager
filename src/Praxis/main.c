@@ -28,7 +28,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
 #include <wchar.h>
 
 #include <windows.h>
@@ -38,11 +37,15 @@
 #include <uxtheme.h>
 
 /** @brief Global main window handle (set on WM_CREATE). */
-static HWND g_main_window = NULL;
-static save_tree_t *g_save_tree = NULL;
-static save_watcher_t *g_save_watcher = NULL;
-static HWND g_status_bar = NULL;
-static toolbar_t *g_toolbar = NULL;
+typedef struct praxis_app_s {
+    HWND main_window;
+    save_tree_t *save_tree;
+    save_watcher_t *save_watcher;
+    HWND status_bar;
+    toolbar_t *toolbar;
+} praxis_app_t;
+
+static praxis_app_t g_app = {0};
 static profile_store_t g_profile_store;
 
 /** @brief Log file handle opened via --log-file flag (for Gate I testing). */
@@ -106,7 +109,7 @@ static void set_active_status_text(void) {
     const backup_profile_t *bp;
     wchar_t status[256];
 
-    if (!g_status_bar) {
+    if (!g_app.status_bar) {
         return;
     }
 
@@ -119,20 +122,20 @@ static void set_active_status_text(void) {
     }
     if (gp && bp) {
         _snwprintf_s(status, 256, _TRUNCATE, praxis_locale_str(STR_PRAXIS_STATUS_ACTIVE), gp->name, bp->name);
-        SetWindowTextW(g_status_bar, status);
+        SetWindowTextW(g_app.status_bar, status);
         return;
     }
 
-    SetWindowTextW(g_status_bar, praxis_locale_str(STR_PRAXIS_APP_TITLE));
+    SetWindowTextW(g_app.status_bar, praxis_locale_str(STR_PRAXIS_APP_TITLE));
 }
 
 static void apply_active_profile_ui(HWND hwnd) {
     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
     wchar_t backup_root[MAX_PATH];
 
-    if (g_toolbar) {
-        toolbar_set_selected_backup_id(g_toolbar, bp ? bp->id : 0);
-        toolbar_set_actions_enabled(g_toolbar, bp != NULL);
+    if (g_app.toolbar) {
+        toolbar_set_selected_backup_id(g_app.toolbar, bp ? bp->id : 0);
+        toolbar_set_actions_enabled(g_app.toolbar, bp != NULL);
     }
 
     if (bp == NULL ||
@@ -141,14 +144,14 @@ static void apply_active_profile_ui(HWND hwnd) {
         return;
     }
 
-    if (g_save_tree) {
-        save_tree_set_root(g_save_tree, backup_root);
+    if (g_app.save_tree) {
+        save_tree_set_root(g_app.save_tree, backup_root);
     }
 
-    if (g_save_watcher) {
-        save_watcher_change_root(g_save_watcher, backup_root);
+    if (g_app.save_watcher) {
+        save_watcher_change_root(g_app.save_watcher, backup_root);
     } else {
-        g_save_watcher = save_watcher_start(hwnd, backup_root, WM_WATCHER_NOTIFY);
+        g_app.save_watcher = save_watcher_start(hwnd, backup_root, WM_WATCHER_NOTIFY);
     }
 
     set_active_status_text();
@@ -161,42 +164,42 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             CREATESTRUCTW *cs = (CREATESTRUCTW *)lp;
             hotkey_binding_t b;
 
-            g_save_tree = save_tree_create(hwnd, cs->hInstance, IDC_TREE_VIEW);
-            if (!g_save_tree) {
+            g_app.save_tree = save_tree_create(hwnd, cs->hInstance, IDC_TREE_VIEW);
+            if (!g_app.save_tree) {
                 return -1;
             }
 
-            g_toolbar = toolbar_create(hwnd, cs->hInstance);
-            if (g_toolbar) {
+            g_app.toolbar = toolbar_create(hwnd, cs->hInstance);
+            if (g_app.toolbar) {
                 RECT client_rect;
 
                 if (GetClientRect(hwnd, &client_rect)) {
                     int cw = client_rect.right - client_rect.left;
-                    int top_h = toolbar_get_top_height(g_toolbar);
+                    int top_h = toolbar_get_top_height(g_app.toolbar);
                     /* Initial layout — WM_SIZE will refine y_top once the
                      * status bar is also created and measured. */
-                    toolbar_layout_top(g_toolbar, cw);
-                    toolbar_layout_bottom(g_toolbar, cw, top_h);
+                    toolbar_layout_top(g_app.toolbar, cw);
+                    toolbar_layout_bottom(g_app.toolbar, cw, top_h);
                 }
             }
 
-            g_status_bar = CreateWindowExW(0, STATUSCLASSNAMEW, L"",
+            g_app.status_bar = CreateWindowExW(0, STATUSCLASSNAMEW, L"",
                 WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
                 0, 0, 0, 0, hwnd, (HMENU)(uintptr_t)IDC_STATUS_BAR, cs->hInstance, NULL);
-            if (!g_status_bar) {
-                if (g_toolbar) {
-                    toolbar_destroy(g_toolbar);
-                    g_toolbar = NULL;
+            if (!g_app.status_bar) {
+                if (g_app.toolbar) {
+                    toolbar_destroy(g_app.toolbar);
+                    g_app.toolbar = NULL;
                 }
-                save_tree_destroy(g_save_tree);
-                g_save_tree = NULL;
+                save_tree_destroy(g_app.save_tree);
+                g_app.save_tree = NULL;
                 return -1;
             }
 
-            save_tree_set_root(g_save_tree, praxis_config.tree_root);
+            save_tree_set_root(g_app.save_tree, praxis_config.tree_root);
 
-            if (g_save_tree && praxis_config.tree_root[0] != L'\0') {
-                g_save_watcher = save_watcher_start(hwnd, praxis_config.tree_root, WM_WATCHER_NOTIFY);
+            if (g_app.save_tree && praxis_config.tree_root[0] != L'\0') {
+                g_app.save_watcher = save_watcher_start(hwnd, praxis_config.tree_root, WM_WATCHER_NOTIFY);
             }
 
             /* Load profile store and populate toolbar combobox. */
@@ -206,12 +209,12 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 if (config_core_get_app_ini_path(ini, MAX_PATH, L"Praxis.ini")) {
                     profile_store_io_load(&g_profile_store, ini);
                 }
-                if (g_toolbar) toolbar_populate_profiles(g_toolbar, &g_profile_store);
+                if (g_app.toolbar) toolbar_populate_profiles(g_app.toolbar, &g_profile_store);
             }
 
             apply_active_profile_ui(hwnd);
 
-            g_main_window = hwnd;
+            g_app.main_window = hwnd;
             praxis_main_menu_apply_locale_strings(hwnd);
 
             hotkey_init(hwnd);
@@ -231,33 +234,33 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         int client_width = (int)LOWORD(lp);
         int client_height = (int)HIWORD(lp);
 
-        int top_h    = g_toolbar ? toolbar_get_top_height(g_toolbar)    : 0;
-        int bottom_h = g_toolbar ? toolbar_get_bottom_height(g_toolbar) : 0;
+        int top_h    = g_app.toolbar ? toolbar_get_top_height(g_app.toolbar)    : 0;
+        int bottom_h = g_app.toolbar ? toolbar_get_bottom_height(g_app.toolbar) : 0;
 
         /* Top toolbar at y=0 */
-        if (g_toolbar) {
-            toolbar_layout_top(g_toolbar, client_width);
+        if (g_app.toolbar) {
+            toolbar_layout_top(g_app.toolbar, client_width);
         }
 
         /* Status bar at very bottom (auto-positions itself) */
         int status_height = 0;
-        if (g_status_bar) {
-            SendMessageW(g_status_bar, WM_SIZE, wp, lp);  /* let status bar resize itself */
+        if (g_app.status_bar) {
+            SendMessageW(g_app.status_bar, WM_SIZE, wp, lp);  /* let status bar resize itself */
             RECT sr;
-            GetWindowRect(g_status_bar, &sr);
+            GetWindowRect(g_app.status_bar, &sr);
             status_height = sr.bottom - sr.top;
         }
 
         /* Bottom toolbar above status bar */
         int bottom_y = client_height - status_height - bottom_h;
         if (bottom_y < top_h) bottom_y = top_h;
-        if (g_toolbar) {
-            toolbar_layout_bottom(g_toolbar, client_width, bottom_y);
+        if (g_app.toolbar) {
+            toolbar_layout_bottom(g_app.toolbar, client_width, bottom_y);
         }
 
         /* TreeView fills middle: from top_h down to bottom_y */
-        if (g_save_tree) {
-            HWND htree = save_tree_get_hwnd(g_save_tree);
+        if (g_app.save_tree) {
+            HWND htree = save_tree_get_hwnd(g_app.save_tree);
             if (htree) {
                 int tree_h = bottom_y - top_h;
                 if (tree_h < 0) tree_h = 0;
@@ -268,10 +271,10 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     }
 
     case WM_NOTIFY:
-        if (g_save_tree) {
+        if (g_app.save_tree) {
             LRESULT notify_result = 0;
 
-            if (save_tree_handle_notify(g_save_tree, (LPNMHDR)lp, &notify_result)) {
+            if (save_tree_handle_notify(g_app.save_tree, (LPNMHDR)lp, &notify_result)) {
                 return notify_result;
             }
         }
@@ -286,8 +289,8 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     case WM_TIMER:
         if (wp == IDT_REFRESH_DEBOUNCE) {
             KillTimer(hwnd, IDT_REFRESH_DEBOUNCE);
-            if (g_save_tree) {
-                save_tree_refresh_preserve_selection(g_save_tree);
+            if (g_app.save_tree) {
+                save_tree_refresh_preserve_selection(g_app.save_tree);
             }
         }
         return 0;
@@ -298,15 +301,15 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             /* Refresh toolbar and active profile UI after any dynamic menu command.
              * populate_profiles and apply_locale_strings cover both the game-profile
              * and language-change cases; over-calling either is harmless. */
-            if (g_toolbar) {
-                toolbar_populate_profiles(g_toolbar, &g_profile_store);
-                toolbar_apply_locale_strings(g_toolbar);
+            if (g_app.toolbar) {
+                toolbar_populate_profiles(g_app.toolbar, &g_profile_store);
+                toolbar_apply_locale_strings(g_app.toolbar);
             }
             apply_active_profile_ui(hwnd);
             return 0;
         }
         if (HIWORD(wp) == CBN_SELCHANGE && LOWORD(wp) == IDC_PROFILE_COMBO) {
-            int selected_id = toolbar_get_selected_backup_id(g_toolbar);
+            int selected_id = toolbar_get_selected_backup_id(g_app.toolbar);
 
             if (selected_id > 0 && profile_store_set_active_backup(&g_profile_store, selected_id)) {
                 const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
@@ -326,30 +329,30 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 config_core_get_app_ini_path(ini, MAX_PATH, L"Praxis.ini");
                 dialog_game_profile_manager_show(hwnd, &g_profile_store, ini);
                 /* Repopulate toolbar combobox */
-                if (g_toolbar) toolbar_populate_profiles(g_toolbar, &g_profile_store);
+                if (g_app.toolbar) toolbar_populate_profiles(g_app.toolbar, &g_profile_store);
                 apply_active_profile_ui(hwnd);
             }
             return 0;
         case IDC_BTN_BACKUP_FULL:
             {
                 const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
-                praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_save_tree,
+                praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_app.save_tree,
                     bp ? (int)bp->compression_level : (int)COMP_LEVEL_NONE);
             }
             return 0;
         case IDC_BTN_BACKUP_SLOT:
             {
                 const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
-                praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_save_tree,
+                praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree,
                     bp ? (int)bp->compression_level : (int)COMP_LEVEL_NONE);
             }
             return 0;
         case IDC_BTN_RESTORE:
-            praxis_hotkey_action_restore(hwnd, &g_profile_store, g_save_tree);
+            praxis_hotkey_action_restore(hwnd, &g_profile_store, g_app.save_tree);
             return 0;
         case IDC_BTN_UNDO:
-            if (praxis_hotkey_action_undo(hwnd, &g_profile_store) && g_save_tree) {
-                save_tree_refresh(g_save_tree);
+            if (praxis_hotkey_action_undo(hwnd, &g_profile_store) && g_app.save_tree) {
+                save_tree_refresh(g_app.save_tree);
             }
             return 0;
         case IDC_BTN_ADD_BACKUP:
@@ -374,8 +377,8 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 if (new_backup_id != 0) {
                     profile_store_set_active_backup(&g_profile_store, new_backup_id);
                     save_profile_store();
-                    if (g_toolbar) {
-                        toolbar_populate_profiles(g_toolbar, &g_profile_store);
+                    if (g_app.toolbar) {
+                        toolbar_populate_profiles(g_app.toolbar, &g_profile_store);
                     }
                     apply_active_profile_ui(hwnd);
                 }
@@ -383,7 +386,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             return 0;
         case IDC_BTN_DEL_BACKUP:
             {
-                int backup_id = toolbar_get_selected_backup_id(g_toolbar);
+                int backup_id = toolbar_get_selected_backup_id(g_app.toolbar);
                 int response;
 
                 if (backup_id == 0) {
@@ -398,8 +401,8 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
 
                 if (profile_store_delete_backup(&g_profile_store, backup_id)) {
                     save_profile_store();
-                    if (g_toolbar) {
-                        toolbar_populate_profiles(g_toolbar, &g_profile_store);
+                    if (g_app.toolbar) {
+                        toolbar_populate_profiles(g_app.toolbar, &g_profile_store);
                     }
                     apply_active_profile_ui(hwnd);
                 }
@@ -432,23 +435,23 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             case HOTKEY_BACKUP_FULL:
                 {
                     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
-                    praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_save_tree,
+                    praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_app.save_tree,
                         bp ? (int)bp->compression_level : (int)COMP_LEVEL_NONE);
                 }
                 break;
             case HOTKEY_BACKUP_SLOT:
                 {
                     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
-                    praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_save_tree,
+                    praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree,
                         bp ? (int)bp->compression_level : (int)COMP_LEVEL_NONE);
                 }
                 break;
             case HOTKEY_RESTORE:
-                praxis_hotkey_action_restore(hwnd, &g_profile_store, g_save_tree);
+                praxis_hotkey_action_restore(hwnd, &g_profile_store, g_app.save_tree);
                 break;
             case HOTKEY_UNDO_RESTORE:
-                if (praxis_hotkey_action_undo(hwnd, &g_profile_store) && g_save_tree) {
-                    save_tree_refresh(g_save_tree);
+                if (praxis_hotkey_action_undo(hwnd, &g_profile_store) && g_app.save_tree) {
+                    save_tree_refresh(g_app.save_tree);
                 }
                 break;
             }
@@ -477,18 +480,18 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         return 0;
 
     case WM_DESTROY:
-        if (g_save_watcher) {
-            save_watcher_stop(g_save_watcher);
-            g_save_watcher = NULL;
+        if (g_app.save_watcher) {
+            save_watcher_stop(g_app.save_watcher);
+            g_app.save_watcher = NULL;
         }
         KillTimer(hwnd, IDT_REFRESH_DEBOUNCE);
-        if (g_toolbar) {
-            toolbar_destroy(g_toolbar);
-            g_toolbar = NULL;
+        if (g_app.toolbar) {
+            toolbar_destroy(g_app.toolbar);
+            g_app.toolbar = NULL;
         }
-        save_tree_destroy(g_save_tree);
-        g_save_tree = NULL;
-        g_status_bar = NULL;
+        save_tree_destroy(g_app.save_tree);
+        g_app.save_tree = NULL;
+        g_app.status_bar = NULL;
         if (g_log_file != INVALID_HANDLE_VALUE) {
             CloseHandle(g_log_file);
             g_log_file = INVALID_HANDLE_VALUE;
