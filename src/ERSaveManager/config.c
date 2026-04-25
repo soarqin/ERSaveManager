@@ -31,6 +31,7 @@
 #define CONFIG_KEY_WINDOW_WIDTH      "WindowWidth"
 #define CONFIG_KEY_WINDOW_HEIGHT     "WindowHeight"
 #define CONFIG_KEY_COMPRESSION_LEVEL "CompressionLevel"
+#define CONFIG_KEY_THEME             "Theme"
 
 /* Upper bound for each UTF-8 path before conversion. Worst case is 4 bytes per
  * wchar_t for UTF-8, so size the intermediate buffer accordingly. */
@@ -67,6 +68,8 @@ static void on_settings_kv(const char *key, const char *value, void *user) {
         cfg->window_height = config_core_parse_int(value, cfg->window_height);
     } else if (strcmp(key, CONFIG_KEY_COMPRESSION_LEVEL) == 0) {
         cfg->compression_level = config_core_parse_int(value, cfg->compression_level);
+    } else if (strcmp(key, CONFIG_KEY_THEME) == 0) {
+        cfg->theme = config_core_parse_int(value, cfg->theme);
     }
 }
 
@@ -107,6 +110,7 @@ static void write_ini_file(const wchar_t *path) {
     config_core_buf_append(&buf, "%s=%d\r\n", CONFIG_KEY_WINDOW_WIDTH,      config.window_width);
     config_core_buf_append(&buf, "%s=%d\r\n", CONFIG_KEY_WINDOW_HEIGHT,     config.window_height);
     config_core_buf_append(&buf, "%s=%d\r\n", CONFIG_KEY_COMPRESSION_LEVEL, config.compression_level);
+    config_core_buf_append(&buf, "%s=%d\r\n", CONFIG_KEY_THEME,             config.theme);
 
     config_core_buf_write_file(&buf, path);
     config_core_buf_free(&buf);
@@ -160,6 +164,11 @@ void load_config(void) {
     /* Clamp compression_level to the valid 0..9 range. */
     if (config.compression_level < 0 || config.compression_level > 9) {
         config.compression_level = 5;
+    }
+
+    /* Clamp theme to the valid 0..2 range (System/Light/Dark). */
+    if (config.theme < 0 || config.theme > 2) {
+        config.theme = 0;
     }
 
     /* If save path is empty, use the default AppData path. */

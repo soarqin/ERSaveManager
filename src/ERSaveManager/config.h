@@ -28,6 +28,7 @@ typedef struct {
     int window_width;                 /* Window width */
     int window_height;                /* Window height */
     int compression_level;            /* LZMA compression level 0..9; Fast=1, Normal=5, Max=9. Default 5. */
+    int theme;                        /* Theme mode: 0=System, 1=Light, 2=Dark. Default 0. */
 } config_t;
 
 /**
