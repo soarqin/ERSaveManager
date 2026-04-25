@@ -14,6 +14,8 @@
 #include "embedded_face_data.h"
 #include "resource.h"
 #include "save_compress.h"
+#include "theme.h"
+#include "theme_core.h"
 #include <stdint.h>
 #include <wchar.h>
 #include <windows.h>
@@ -365,6 +367,8 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     AppendMenuW(compression_submenu, MF_STRING, IDM_COMPRESSION_NORMAL, locale_str(STR_COMPRESSION_NORMAL));
     AppendMenuW(compression_submenu, MF_STRING, IDM_COMPRESSION_MAX,    locale_str(STR_COMPRESSION_MAX));
     AppendMenuW(options_menu, MF_POPUP, (UINT_PTR)compression_submenu, locale_str(STR_COMPRESSION_LEVEL));
+    /* Theme submenu (System / Light / Dark). */
+    theme_build_submenu(options_menu);
     AppendMenuW(menu_bar, MF_POPUP, (UINT_PTR)options_menu, locale_str(STR_OPTIONS));
     SetMenu(hwnd, menu_bar);
     compression_submenu_handle = compression_submenu;
@@ -388,6 +392,10 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     }
 
     create_embedded_face_data_menu(hwnd);
+
+    /* Apply theme to all controls just created. The dark titlebar etc. is
+     * applied separately on the top-level window. */
+    theme_apply_to_window(hwnd);
 }
 
 /**
@@ -582,6 +590,14 @@ void ui_refresh_language(void) {
         }
         ModifyMenuW(menu_bar, 1, MF_BYPOSITION | MF_POPUP,
             (UINT_PTR)options_menu, locale_str(STR_OPTIONS));
+
+        /* Refresh Theme submenu strings (System/Light/Dark). The submenu is
+         * a child of options_menu at index 1 (after Compression at index 0). */
+        theme_rebuild_submenu_strings();
+        if (options_menu) {
+            ModifyMenuW(options_menu, 1, MF_BYPOSITION | MF_POPUP,
+                (UINT_PTR)GetSubMenu(options_menu, 1), locale_str(STR_THEME));
+        }
         DrawMenuBar(main_window);
     }
 

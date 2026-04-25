@@ -10,6 +10,8 @@
 #include "embedded_face_data.h"
 #include "file_dialog.h"
 #include "resource.h"
+#include "theme.h"
+#include "theme_core.h"
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
@@ -149,6 +151,25 @@ static void list_view_faces_popup_menu(HWND hwnd, WPARAM wparam, LPARAM lparam) 
 /* Face data management modal dialog procedure */
 LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
+        /* Theme: paint dialog body and child controls in dark colors. */
+        case WM_ERASEBKGND:
+            if (theme_core_on_erasebkgnd(hwnd, (HDC)wparam)) {
+                SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, 1);
+                return TRUE;
+            }
+            return FALSE;
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORBTN: {
+            INT_PTR br = theme_core_dlg_ctlcolor((HDC)wparam, msg);
+            if (br) {
+                return br;
+            }
+            return FALSE;
+        }
+
         case WM_INITDIALOG: {
             HMODULE module = GetModuleHandle(NULL);
 
@@ -234,6 +255,9 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             /* Layout ListView and buttons to fit the dialog */
             layout_face_dialog(hwnd);
 
+            /* Apply theme to the dialog and all its controls. */
+            theme_apply_to_window(hwnd);
+
             return TRUE;
         }
 
@@ -246,6 +270,11 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         case WM_NOTIFY: {
             NMHDR *nmhdr = (NMHDR *)lparam;
+            if (nmhdr->hwndFrom == list_view_faces && nmhdr->code == NM_CUSTOMDRAW) {
+                LRESULT r = theme_core_on_listview_customdraw((LPNMLVCUSTOMDRAW)lparam);
+                SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, r);
+                return TRUE;
+            }
             if (nmhdr->hwndFrom == list_view_faces && nmhdr->code == LVN_ITEMCHANGED) {
                 update_face_buttons();
             }

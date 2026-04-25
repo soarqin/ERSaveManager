@@ -4,6 +4,8 @@
 #include "config.h"
 #include "ersave.h"
 #include "locale.h"
+#include "theme.h"
+#include "theme_core.h"
 
 #include "embedded_face_data.h"
 #include "face_dialog.h"
@@ -451,6 +453,24 @@ static void export_char_data(HWND hwnd, int item) {
 
 static LRESULT CALLBACK rename_char_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
+        /* Theme: paint dialog body and child controls in dark colors. */
+        case WM_ERASEBKGND:
+            if (theme_core_on_erasebkgnd(hwnd, (HDC)wparam)) {
+                SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, 1);
+                return TRUE;
+            }
+            return FALSE;
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORBTN: {
+            INT_PTR br = theme_core_dlg_ctlcolor((HDC)wparam, msg);
+            if (br) {
+                return br;
+            }
+            return FALSE;
+        }
+
         case WM_INITDIALOG:
             SetWindowTextW(hwnd, locale_str(STR_RENAME_CHARACTER));
             SetWindowTextW(GetDlgItem(hwnd, IDC_STATIC_CHARACTER_NAME), locale_str(STR_ENTER_NEW_NAME));
@@ -458,6 +478,7 @@ static LRESULT CALLBACK rename_char_data_dialog_proc(HWND hwnd, UINT msg, WPARAM
             SetWindowTextW(GetDlgItem(hwnd, IDOK), locale_str(STR_CONFIRM));
             SetWindowTextW(GetDlgItem(hwnd, IDCANCEL), locale_str(STR_CANCEL));
             Edit_LimitText(GetDlgItem(hwnd, IDC_EDIT_CHARACTER_NAME), 16);
+            theme_apply_to_window(hwnd);
             return TRUE;
         case WM_COMMAND:
             switch (LOWORD(wparam)) {
@@ -547,16 +568,78 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
             /* Create all controls */
             ui_create_controls(hwnd, module);
 
+            /* Apply theme to top-level window (dark titlebar, etc.) */
+            theme_core_apply_to_window(hwnd);
+
             return 0;
         }
 
+        /* Theme: dark backgrounds for all child controls. Falls through to
+         * legacy light handler when dark mode is inactive. */
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORBTN:
         case WM_CTLCOLORSTATIC: {
-            HDC hdc_static = (HDC)wparam;
-            SetBkMode(hdc_static, OPAQUE);
-            SetBkColor(hdc_static, GetSysColor(COLOR_WINDOW));
-            SetTextColor(hdc_static, GetSysColor(COLOR_WINDOWTEXT));
-            return (LRESULT)GetStockObject(WHITE_BRUSH);
+            HBRUSH br = theme_core_on_ctlcolor((HDC)wparam, msg);
+            if (br) {
+                return (LRESULT)br;
+            }
+            /* Legacy light path for STATIC controls (preserves prior look). */
+            if (msg == WM_CTLCOLORSTATIC) {
+                HDC hdc_static = (HDC)wparam;
+                SetBkMode(hdc_static, OPAQUE);
+                SetBkColor(hdc_static, GetSysColor(COLOR_WINDOW));
+                SetTextColor(hdc_static, GetSysColor(COLOR_WINDOWTEXT));
+                return (LRESULT)GetStockObject(WHITE_BRUSH);
+            }
+            break;
         }
+
+        /* Theme: paint window client background with dark brush in dark mode. */
+        case WM_ERASEBKGND:
+            if (theme_core_on_erasebkgnd(hwnd, (HDC)wparam)) {
+                return 1;
+            }
+            break;
+
+        /* UAH menu bar dark painting (Win10 1809+). Notepad++ pattern with
+         * DrawThemeTextEx. We DO NOT intercept WM_UAHMEASUREMENUITEM:
+         * DefWindowProcW must run for that message so menu items get correct
+         * widths/heights. Intercepting it without writing valid sizes produces
+         * zero-sized items (the menu visually disappears). */
+        case WM_UAHDRAWMENU:
+            if (theme_core_on_uah_drawmenu(hwnd, lparam)) {
+                return 0;
+            }
+            break;
+        case WM_UAHDRAWMENUITEM:
+            if (theme_core_on_uah_drawmenuitem(hwnd, lparam)) {
+                return 0;
+            }
+            break;
+
+        /* Paint over the 1px light separator under the menu bar after
+         * non-client paint. theme_core_paint_uah_menu_underline is a no-op
+         * in light mode. */
+        case WM_NCACTIVATE: {
+            LRESULT r = DefWindowProcW(hwnd, msg, wparam, lparam);
+            theme_core_paint_uah_menu_underline(hwnd);
+            return r;
+        }
+
+        /* React to system theme changes when in System mode. */
+        case WM_SETTINGCHANGE: {
+            if (theme_core_on_setting_change(lparam)) {
+                theme_core_apply_to_window_and_children(hwnd);
+            }
+            break;
+        }
+
+        case WM_THEMECHANGED:
+            /* User toggled visual styles - re-apply our theme. */
+            theme_core_apply_to_window_and_children(hwnd);
+            break;
 
         case WM_SIZE: {
             on_window_resize(hwnd, wparam, lparam);
@@ -565,6 +648,10 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
         case WM_NOTIFY: {
             NMHDR *nmhdr = (NMHDR *)lparam;
+            /* Dark theme custom-draw for the characters ListView. */
+            if (nmhdr->hwndFrom == list_view_chars && nmhdr->code == NM_CUSTOMDRAW) {
+                return theme_core_on_listview_customdraw((LPNMLVCUSTOMDRAW)lparam);
+            }
             if (nmhdr->hwndFrom == list_view_chars && nmhdr->code == LVN_ITEMCHANGED) {
                 NMLISTVIEW *nmlv = (NMLISTVIEW *)lparam;
                 if (nmlv->uChanged & LVIF_STATE) {
@@ -649,6 +736,8 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                         on_menu_change_language(id - IDM_LOCALE_START);
                     } else if (id == IDM_COMPRESSION_FAST || id == IDM_COMPRESSION_NORMAL || id == IDM_COMPRESSION_MAX) {
                         on_menu_change_compression(id);
+                    } else if (theme_is_menu_command(id)) {
+                        theme_handle_menu_command(id);
                     }
                     break;
                 }
@@ -660,7 +749,8 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
             /* Save configuration before exiting */
             save_config();
             DestroyMenu(embedded_face_data_menu);
-            ui_cleanup();  /* Release shared UI resources */
+            ui_cleanup();   /* Release shared UI resources */
+            theme_cleanup();
             PostQuitMessage(0);
             return 0;
     }
@@ -675,6 +765,8 @@ static HWND create_window(HINSTANCE instance, int cmd_show) {
     wc.lpfnWndProc = wnd_proc;
     wc.hInstance = instance;
     wc.hCursor = LoadCursorW(NULL, IDC_ARROW);
+    /* Class brush is used in light mode; dark mode is handled by the
+     * WM_ERASEBKGND override in wnd_proc. */
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = MAIN_WINDOW_CLASS;
     wc.hIcon = LoadIconW(instance, MAKEINTRESOURCEW(IDI_APP_ICON));
@@ -1246,6 +1338,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
 
     /* Load configuration */
     load_config();
+
+    /* Initialize theme system from loaded config (must precede window creation
+     * so the dark titlebar attribute is applied on first paint). */
+    theme_init_from_config();
 
     /* Initialize LZMA SDK */
     save_compress_init();
