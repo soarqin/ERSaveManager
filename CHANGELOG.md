@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **Note:** Hotkey configuration migration is not provided; software was never released,
+> so all users start with default hotkeys.
+
 ### Added
 - Praxis: Multi-profile support — game profiles (per-account/version) and backup profiles (per game) via `Praxis.ini` multi-section schema
 - Praxis: Game Profile Manager dialog (modal ListView) for managing game configurations
@@ -15,14 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Praxis: First-launch migration wizard for users upgrading from single-profile `[Settings].TreeRoot` format
 - Praxis: 3 compression levels (none / low / high) per backup profile
 - Praxis: `Praxis.exe --selftest locale-dump`, `watcher-state`, and other new headless QA subcommands
+- Praxis: New `--selftest` subcommands: `config-load`, `hotkey-defaults`, `backend-vtable-shape`, `profile-resolve-active`, `watcher-debounce-timing`
 
-### Changed
+### Changed (BREAKING)
+- Praxis: `restore_with_safety()` renamed to `restore_safe_full()`
+- Praxis: `restore_with_safety_auto()` renamed to `restore_safe_auto()`
+- Praxis: `undo_last_restore()` renamed to `restore_safe_undo()`
+- Praxis: `show_hotkey_settings()` renamed to `dialog_hotkey_settings_show()`
+- Praxis: `show_game_profile_manager()` renamed to `dialog_game_profile_manager_show()`
+- Praxis: `edit_game_profile()` renamed to `dialog_edit_game_profile_show()`
+- Praxis: `edit_backup_profile()` renamed to `dialog_edit_backup_profile_show()`
 - Praxis: Restore is now a single unified action (auto-detects full vs slot save from backup file header)
 - Praxis: Hotkey count reduced from 5 to 4 — `HOTKEY_RESTORE` replaces `HOTKEY_RESTORE_FULL` + `HOTKEY_RESTORE_SLOT`; unified default: `Ctrl+Shift+F9`
 - Praxis: Cyclic backup (pre-restore snapshot) is explicitly always a full save
 - Praxis: New ring backup files use `.sl2` extension (raw BND4); existing `.ersm` ring files still readable
 
-### Removed
+### Removed (BREAKING)
+- Praxis: Legacy INI migration logic (to be removed in T9)
+- Praxis: 7-argument `restore_with_safety` signature (to be replaced with struct in T15)
 - Praxis: Backup and Restore main-menu entries (now toolbar buttons)
 - Praxis: File→Refresh menu item (auto-refresh via filesystem watcher)
 
