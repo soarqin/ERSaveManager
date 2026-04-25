@@ -71,6 +71,7 @@ typedef enum praxis_string_index_e {
     STR_PRAXIS_CONFIRM_DELETE_BACKUP,
     STR_PRAXIS_NO_PROFILE_HINT,
     STR_PRAXIS_STATUS_ACTIVE,
+    STR_PRAXIS_SHOW_IN_EXPLORER,
     STR_PRAXIS_MAX
 } praxis_string_index_t;
 

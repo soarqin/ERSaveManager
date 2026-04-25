@@ -19,13 +19,15 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include <shellapi.h>
+#include <shlobj.h>      /* SHParseDisplayName, SHOpenFolderAndSelectItems */
 #include <shlwapi.h>
 
 #define SAVE_TREE_MAX_DEPTH 16
 #define SAVE_TREE_MAX_EXPANDED_PATHS 256
-#define ID_SAVE_TREE_NEW_FOLDER 50001
-#define ID_SAVE_TREE_RENAME 50002
-#define ID_SAVE_TREE_DELETE 50003
+#define ID_SAVE_TREE_NEW_FOLDER       50001
+#define ID_SAVE_TREE_RENAME           50002
+#define ID_SAVE_TREE_DELETE           50003
+#define ID_SAVE_TREE_SHOW_IN_EXPLORER 50004
 
 typedef struct save_item_s {
     wchar_t relative_path[MAX_PATH]; /* Relative to tree root */
@@ -47,7 +49,101 @@ struct save_tree_s {
     bool dragging;
     HTREEITEM drag_src;
     HIMAGELIST drag_image;
+    /* System icon indices for cached lookups (resolved lazily). */
+    int folder_icon_idx;        /* Cached generic folder icon index, -1 if unresolved */
 };
+
+/* Forward declaration: refresh body without redraw bracketing.
+ * Public save_tree_refresh() / save_tree_refresh_preserve_selection() handle
+ * the WM_SETREDRAW envelope themselves to suppress flicker across the entire
+ * rebuild + reselect + reexpand sequence. */
+static void save_tree_refresh_inner(save_tree_t *t);
+
+/* Get the shared system small-icon image list. The shell owns this image
+ * list — we must NOT destroy it. */
+static HIMAGELIST save_tree_get_system_image_list(void) {
+    SHFILEINFOW sfi;
+
+    ZeroMemory(&sfi, sizeof(sfi));
+    return (HIMAGELIST)SHGetFileInfoW(L"C:\\", 0, &sfi, sizeof(sfi),
+        SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
+}
+
+/* Resolve the system icon index for a given file/directory name.
+ *  - For directories, pass FILE_ATTRIBUTE_DIRECTORY (name does not need to exist on disk).
+ *  - For files, pass FILE_ATTRIBUTE_NORMAL; the shell picks the icon by extension.
+ * Uses SHGFI_USEFILEATTRIBUTES so we don't actually touch the filesystem. */
+static int save_tree_resolve_icon_index(const wchar_t *name, bool is_directory) {
+    SHFILEINFOW sfi;
+    DWORD attrs = is_directory ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
+    DWORD flags = SHGFI_SYSICONINDEX | SHGFI_USEFILEATTRIBUTES | SHGFI_SMALLICON;
+    const wchar_t *probe = (name && name[0] != L'\0') ? name : (is_directory ? L"folder" : L"file");
+
+    ZeroMemory(&sfi, sizeof(sfi));
+    if (!SHGetFileInfoW(probe, attrs, &sfi, sizeof(sfi), flags)) {
+        return -1;
+    }
+    return sfi.iIcon;
+}
+
+/* Open the user's file manager at @p full_path and highlight the item.
+ *  - For files / non-root directories, uses SHOpenFolderAndSelectItems to
+ *    open the parent folder with the target highlighted (Windows Explorer
+ *    "Reveal in Folder" behavior).
+ *  - For the tree root itself (selecting it has no logical parent within
+ *    Praxis), simply opens the folder via ShellExecute. The caller decides
+ *    which mode by passing @p select_in_parent.
+ * Returns true on apparent success. Failures are silent (best-effort UX). */
+static bool save_tree_reveal_in_explorer(const wchar_t *full_path, bool select_in_parent) {
+    if (!full_path || full_path[0] == L'\0') {
+        return false;
+    }
+
+    if (!select_in_parent) {
+        HINSTANCE rv = ShellExecuteW(NULL, L"open", full_path, NULL, NULL, SW_SHOWNORMAL);
+        return (INT_PTR)rv > 32;
+    }
+
+    PIDLIST_ABSOLUTE pidl = NULL;
+    HRESULT hr = SHParseDisplayName(full_path, NULL, &pidl, 0, NULL);
+    if (FAILED(hr) || !pidl) {
+        /* Fallback: explorer.exe /select,"<path>" — works even when COM /
+         * the desktop folder PIDL parsing path fails for some reason. */
+        wchar_t args[MAX_PATH + 16];
+        HINSTANCE rv;
+
+        _snwprintf(args, MAX_PATH + 16, L"/select,\"%ls\"", full_path);
+        args[MAX_PATH + 15] = L'\0';
+        rv = ShellExecuteW(NULL, L"open", L"explorer.exe", args, NULL, SW_SHOWNORMAL);
+        return (INT_PTR)rv > 32;
+    }
+
+    hr = SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
+    /* Cast through void* to drop the __unaligned qualifier on PIDLIST_ABSOLUTE
+     * (x64 only) and silence -Wincompatible-pointer-types-discards-qualifiers. */
+    CoTaskMemFree((void *)pidl);
+    return SUCCEEDED(hr);
+}
+
+/* Compute the visual display name for a tree item.
+ *  - For directories: identical to leaf name.
+ *  - For files: leaf name with extension stripped. We display ext-less names
+ *    for a friendlier UX; the actual filename on disk keeps its extension and
+ *    is used for all I/O via items[i].relative_path. */
+static void save_tree_make_display_name(const wchar_t *leaf, bool is_directory,
+    wchar_t *out, size_t out_chars) {
+    if (!out || out_chars == 0) {
+        return;
+    }
+    if (!leaf) {
+        out[0] = L'\0';
+        return;
+    }
+    lstrcpynW(out, leaf, (int)out_chars);
+    if (!is_directory) {
+        PathRemoveExtensionW(out);
+    }
+}
 
 static bool ensure_capacity(save_tree_t *t) {
     if (!t) {
@@ -415,10 +511,12 @@ static void walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *rel
     for (size_t i = 0; i < entry_count; i++) {
         wchar_t rel_path[MAX_PATH];
         wchar_t full_path[MAX_PATH];
+        wchar_t display_name[MAX_PATH];
         bool is_dir = (entries[i].attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
         HTREEITEM inserted = NULL;
         size_t index;
         TVINSERTSTRUCTW insert = {0};
+        int icon_idx;
 
         if (rel_prefix[0] != L'\0') {
             lstrcpyW(rel_path, rel_prefix);
@@ -438,12 +536,17 @@ static void walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *rel
             break;
         }
 
+        save_tree_make_display_name(entries[i].name, is_dir, display_name, MAX_PATH);
+        icon_idx = save_tree_resolve_icon_index(entries[i].name, is_dir);
+
         if (t->hwnd) {
             insert.hParent = parent_item;
             insert.hInsertAfter = TVI_LAST;
-            insert.item.mask = TVIF_TEXT | TVIF_PARAM;
-            insert.item.pszText = entries[i].name;
+            insert.item.mask = TVIF_TEXT | TVIF_PARAM | TVIF_IMAGE | TVIF_SELECTEDIMAGE;
+            insert.item.pszText = display_name;
             insert.item.lParam = (LPARAM)(uintptr_t)index;
+            insert.item.iImage = icon_idx;
+            insert.item.iSelectedImage = icon_idx;
             inserted = TreeView_InsertItem(t->hwnd, &insert);
         }
 
@@ -521,7 +624,11 @@ save_tree_t *save_tree_create(HWND parent, HINSTANCE hinst, int id) {
         return NULL;
     }
 
+    t->folder_icon_idx = -1;
+
     if (parent) {
+        HIMAGELIST sys_imgl;
+
         t->hwnd = CreateWindowExW(0, WC_TREEVIEWW,
             L"", WS_CHILD | WS_VISIBLE | WS_BORDER |
             TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT |
@@ -532,6 +639,15 @@ save_tree_t *save_tree_create(HWND parent, HINSTANCE hinst, int id) {
             return NULL;
         }
         SetWindowSubclass(t->hwnd, save_tree_subclass_proc, 1, (DWORD_PTR)t);
+
+        /* Borrow the shell's small system image list so files/folders show
+         * their natural icons. The shell owns the image list — we never
+         * destroy it. */
+        sys_imgl = save_tree_get_system_image_list();
+        if (sys_imgl) {
+            TreeView_SetImageList(t->hwnd, sys_imgl, TVSIL_NORMAL);
+        }
+        t->folder_icon_idx = save_tree_resolve_icon_index(L"folder", true);
     }
 
     t->item_capacity = 64;
@@ -572,7 +688,9 @@ bool save_tree_set_root(save_tree_t *t, const wchar_t *root_path) {
     return true;
 }
 
-void save_tree_refresh(save_tree_t *t) {
+/* Inner refresh: rebuild items[] and TreeView nodes WITHOUT touching the
+ * WM_SETREDRAW state. Public refresh wrappers handle the redraw envelope. */
+static void save_tree_refresh_inner(save_tree_t *t) {
     const wchar_t *root_name;
     HTREEITEM wrapper_hitem = TVI_ROOT;
     size_t wrapper_index;
@@ -604,12 +722,17 @@ void save_tree_refresh(save_tree_t *t) {
 
     if (t->hwnd) {
         TVINSERTSTRUCTW insert = {0};
+        int folder_icon = (t->folder_icon_idx >= 0)
+            ? t->folder_icon_idx
+            : save_tree_resolve_icon_index(L"folder", true);
 
         insert.hParent = TVI_ROOT;
         insert.hInsertAfter = TVI_LAST;
-        insert.item.mask = TVIF_TEXT | TVIF_PARAM;
+        insert.item.mask = TVIF_TEXT | TVIF_PARAM | TVIF_IMAGE | TVIF_SELECTEDIMAGE;
         insert.item.pszText = (PWSTR)root_name;
         insert.item.lParam = (LPARAM)(uintptr_t)wrapper_index;
+        insert.item.iImage = folder_icon;
+        insert.item.iSelectedImage = folder_icon;
         wrapper_hitem = TreeView_InsertItem(t->hwnd, &insert);
     }
 
@@ -617,6 +740,27 @@ void save_tree_refresh(save_tree_t *t) {
 
     if (t->hwnd && wrapper_hitem) {
         TreeView_Expand(t->hwnd, wrapper_hitem, TVE_EXPAND);
+    }
+}
+
+void save_tree_refresh(save_tree_t *t) {
+    if (!t) {
+        return;
+    }
+
+    /* Anti-flicker: suppress redraw while the items[] array and TreeView
+     * nodes are torn down and rebuilt. Re-enable redraw and force a single
+     * invalidate at the end so the user sees only the final, complete state. */
+    if (t->hwnd) {
+        SendMessageW(t->hwnd, WM_SETREDRAW, FALSE, 0);
+    }
+
+    save_tree_refresh_inner(t);
+
+    if (t->hwnd) {
+        SendMessageW(t->hwnd, WM_SETREDRAW, TRUE, 0);
+        RedrawWindow(t->hwnd, NULL, NULL,
+            RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
     }
 }
 
@@ -634,7 +778,12 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
         end_drag(t);
     }
 
+    /* Anti-flicker: bracket the entire capture/refresh/restore sequence in
+     * a single WM_SETREDRAW=FALSE..TRUE window so the user only sees the
+     * final state. */
     if (t->hwnd) {
+        SendMessageW(t->hwnd, WM_SETREDRAW, FALSE, 0);
+
         HTREEITEM selection = TreeView_GetSelection(t->hwnd);
         save_item_t item;
 
@@ -653,7 +802,7 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
         }
     }
 
-    save_tree_refresh(t);
+    save_tree_refresh_inner(t);
 
     if (!t->hwnd) {
         if (expanded_paths) {
@@ -691,6 +840,9 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
         if (root) {
             TreeView_SelectItem(t->hwnd, root);
         }
+        SendMessageW(t->hwnd, WM_SETREDRAW, TRUE, 0);
+        RedrawWindow(t->hwnd, NULL, NULL,
+            RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
         return;
     }
 
@@ -703,6 +855,9 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
             if (found) {
                 TreeView_SelectItem(t->hwnd, found);
             }
+            SendMessageW(t->hwnd, WM_SETREDRAW, TRUE, 0);
+            RedrawWindow(t->hwnd, NULL, NULL,
+                RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
             return;
         }
 
@@ -726,6 +881,10 @@ void save_tree_refresh_preserve_selection(save_tree_t *t) {
             TreeView_SelectItem(t->hwnd, root);
         }
     }
+
+    SendMessageW(t->hwnd, WM_SETREDRAW, TRUE, 0);
+    RedrawWindow(t->hwnd, NULL, NULL,
+        RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 
 bool save_tree_get_selected_path(const save_tree_t *t, wchar_t *out, size_t out_chars) {
@@ -845,6 +1004,8 @@ bool save_tree_rename(save_tree_t *t, const wchar_t *old_relpath, const wchar_t 
     wchar_t old_full[MAX_PATH];
     wchar_t parent_full[MAX_PATH];
     wchar_t new_full[MAX_PATH];
+    wchar_t parent_relpath[MAX_PATH];
+    wchar_t new_relpath[MAX_PATH];
     const wchar_t *old_leaf;
 
     if (!t || !old_relpath || !new_name || !is_valid_name(new_name)) {
@@ -874,7 +1035,38 @@ bool save_tree_rename(save_tree_t *t, const wchar_t *old_relpath, const wchar_t 
         return false;
     }
 
+    /* Compute the new relative path so we can re-select the renamed node
+     * after the tree is rebuilt. The file watcher debounce will see this
+     * selection and preserve it via the exact-match walk-up path. */
+    new_relpath[0] = L'\0';
+    if (get_parent_relpath(old_relpath, parent_relpath, MAX_PATH)) {
+        if (parent_relpath[0] != L'\0') {
+            lstrcpynW(new_relpath, parent_relpath, MAX_PATH);
+            if (!PathAppendW(new_relpath, new_name)) {
+                new_relpath[0] = L'\0';
+            }
+        } else {
+            lstrcpynW(new_relpath, new_name, MAX_PATH);
+        }
+    }
+
     save_tree_refresh(t);
+
+    /* Re-select the renamed node. Without this the previous selection is
+     * lost and the watcher's later refresh_preserve_selection falls back
+     * to the parent (or root) via walk-up. */
+    if (t->hwnd && new_relpath[0] != L'\0') {
+        size_t idx;
+        if (find_item_index_by_relpath(t, new_relpath, &idx)) {
+            HTREEITEM hitem = find_hitem_by_lparam(t->hwnd,
+                TreeView_GetRoot(t->hwnd), (LPARAM)(uintptr_t)idx);
+            if (hitem) {
+                TreeView_SelectItem(t->hwnd, hitem);
+                TreeView_EnsureVisible(t->hwnd, hitem);
+            }
+        }
+    }
+
     return true;
 }
 
@@ -974,10 +1166,40 @@ bool save_tree_handle_notify(save_tree_t *t, LPNMHDR pnm, LRESULT *out_result) {
     switch (pnm->code) {
     case TVN_BEGINLABELEDITW:
     case TVN_BEGINLABELEDITA:
-        if (out_result) {
-            *out_result = FALSE;
+        {
+            /* Disallow editing the wrapper root (empty relative_path). For
+             * everything else, replace the in-place edit control's text with
+             * the leaf-name-without-extension so users edit just the base
+             * name. The extension is re-appended in TVN_ENDLABELEDIT. */
+            NMTVDISPINFOW *info = (NMTVDISPINFOW *)pnm;
+            save_item_t item;
+
+            if (!info->item.hItem || !get_item_info(t, info->item.hItem, NULL, &item)
+                || item.relative_path[0] == L'\0') {
+                if (out_result) {
+                    *out_result = TRUE;  /* TRUE cancels the edit */
+                }
+                return true;
+            }
+
+            if (!item.is_directory) {
+                HWND edit = TreeView_GetEditControl(t->hwnd);
+                if (edit) {
+                    wchar_t base[MAX_PATH];
+                    const wchar_t *leaf = PathFindFileNameW(item.relative_path);
+
+                    save_tree_make_display_name(leaf, false, base, MAX_PATH);
+                    SetWindowTextW(edit, base);
+                    /* Select all so typing replaces the whole base name. */
+                    SendMessageW(edit, EM_SETSEL, 0, (LPARAM)-1);
+                }
+            }
+
+            if (out_result) {
+                *out_result = FALSE;  /* FALSE allows the edit to proceed */
+            }
+            return true;
         }
-        return true;
 
     case TVN_ENDLABELEDITW:
     case TVN_ENDLABELEDITA:
@@ -987,10 +1209,68 @@ bool save_tree_handle_notify(save_tree_t *t, LPNMHDR pnm, LRESULT *out_result) {
             bool ok = false;
 
             if (info->item.pszText && get_item_info(t, info->item.hItem, NULL, &item)) {
-                ok = save_tree_rename(t, item.relative_path, info->item.pszText);
+                wchar_t new_name[MAX_PATH];
+
+                if (item.is_directory) {
+                    lstrcpynW(new_name, info->item.pszText, MAX_PATH);
+                } else {
+                    /* Re-append the original file extension so the on-disk
+                     * filename keeps its type. If the user typed an extension
+                     * matching the original (case-insensitive), don't double
+                     * it up. */
+                    const wchar_t *old_leaf = PathFindFileNameW(item.relative_path);
+                    const wchar_t *old_ext = old_leaf ? PathFindExtensionW(old_leaf) : L"";
+                    const wchar_t *user_ext;
+
+                    lstrcpynW(new_name, info->item.pszText, MAX_PATH);
+                    user_ext = PathFindExtensionW(new_name);
+                    if (old_ext && old_ext[0] != L'\0'
+                        && lstrcmpiW(user_ext, old_ext) != 0) {
+                        size_t cur_len = (size_t)lstrlenW(new_name);
+                        size_t ext_len = (size_t)lstrlenW(old_ext);
+                        if (cur_len + ext_len + 1 <= MAX_PATH) {
+                            lstrcatW(new_name, old_ext);
+                        }
+                    }
+                }
+
+                ok = save_tree_rename(t, item.relative_path, new_name);
             }
             if (out_result) {
-                *out_result = ok ? TRUE : FALSE;
+                /* Return FALSE: regardless of rename outcome, save_tree_rename
+                 * has already triggered a full refresh that supplies the
+                 * correct display text. Returning TRUE would let TreeView
+                 * overwrite our refreshed label with the user's raw input
+                 * (which lacks the extension we just stripped on display). */
+                *out_result = FALSE;
+            }
+            return true;
+        }
+
+    case TVN_KEYDOWN:
+        {
+            /* Built-in keyboard shortcuts:
+             *   F2  -> begin in-place rename of selection
+             *   Del -> delete the selection (Recycle Bin) */
+            NMTVKEYDOWN *kd = (NMTVKEYDOWN *)pnm;
+            HTREEITEM sel = TreeView_GetSelection(t->hwnd);
+            save_item_t item;
+            bool have_item = sel && get_item_info(t, sel, NULL, &item);
+
+            switch (kd->wVKey) {
+            case VK_F2:
+                if (have_item && item.relative_path[0] != L'\0') {
+                    TreeView_EditLabel(t->hwnd, sel);
+                }
+                break;
+            case VK_DELETE:
+                if (have_item && item.relative_path[0] != L'\0') {
+                    save_tree_delete(t, item.relative_path);
+                }
+                break;
+            }
+            if (out_result) {
+                *out_result = 0;
             }
             return true;
         }
@@ -1041,6 +1321,9 @@ bool save_tree_handle_notify(save_tree_t *t, LPNMHDR pnm, LRESULT *out_result) {
             AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_NEW_FOLDER, praxis_locale_str(STR_PRAXIS_NEW_FOLDER));
             AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_RENAME, praxis_locale_str(STR_PRAXIS_RENAME));
             AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_DELETE, praxis_locale_str(STR_PRAXIS_DELETE));
+            AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
+            AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_SHOW_IN_EXPLORER,
+                praxis_locale_str(STR_PRAXIS_SHOW_IN_EXPLORER));
 
             cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, screen_pt.x, screen_pt.y, 0,
                 GetParent(t->hwnd), NULL);
@@ -1068,6 +1351,24 @@ bool save_tree_handle_notify(save_tree_t *t, LPNMHDR pnm, LRESULT *out_result) {
             case ID_SAVE_TREE_DELETE:
                 if (hit.hItem && get_item_info(t, hit.hItem, NULL, &item)) {
                     save_tree_delete(t, item.relative_path);
+                }
+                break;
+
+            case ID_SAVE_TREE_SHOW_IN_EXPLORER:
+                {
+                    /* Wrapper root or empty space -> open the tree root.
+                     * Anything else -> open the parent folder with the
+                     * item highlighted. */
+                    wchar_t full[MAX_PATH];
+                    bool have_item = hit.hItem
+                        && get_item_info(t, hit.hItem, NULL, &item)
+                        && item.relative_path[0] != L'\0';
+
+                    if (have_item && build_full_path(t, item.relative_path, full, MAX_PATH)) {
+                        save_tree_reveal_in_explorer(full, true);
+                    } else if (t->root_path[0] != L'\0') {
+                        save_tree_reveal_in_explorer(t->root_path, false);
+                    }
                 }
                 break;
             }

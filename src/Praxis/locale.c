@@ -87,6 +87,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?",          /* STR_PRAXIS_CONFIRM_DELETE_BACKUP */
         L"No profile selected. Use + to add a backup profile.", /* STR_PRAXIS_NO_PROFILE_HINT */
         L"Active: %s / %s",                      /* STR_PRAXIS_STATUS_ACTIVE */
+        L"Show in File Explorer",                /* STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 1: Français (placeholder: English) */
     {
@@ -151,6 +152,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 2: Deutsch (placeholder: English) */
     {
@@ -215,6 +217,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 3: Italiano (placeholder: English) */
     {
@@ -279,6 +282,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 4: Español (placeholder: English) */
     {
@@ -343,6 +347,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 5: Português (placeholder: English) */
     {
@@ -407,6 +412,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 6: Русский (placeholder: English) */
     {
@@ -471,6 +477,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 7: 日本語 (placeholder: English) */
     {
@@ -535,6 +542,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 8: 한국어 (placeholder: English) */
     {
@@ -599,6 +607,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"Show in File Explorer", /* TODO: translate — STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 9: 简体中文 (placeholder: English) */
     {
@@ -663,6 +672,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"在文件浏览器中显示",     /* STR_PRAXIS_SHOW_IN_EXPLORER */
     },
     /* TODO: translate — 10: 繁體中文 (placeholder: English) */
     {
@@ -727,6 +737,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Delete this backup profile?", /* TODO: translate */
         L"No profile selected. Use + to add a backup profile.", /* TODO: translate */
         L"Active: %s / %s", /* TODO: translate */
+        L"在檔案總管中顯示",       /* STR_PRAXIS_SHOW_IN_EXPLORER */
     },
 };
 
