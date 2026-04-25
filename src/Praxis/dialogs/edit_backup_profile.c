@@ -116,7 +116,7 @@ static INT_PTR CALLBACK ebp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     return FALSE;
 }
 
-INT_PTR edit_backup_profile(HWND parent, backup_profile_t *bp_inout, bool is_new) {
+INT_PTR dialog_edit_backup_profile_show(HWND parent, backup_profile_t *bp_inout, bool is_new) {
     ebp_state_t state;
 
     if (bp_inout == NULL) {

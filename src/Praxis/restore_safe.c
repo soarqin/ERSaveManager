@@ -73,7 +73,7 @@ static bool read_last_restore_meta(const wchar_t *tree_root, wchar_t *out_ring_p
     return true;
 }
 
-bool restore_with_safety(const game_backend_t *backend,
+bool restore_safe_full(const game_backend_t *backend,
                           const wchar_t *backup_src,
                           const wchar_t *save_dst,
                           const wchar_t *tree_root,
@@ -103,7 +103,7 @@ bool restore_with_safety(const game_backend_t *backend,
     return true;
 }
 
-bool restore_with_safety_auto(const game_backend_t *backend,
+bool restore_safe_auto(const game_backend_t *backend,
                               const wchar_t *backup_src,
                               const wchar_t *save_dst,
                               const wchar_t *tree_root,
@@ -115,7 +115,7 @@ bool restore_with_safety_auto(const game_backend_t *backend,
     save_kind_t kind = save_compress_classify_backup(backup_src);
 
     if (kind == SAVE_KIND_FULL) {
-        return restore_with_safety(backend, backup_src, save_dst, tree_root,
+        return restore_safe_full(backend, backup_src, save_dst, tree_root,
                                    compression_level, false, 0);
     }
 
@@ -128,14 +128,14 @@ bool restore_with_safety_auto(const game_backend_t *backend,
         if (!backend->get_active_slot(save_dst, &slot)) {
             return false;
         }
-        return restore_with_safety(backend, backup_src, save_dst, tree_root,
+        return restore_safe_full(backend, backup_src, save_dst, tree_root,
                                    compression_level, true, slot);
     }
 
     return false;
 }
 
-bool undo_last_restore(const game_backend_t *backend, const wchar_t *tree_root, int compression_level) {
+bool restore_safe_undo(const game_backend_t *backend, const wchar_t *tree_root, int compression_level) {
     if (!backend || !tree_root) return false;
 
     /* Read last restore metadata (ring path + save path + slot info) */
@@ -147,5 +147,5 @@ bool undo_last_restore(const game_backend_t *backend, const wchar_t *tree_root, 
                                 &slot_mode, &slot_index)) return false;
 
     /* Undo IS a restore — so it also snapshots first (enables redo) */
-    return restore_with_safety(backend, ring_path, save_path, tree_root, compression_level, slot_mode, slot_index);
+    return restore_safe_full(backend, ring_path, save_path, tree_root, compression_level, slot_mode, slot_index);
 }

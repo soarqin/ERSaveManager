@@ -19,4 +19,4 @@
  * @param ini_path Path to the Praxis.ini used for atomic save after each CRUD operation.
  * @return IDOK after the user closes the dialog.
  */
-INT_PTR show_game_profile_manager(HWND parent, profile_store_t *store, const wchar_t *ini_path);
+INT_PTR dialog_game_profile_manager_show(HWND parent, profile_store_t *store, const wchar_t *ini_path);

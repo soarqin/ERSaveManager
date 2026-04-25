@@ -452,7 +452,7 @@ static bool restore_active_selection(void) {
         return false;
     }
 
-    ok = restore_with_safety_auto(backend, selected_path, save_path, backup_root,
+    ok = restore_safe_auto(backend, selected_path, save_path, backup_root,
         comp_level_to_lzma(bp->compression_level));
     if (ok && g_save_tree) {
         save_tree_refresh(g_save_tree);
@@ -473,7 +473,7 @@ static bool undo_active_restore(void) {
         return false;
     }
 
-    ok = undo_last_restore(backend, backup_root, comp_level_to_lzma(bp->compression_level));
+    ok = restore_safe_undo(backend, backup_root, comp_level_to_lzma(bp->compression_level));
     if (ok && g_save_tree) {
         save_tree_refresh(g_save_tree);
     }
@@ -676,7 +676,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             {
                 wchar_t ini[MAX_PATH];
                 config_core_get_app_ini_path(ini, MAX_PATH, L"Praxis.ini");
-                show_game_profile_manager(hwnd, &g_profile_store, ini);
+                dialog_game_profile_manager_show(hwnd, &g_profile_store, ini);
                 /* Repopulate toolbar combobox */
                 if (g_toolbar) toolbar_populate_profiles(g_toolbar, &g_profile_store);
                 apply_active_profile_ui(hwnd);
@@ -708,7 +708,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 new_bp.parent_game_id = gp->id;
                 new_bp.compression_level = COMP_LEVEL_MEDIUM;
 
-                if (edit_backup_profile(hwnd, &new_bp, true) != IDOK) {
+                if (dialog_edit_backup_profile_show(hwnd, &new_bp, true) != IDOK) {
                     return 0;
                 }
 
@@ -751,7 +751,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             SendMessageW(hwnd, WM_CLOSE, 0, 0);
             return 0;
         case IDM_OPTIONS_HOTKEYS:
-            show_hotkey_settings(hwnd);
+            dialog_hotkey_settings_show(hwnd);
             return 0;
         }
         return 0;
@@ -1361,7 +1361,7 @@ static int run_selftest(void) {
         else {
             const game_backend_t *b = backend_registry_get_default();
             ring_backup_init(argv[3], 5);
-            result = restore_with_safety(b, argv[4], argv[5], argv[3], 5, false, 0) ? 0 : 1;
+            result = restore_safe_full(b, argv[4], argv[5], argv[3], 5, false, 0) ? 0 : 1;
         }
     } else if (wcscmp(sub, L"restore-auto-detect") == 0) {
         if (argc < 4) {
@@ -1384,7 +1384,7 @@ static int run_selftest(void) {
         else {
             const game_backend_t *b = backend_registry_get_default();
             ring_backup_init(argv[3], 5);
-            result = undo_last_restore(b, argv[3], 5) ? 0 : 1;
+            result = restore_safe_undo(b, argv[3], 5) ? 0 : 1;
         }
     } else if (wcscmp(sub, L"write-raw-bnd4") == 0) {
         if (argc < 5) {
@@ -1874,7 +1874,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
                     lstrcpynW(pre_gp.tree_root, praxis_config.tree_root, MAX_PATH);
                 }
 
-                INT_PTR result = edit_game_profile(NULL, &pre_gp, true);
+                INT_PTR result = dialog_edit_game_profile_show(NULL, &pre_gp, true);
                 if (result == IDOK) {
                     /* User confirmed -- add the profile (auto-creates Main backup). */
                     profile_store_add_game(&probe_store, &pre_gp);

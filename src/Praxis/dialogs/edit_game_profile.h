@@ -17,4 +17,4 @@
  * @param is_new true to create a new profile (sets defaults), false to edit existing.
  * @return IDOK if the user accepted, IDCANCEL otherwise.
  */
-INT_PTR edit_game_profile(HWND parent, game_profile_t *gp_inout, bool is_new);
+INT_PTR dialog_edit_game_profile_show(HWND parent, game_profile_t *gp_inout, bool is_new);

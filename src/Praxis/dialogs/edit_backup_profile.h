@@ -18,4 +18,4 @@
  *               false to edit existing.
  * @return IDOK if the user accepted, IDCANCEL otherwise.
  */
-INT_PTR edit_backup_profile(HWND parent, backup_profile_t *bp_inout, bool is_new);
+INT_PTR dialog_edit_backup_profile_show(HWND parent, backup_profile_t *bp_inout, bool is_new);

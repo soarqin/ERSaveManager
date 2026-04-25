@@ -19,4 +19,4 @@
  * @return true if the user accepted and bindings were applied successfully,
  *         false on Cancel or registration failure.
  */
-bool show_hotkey_settings(HWND parent);
+bool dialog_hotkey_settings_show(HWND parent);

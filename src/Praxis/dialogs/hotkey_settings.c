@@ -225,7 +225,7 @@ static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
 
         case IDOK:
             /* Read controls -> praxis_config BEFORE EndDialog destroys the
-             * dialog. The caller of show_hotkey_settings() then persists
+             * dialog. The caller of dialog_hotkey_settings_show() then persists
              * the config and re-registers global hotkeys. */
             hk_commit_to_config(hwnd);
             EndDialog(hwnd, IDOK);
@@ -244,7 +244,7 @@ static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
     return FALSE;
 }
 
-bool show_hotkey_settings(HWND parent) {
+bool dialog_hotkey_settings_show(HWND parent) {
     INT_PTR rc;
     bool registered_ok;
 

@@ -138,7 +138,7 @@ static INT_PTR CALLBACK egp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     return FALSE;
 }
 
-INT_PTR edit_game_profile(HWND parent, game_profile_t *gp_inout, bool is_new) {
+INT_PTR dialog_edit_game_profile_show(HWND parent, game_profile_t *gp_inout, bool is_new) {
     egp_state_t state;
 
     if (!gp_inout) {

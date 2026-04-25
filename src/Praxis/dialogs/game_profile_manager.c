@@ -131,14 +131,14 @@ static void gpm_persist(const profile_store_t *store, const wchar_t *ini_path) {
     }
 }
 
-/* Handle the Add button: open edit_game_profile in create mode. */
+/* Handle the Add button: open dialog_edit_game_profile_show in create mode. */
 static void gpm_handle_add(HWND hwnd, gpm_state_t *state) {
     game_profile_t gp;
 
     ZeroMemory(&gp, sizeof(gp));
     gp.game_id = GAME_ID_ELDEN_RING;
 
-    if (edit_game_profile(hwnd, &gp, true) == IDOK) {
+    if (dialog_edit_game_profile_show(hwnd, &gp, true) == IDOK) {
         if (profile_store_add_game(state->store, &gp) > 0) {
             gpm_persist(state->store, state->ini_path);
             gpm_refresh_list(GetDlgItem(hwnd, IDC_GPM_LIST), state->store);
@@ -149,7 +149,7 @@ static void gpm_handle_add(HWND hwnd, gpm_state_t *state) {
     }
 }
 
-/* Handle the Edit button: open edit_game_profile in edit mode. */
+/* Handle the Edit button: open dialog_edit_game_profile_show in edit mode. */
 static void gpm_handle_edit(HWND hwnd, gpm_state_t *state) {
     HWND list = GetDlgItem(hwnd, IDC_GPM_LIST);
     int id = gpm_selected_game_id(list);
@@ -163,7 +163,7 @@ static void gpm_handle_edit(HWND hwnd, gpm_state_t *state) {
     }
 
     game_profile_t copy = *gp;
-    if (edit_game_profile(hwnd, &copy, false) == IDOK) {
+    if (dialog_edit_game_profile_show(hwnd, &copy, false) == IDOK) {
         if (profile_store_update_game(state->store, id, &copy)) {
             gpm_persist(state->store, state->ini_path);
             gpm_refresh_list(list, state->store);
@@ -264,7 +264,7 @@ static INT_PTR CALLBACK gpm_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     return FALSE;
 }
 
-INT_PTR show_game_profile_manager(HWND parent, profile_store_t *store, const wchar_t *ini_path) {
+INT_PTR dialog_game_profile_manager_show(HWND parent, profile_store_t *store, const wchar_t *ini_path) {
     gpm_state_t state;
 
     if (!store) {
