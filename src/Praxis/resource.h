@@ -54,9 +54,10 @@
 #define IDC_EBP_NAME       4201
 #define IDC_EBP_TREE_ROOT  4202
 #define IDC_EBP_BROWSE     4203
-#define IDC_EBP_COMP_NONE  4204
-#define IDC_EBP_COMP_LOW   4205
-#define IDC_EBP_COMP_HIGH  4206
+#define IDC_EBP_COMP_NONE   4204
+#define IDC_EBP_COMP_LOW    4205
+#define IDC_EBP_COMP_HIGH   4206
+#define IDC_EBP_COMP_MEDIUM 4207
 
 /* === Migration Wizard Dialog Controls === */
 #define IDC_MW_LABEL      4301

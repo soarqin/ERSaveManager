@@ -41,15 +41,24 @@ static void ebp_build_default_tree_root(const wchar_t *parent_tree_root, const w
 
 /* Apply compression-level radio button selection. */
 static void ebp_set_compression(HWND hwnd, compression_level_t level) {
-    CheckRadioButton(hwnd, IDC_EBP_COMP_NONE, IDC_EBP_COMP_HIGH,
-        level == COMP_LEVEL_NONE ? IDC_EBP_COMP_NONE :
-        level == COMP_LEVEL_HIGH ? IDC_EBP_COMP_HIGH : IDC_EBP_COMP_LOW);
+    int id;
+    switch (level) {
+    case COMP_LEVEL_NONE:   id = IDC_EBP_COMP_NONE;   break;
+    case COMP_LEVEL_MEDIUM: id = IDC_EBP_COMP_MEDIUM; break;
+    case COMP_LEVEL_HIGH:   id = IDC_EBP_COMP_HIGH;   break;
+    default:                id = IDC_EBP_COMP_LOW;    break; /* COMP_LEVEL_LOW */
+    }
+    /* Range: IDC_EBP_COMP_NONE (4204) .. IDC_EBP_COMP_MEDIUM (4207) covers all 4 buttons. */
+    CheckRadioButton(hwnd, IDC_EBP_COMP_NONE, IDC_EBP_COMP_MEDIUM, id);
 }
 
 /* Read compression-level radio button selection. */
 static compression_level_t ebp_get_compression(HWND hwnd) {
     if (IsDlgButtonChecked(hwnd, IDC_EBP_COMP_NONE) == BST_CHECKED) {
         return COMP_LEVEL_NONE;
+    }
+    if (IsDlgButtonChecked(hwnd, IDC_EBP_COMP_MEDIUM) == BST_CHECKED) {
+        return COMP_LEVEL_MEDIUM;
     }
     if (IsDlgButtonChecked(hwnd, IDC_EBP_COMP_HIGH) == BST_CHECKED) {
         return COMP_LEVEL_HIGH;
@@ -107,9 +116,10 @@ static INT_PTR CALLBACK ebp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         SetWindowTextW(hwnd, praxis_locale_str(STR_PRAXIS_BACKUP_PROFILE));
         SetDlgItemTextW(hwnd, IDOK,     praxis_locale_str(STR_PRAXIS_BTN_OK));
         SetDlgItemTextW(hwnd, IDCANCEL, praxis_locale_str(STR_PRAXIS_BTN_CANCEL));
-        SetDlgItemTextW(hwnd, IDC_EBP_COMP_NONE, praxis_locale_str(STR_PRAXIS_COMPRESSION_NONE));
-        SetDlgItemTextW(hwnd, IDC_EBP_COMP_LOW,  praxis_locale_str(STR_PRAXIS_COMPRESSION_LOW));
-        SetDlgItemTextW(hwnd, IDC_EBP_COMP_HIGH, praxis_locale_str(STR_PRAXIS_COMPRESSION_HIGH));
+        SetDlgItemTextW(hwnd, IDC_EBP_COMP_NONE,   praxis_locale_str(STR_PRAXIS_COMPRESSION_NONE));
+        SetDlgItemTextW(hwnd, IDC_EBP_COMP_LOW,    praxis_locale_str(STR_PRAXIS_COMPRESSION_LOW));
+        SetDlgItemTextW(hwnd, IDC_EBP_COMP_MEDIUM, praxis_locale_str(STR_PRAXIS_COMPRESSION_MEDIUM));
+        SetDlgItemTextW(hwnd, IDC_EBP_COMP_HIGH,   praxis_locale_str(STR_PRAXIS_COMPRESSION_HIGH));
 
         SendMessageW(GetDlgItem(hwnd, IDC_EBP_NAME),      EM_LIMITTEXT, 63, 0);
         SendMessageW(GetDlgItem(hwnd, IDC_EBP_TREE_ROOT), EM_LIMITTEXT, MAX_PATH - 1, 0);

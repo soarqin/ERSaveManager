@@ -132,12 +132,11 @@ static bool save_profile_store(void) {
 
 static int comp_level_to_lzma(compression_level_t cl) {
     switch (cl) {
-    case COMP_LEVEL_HIGH:
-        return ERSM_LEVEL_MAX;
-    case COMP_LEVEL_NONE:
-    case COMP_LEVEL_LOW:
-    default:
-        return ERSM_LEVEL_FAST;
+    case COMP_LEVEL_HIGH:   return ERSM_LEVEL_MAX;    /* 9 */
+    case COMP_LEVEL_MEDIUM: return ERSM_LEVEL_NORMAL; /* 5 */
+    case COMP_LEVEL_LOW:    return ERSM_LEVEL_FAST;   /* 1 */
+    case COMP_LEVEL_NONE:   return ERSM_LEVEL_FAST;   /* 1 — slot saves; full saves use raw BND4 */
+    default:                return ERSM_LEVEL_FAST;
     }
 }
 

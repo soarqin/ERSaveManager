@@ -375,6 +375,8 @@ static void load_kv_cb(const char *key, const char *value, void *user) {
         } else if (strcmp(key, "CompressionLevel") == 0) {
             if (strcmp(value, "none") == 0) {
                 ctx->cur_backup.compression_level = COMP_LEVEL_NONE;
+            } else if (strcmp(value, "medium") == 0) {
+                ctx->cur_backup.compression_level = COMP_LEVEL_MEDIUM;
             } else if (strcmp(value, "high") == 0) {
                 ctx->cur_backup.compression_level = COMP_LEVEL_HIGH;
             } else {
@@ -527,13 +529,14 @@ bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path) {
                             tree_root_utf8, (int)sizeof(tree_root_utf8), NULL, NULL);
     }
 
-    /* Map backup compression level to legacy integer (none→1, low→5, high→9). */
+    /* Map backup compression level to legacy integer (none→1, low→1, medium→5, high→9). */
     int legacy_comp;
     if (active_bp != NULL) {
         switch (active_bp->compression_level) {
-        case COMP_LEVEL_NONE: legacy_comp = 1; break;
-        case COMP_LEVEL_HIGH: legacy_comp = 9; break;
-        default:              legacy_comp = 5; break; /* COMP_LEVEL_LOW */
+        case COMP_LEVEL_NONE:   legacy_comp = 1; break;
+        case COMP_LEVEL_MEDIUM: legacy_comp = 5; break;
+        case COMP_LEVEL_HIGH:   legacy_comp = 9; break;
+        default:                legacy_comp = 1; break; /* COMP_LEVEL_LOW */
         }
     } else {
         legacy_comp = praxis_config.compression_level;
@@ -612,9 +615,10 @@ bool profile_store_save(const profile_store_t *store, const wchar_t *ini_path) {
                             bp_tree_utf8, (int)sizeof(bp_tree_utf8), NULL, NULL);
 
         switch (bp->compression_level) {
-        case COMP_LEVEL_NONE: comp_str = "none"; break;
-        case COMP_LEVEL_HIGH: comp_str = "high"; break;
-        default:              comp_str = "low";  break;
+        case COMP_LEVEL_NONE:   comp_str = "none";   break;
+        case COMP_LEVEL_MEDIUM: comp_str = "medium";  break;
+        case COMP_LEVEL_HIGH:   comp_str = "high";   break;
+        default:                comp_str = "low";    break;
         }
 
         config_core_buf_append(&buf, "[BackupProfile:%d]\r\n", bp->id);

@@ -15,9 +15,10 @@
 
 /* Compression level enumeration */
 typedef enum compression_level_e {
-    COMP_LEVEL_NONE = 0,
-    COMP_LEVEL_LOW  = 1,
-    COMP_LEVEL_HIGH = 2
+    COMP_LEVEL_NONE   = 0,
+    COMP_LEVEL_LOW    = 1,
+    COMP_LEVEL_MEDIUM = 2,
+    COMP_LEVEL_HIGH   = 3
 } compression_level_t;
 
 /* Maximum profile counts */

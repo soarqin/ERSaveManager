@@ -42,8 +42,9 @@ typedef struct mw_state_s {
 /* Map legacy LZMA level (1..9) to coarse compression_level_t. */
 static compression_level_t mw_map_legacy_comp(int lvl) {
     if (lvl <= 1) return COMP_LEVEL_NONE;
-    if (lvl >= 9) return COMP_LEVEL_HIGH;
-    return COMP_LEVEL_LOW;
+    if (lvl <= 4) return COMP_LEVEL_LOW;
+    if (lvl <= 7) return COMP_LEVEL_MEDIUM;
+    return COMP_LEVEL_HIGH;
 }
 
 /* Set the visibility of a dialog control. */
@@ -57,15 +58,24 @@ static void mw_show(HWND hwnd, int id, bool visible) {
 
 /* Apply the radio compression selection. */
 static void mw_set_compression(HWND hwnd, compression_level_t level) {
-    CheckRadioButton(hwnd, IDC_EBP_COMP_NONE, IDC_EBP_COMP_HIGH,
-        level == COMP_LEVEL_NONE ? IDC_EBP_COMP_NONE :
-        level == COMP_LEVEL_HIGH ? IDC_EBP_COMP_HIGH : IDC_EBP_COMP_LOW);
+    int id;
+    switch (level) {
+    case COMP_LEVEL_NONE:   id = IDC_EBP_COMP_NONE;   break;
+    case COMP_LEVEL_MEDIUM: id = IDC_EBP_COMP_MEDIUM; break;
+    case COMP_LEVEL_HIGH:   id = IDC_EBP_COMP_HIGH;   break;
+    default:                id = IDC_EBP_COMP_LOW;    break; /* COMP_LEVEL_LOW */
+    }
+    /* Range: IDC_EBP_COMP_NONE (4204) .. IDC_EBP_COMP_MEDIUM (4207) covers all 4 buttons. */
+    CheckRadioButton(hwnd, IDC_EBP_COMP_NONE, IDC_EBP_COMP_MEDIUM, id);
 }
 
 /* Read the radio compression selection. */
 static compression_level_t mw_get_compression(HWND hwnd) {
     if (IsDlgButtonChecked(hwnd, IDC_EBP_COMP_NONE) == BST_CHECKED) {
         return COMP_LEVEL_NONE;
+    }
+    if (IsDlgButtonChecked(hwnd, IDC_EBP_COMP_MEDIUM) == BST_CHECKED) {
+        return COMP_LEVEL_MEDIUM;
     }
     if (IsDlgButtonChecked(hwnd, IDC_EBP_COMP_HIGH) == BST_CHECKED) {
         return COMP_LEVEL_HIGH;
@@ -131,10 +141,11 @@ static void mw_apply_page(HWND hwnd, mw_state_t *state) {
     mw_show(hwnd, IDC_MW_NAME, show_name);
     mw_show(hwnd, IDC_MW_TREE_ROOT, show_tree_root);
     mw_show(hwnd, IDC_MW_BROWSE, show_tree_root);
-    mw_show(hwnd, IDC_MW_COMP_GROUP, show_comp);
-    mw_show(hwnd, IDC_EBP_COMP_NONE, show_comp);
-    mw_show(hwnd, IDC_EBP_COMP_LOW, show_comp);
-    mw_show(hwnd, IDC_EBP_COMP_HIGH, show_comp);
+    mw_show(hwnd, IDC_MW_COMP_GROUP,   show_comp);
+    mw_show(hwnd, IDC_EBP_COMP_NONE,   show_comp);
+    mw_show(hwnd, IDC_EBP_COMP_LOW,    show_comp);
+    mw_show(hwnd, IDC_EBP_COMP_MEDIUM, show_comp);
+    mw_show(hwnd, IDC_EBP_COMP_HIGH,   show_comp);
     mw_show(hwnd, IDC_MW_BACK, show_back);
     mw_show(hwnd, IDC_MW_NEXT, show_next);
     mw_show(hwnd, IDC_MW_FINISH, show_finish);
@@ -215,9 +226,10 @@ static INT_PTR CALLBACK mw_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetDlgItemTextW(hwnd, IDC_MW_FINISH,  praxis_locale_str(STR_PRAXIS_BTN_OK));
         SetDlgItemTextW(hwnd, IDCANCEL,       praxis_locale_str(STR_PRAXIS_BTN_CANCEL));
         SetDlgItemTextW(hwnd, IDC_MW_COMP_GROUP, praxis_locale_str(STR_PRAXIS_PROFILE_COMPRESSION));
-        SetDlgItemTextW(hwnd, IDC_EBP_COMP_NONE, praxis_locale_str(STR_PRAXIS_COMPRESSION_NONE));
-        SetDlgItemTextW(hwnd, IDC_EBP_COMP_LOW,  praxis_locale_str(STR_PRAXIS_COMPRESSION_LOW));
-        SetDlgItemTextW(hwnd, IDC_EBP_COMP_HIGH, praxis_locale_str(STR_PRAXIS_COMPRESSION_HIGH));
+        SetDlgItemTextW(hwnd, IDC_EBP_COMP_NONE,   praxis_locale_str(STR_PRAXIS_COMPRESSION_NONE));
+        SetDlgItemTextW(hwnd, IDC_EBP_COMP_LOW,    praxis_locale_str(STR_PRAXIS_COMPRESSION_LOW));
+        SetDlgItemTextW(hwnd, IDC_EBP_COMP_MEDIUM, praxis_locale_str(STR_PRAXIS_COMPRESSION_MEDIUM));
+        SetDlgItemTextW(hwnd, IDC_EBP_COMP_HIGH,   praxis_locale_str(STR_PRAXIS_COMPRESSION_HIGH));
 
         SendMessageW(GetDlgItem(hwnd, IDC_MW_NAME),      EM_LIMITTEXT, 63, 0);
         SendMessageW(GetDlgItem(hwnd, IDC_MW_TREE_ROOT), EM_LIMITTEXT, MAX_PATH - 1, 0);

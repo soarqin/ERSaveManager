@@ -64,6 +64,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression",                          /* STR_PRAXIS_PROFILE_COMPRESSION */
         L"None",                                 /* STR_PRAXIS_COMPRESSION_NONE */
         L"Low",                                  /* STR_PRAXIS_COMPRESSION_LOW */
+        L"Medium",                               /* STR_PRAXIS_COMPRESSION_MEDIUM */
         L"High",                                 /* STR_PRAXIS_COMPRESSION_HIGH */
         L"Add",                                  /* STR_PRAXIS_BTN_ADD */
         L"Edit",                                 /* STR_PRAXIS_BTN_EDIT */
@@ -127,6 +128,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -190,6 +192,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -253,6 +256,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -316,6 +320,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -379,6 +384,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -442,6 +448,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -505,6 +512,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -568,6 +576,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -631,6 +640,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
@@ -694,6 +704,7 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Compression", /* TODO: translate */
         L"None", /* TODO: translate */
         L"Low", /* TODO: translate */
+        L"Medium", /* TODO: translate */
         L"High", /* TODO: translate */
         L"Add", /* TODO: translate */
         L"Edit", /* TODO: translate */
