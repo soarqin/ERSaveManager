@@ -631,7 +631,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 int new_backup_id;
                 ZeroMemory(&new_bp, sizeof(new_bp));
                 new_bp.parent_game_id = gp->id;
-                new_bp.compression_level = COMP_LEVEL_LOW;
+                new_bp.compression_level = COMP_LEVEL_MEDIUM;
 
                 if (edit_backup_profile(hwnd, &new_bp, true) != IDOK) {
                     return 0;

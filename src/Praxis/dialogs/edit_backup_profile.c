@@ -85,7 +85,7 @@ static INT_PTR CALLBACK ebp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         SendMessageW(GetDlgItem(hwnd, IDC_EBP_NAME), EM_LIMITTEXT, 63, 0);
 
         if (state->is_new) {
-            ebp_set_compression(hwnd, COMP_LEVEL_LOW);
+            ebp_set_compression(hwnd, COMP_LEVEL_MEDIUM);
         } else {
             SetDlgItemTextW(hwnd, IDC_EBP_NAME, state->bp->name);
             ebp_set_compression(hwnd, state->bp->compression_level);

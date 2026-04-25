@@ -125,7 +125,7 @@ int profile_store_add_game(profile_store_t *store, const game_profile_t *gp) {
     ZeroMemory(&main_bp, sizeof(main_bp));
     main_bp.parent_game_id = id;
     lstrcpyW(main_bp.name, L"Main");
-    main_bp.compression_level = COMP_LEVEL_LOW;
+    main_bp.compression_level = COMP_LEVEL_MEDIUM;
 
     /* Inline-add the backup, bypassing parent validation (parent was just added). */
     int backup_id = store->next_backup_id++;
