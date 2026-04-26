@@ -116,7 +116,9 @@ static void run_hotkey_action(HWND hwnd, hotkey_id_t hotkey_id) {
         break;
     case HOTKEY_UNDO_RESTORE:
         ok = praxis_hotkey_action_undo(hwnd, &g_profile_store);
-        if (ok && g_app.save_tree) save_tree_refresh(g_app.save_tree);
+        /* Preserve the current selection across the refresh so the tree does
+         * not jump back to the root after undoing a restore. */
+        if (ok && g_app.save_tree) save_tree_refresh_preserve_selection(g_app.save_tree);
         show_success_toast(STR_PRAXIS_TOAST_UNDO_SUCCESS, ok);
         break;
     }

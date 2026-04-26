@@ -277,7 +277,11 @@ bool praxis_hotkey_action_restore(HWND hwnd, profile_store_t *store, save_tree_t
     ok = restore_safe_auto(backend, selected_path, save_path, backup_root,
         comp_level_to_lzma(bp->compression_level));
     if (ok && save_tree) {
-        save_tree_refresh(save_tree);
+        /* Preserve the current selection across the refresh so the user keeps
+         * focus on the backup they just restored. The walk-up logic in
+         * save_tree_refresh_preserve_selection() also handles the rare case
+         * where the selected backup was somehow removed during the restore. */
+        save_tree_refresh_preserve_selection(save_tree);
     }
 
     return ok;
