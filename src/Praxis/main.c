@@ -254,15 +254,22 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
 
     /* Paint over the 1px light separator under the menu bar after non-client
      * paint. theme_core_paint_uah_menu_underline is a no-op in light mode. */
+    case WM_NCPAINT:
     case WM_NCACTIVATE: {
         LRESULT r = DefWindowProcW(hwnd, msg, wp, lp);
         theme_core_paint_uah_menu_underline(hwnd);
         return r;
     }
 
-    /* React to system theme changes when in System mode. */
+    /* React to system theme, high-contrast, and system color changes. */
     case WM_SETTINGCHANGE:
-        if (theme_core_on_setting_change(lp)) {
+        if (theme_core_on_setting_change(wp, lp)) {
+            theme_core_apply_to_window_and_children(hwnd);
+        }
+        break;
+
+    case WM_SYSCOLORCHANGE:
+        if (theme_core_on_syscolor_change()) {
             theme_core_apply_to_window_and_children(hwnd);
         }
         break;

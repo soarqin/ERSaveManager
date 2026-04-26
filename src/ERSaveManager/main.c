@@ -480,6 +480,19 @@ static LRESULT CALLBACK rename_char_data_dialog_proc(HWND hwnd, UINT msg, WPARAM
             Edit_LimitText(GetDlgItem(hwnd, IDC_EDIT_CHARACTER_NAME), 16);
             theme_apply_to_window(hwnd);
             return TRUE;
+        case WM_SETTINGCHANGE:
+            if (theme_core_on_setting_change(wparam, lparam)) {
+                theme_apply_to_window(hwnd);
+            }
+            return FALSE;
+        case WM_SYSCOLORCHANGE:
+            if (theme_core_on_syscolor_change()) {
+                theme_apply_to_window(hwnd);
+            }
+            return FALSE;
+        case WM_THEMECHANGED:
+            theme_apply_to_window(hwnd);
+            return FALSE;
         case WM_COMMAND:
             switch (LOWORD(wparam)) {
                 case IDOK: {
@@ -622,15 +635,23 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         /* Paint over the 1px light separator under the menu bar after
          * non-client paint. theme_core_paint_uah_menu_underline is a no-op
          * in light mode. */
+        case WM_NCPAINT:
         case WM_NCACTIVATE: {
             LRESULT r = DefWindowProcW(hwnd, msg, wparam, lparam);
             theme_core_paint_uah_menu_underline(hwnd);
             return r;
         }
 
-        /* React to system theme changes when in System mode. */
+        /* React to system theme, high-contrast, and system color changes. */
         case WM_SETTINGCHANGE: {
-            if (theme_core_on_setting_change(lparam)) {
+            if (theme_core_on_setting_change(wparam, lparam)) {
+                theme_core_apply_to_window_and_children(hwnd);
+            }
+            break;
+        }
+
+        case WM_SYSCOLORCHANGE: {
+            if (theme_core_on_syscolor_change()) {
                 theme_core_apply_to_window_and_children(hwnd);
             }
             break;

@@ -218,6 +218,22 @@ static INT_PTR CALLBACK egp_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         praxis_theme_apply_to_window(hwnd);
         return TRUE;
 
+    case WM_SETTINGCHANGE:
+        if (theme_core_on_setting_change(wp, lp)) {
+            praxis_theme_apply_to_window(hwnd);
+        }
+        return FALSE;
+
+    case WM_SYSCOLORCHANGE:
+        if (theme_core_on_syscolor_change()) {
+            praxis_theme_apply_to_window(hwnd);
+        }
+        return FALSE;
+
+    case WM_THEMECHANGED:
+        praxis_theme_apply_to_window(hwnd);
+        return FALSE;
+
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         case IDC_EGP_BROWSE_SAVE:

@@ -24,6 +24,7 @@
 
 #include "../common/ersave.h"
 #include "../common/save_compress.h"
+#include "../common/theme_core.h"
 
 #include "../../deps/md5/md5.h"
 
@@ -1155,6 +1156,27 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                         exit_code = 0;
                     }
                 }
+            }
+        } else if (wcscmp(sub, L"theme-change-classify") == 0) {
+            exit_code = 0;
+            if (!theme_core_is_relevant_setting_change(0, (LPARAM)L"ImmersiveColorSet")) {
+                st_printf(L"theme-change-classify: ImmersiveColorSet should refresh\n");
+                exit_code = 1;
+            }
+            if (!theme_core_is_relevant_setting_change(SPI_SETHIGHCONTRAST, 0)) {
+                st_printf(L"theme-change-classify: SPI_SETHIGHCONTRAST should refresh\n");
+                exit_code = 1;
+            }
+            if (theme_core_is_relevant_setting_change(0, 0)) {
+                st_printf(L"theme-change-classify: NULL should not refresh\n");
+                exit_code = 1;
+            }
+            if (theme_core_is_relevant_setting_change(0, (LPARAM)L"NotAThemeChange")) {
+                st_printf(L"theme-change-classify: unrelated setting should not refresh\n");
+                exit_code = 1;
+            }
+            if (exit_code == 0) {
+                st_printf(L"theme-change-classify: ok\n");
             }
         } else {
             st_printf(L"unknown selftest subcommand: %ls\n", sub);

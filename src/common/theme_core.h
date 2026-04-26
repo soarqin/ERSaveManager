@@ -248,10 +248,26 @@ INT_PTR theme_core_dlg_ctlcolor(HDC hdc, UINT msg);
 /* === System change handler === */
 
 /**
+ * @brief Return whether a WM_SETTINGCHANGE payload can affect theme state.
+ * @details Recognizes system app-theme changes ("ImmersiveColorSet") and
+ *          high-contrast toggles (SPI_SETHIGHCONTRAST).
+ */
+bool theme_core_is_relevant_setting_change(WPARAM wparam, LPARAM lparam);
+
+/**
  * @brief Handle WM_SETTINGCHANGE.
  * @details Detects the "ImmersiveColorSet" notification (sent when user toggles
- *          the system dark/light preference) and refreshes internal state.
- * @return true when the effective dark state changed and the caller should
- *         re-apply theme to all windows; false otherwise.
+ *          the system dark/light preference) and SPI_SETHIGHCONTRAST. Refreshes
+ *          internal state for SYSTEM, forced LIGHT, and forced DARK modes so the
+ *          high-contrast override is honored immediately.
+ * @return true when theme state was refreshed and the caller should re-apply
+ *         theme to all windows; false for unrelated setting changes.
  */
-bool theme_core_on_setting_change(LPARAM lp);
+bool theme_core_on_setting_change(WPARAM wparam, LPARAM lparam);
+
+/**
+ * @brief Handle WM_SYSCOLORCHANGE.
+ * @details Refreshes cached light palette system colors and menu theme data.
+ * @return true when callers should re-apply the theme to all windows.
+ */
+bool theme_core_on_syscolor_change(void);

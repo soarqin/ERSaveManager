@@ -261,6 +261,22 @@ LRESULT CALLBACK face_data_dialog_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return TRUE;
         }
 
+        case WM_SETTINGCHANGE:
+            if (theme_core_on_setting_change(wparam, lparam)) {
+                theme_apply_to_window(hwnd);
+            }
+            return FALSE;
+
+        case WM_SYSCOLORCHANGE:
+            if (theme_core_on_syscolor_change()) {
+                theme_apply_to_window(hwnd);
+            }
+            return FALSE;
+
+        case WM_THEMECHANGED:
+            theme_apply_to_window(hwnd);
+            return FALSE;
+
         case WM_SIZE: {
             if (list_view_faces) {
                 layout_face_dialog(hwnd);

@@ -373,6 +373,22 @@ static INT_PTR CALLBACK gpm_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         return TRUE;
     }
 
+    case WM_SETTINGCHANGE:
+        if (theme_core_on_setting_change(wp, lp)) {
+            praxis_theme_apply_to_window(hwnd);
+        }
+        return FALSE;
+
+    case WM_SYSCOLORCHANGE:
+        if (theme_core_on_syscolor_change()) {
+            praxis_theme_apply_to_window(hwnd);
+        }
+        return FALSE;
+
+    case WM_THEMECHANGED:
+        praxis_theme_apply_to_window(hwnd);
+        return FALSE;
+
     case WM_COMMAND:
         if (!state) {
             return FALSE;

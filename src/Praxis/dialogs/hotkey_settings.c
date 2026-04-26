@@ -178,8 +178,6 @@ static void hk_commit_to_config(HWND dlg) {
 }
 
 static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    (void)lp;
-
     switch (msg) {
     /* Theme: paint dialog body and child controls in dark colors. */
     case WM_ERASEBKGND:
@@ -235,6 +233,22 @@ static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
         hk_set_control_from_string(hwnd, IDC_HK_UNDO,        praxis_config.hotkey_undo_restore);
         praxis_theme_apply_to_window(hwnd);
         return TRUE;
+
+    case WM_SETTINGCHANGE:
+        if (theme_core_on_setting_change(wp, lp)) {
+            praxis_theme_apply_to_window(hwnd);
+        }
+        return FALSE;
+
+    case WM_SYSCOLORCHANGE:
+        if (theme_core_on_syscolor_change()) {
+            praxis_theme_apply_to_window(hwnd);
+        }
+        return FALSE;
+
+    case WM_THEMECHANGED:
+        praxis_theme_apply_to_window(hwnd);
+        return FALSE;
 
     case WM_COMMAND:
         switch (LOWORD(wp)) {

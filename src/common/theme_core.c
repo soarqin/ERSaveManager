@@ -56,6 +56,10 @@
 /* user32!SetWindowCompositionAttribute attribute (1903-1909 fallback). */
 #define WCA_USEDARKMODECOLORS 26
 
+#ifndef CLR_DEFAULT
+#define CLR_DEFAULT ((COLORREF)0xFF000000)
+#endif
+
 /* uxtheme!SetPreferredAppMode (ord 135 on 1903+) values. */
 enum {
     PREFERRED_APP_MODE_DEFAULT     = 0,
@@ -84,12 +88,20 @@ enum {
 #define BP_RADIOBUTTON          2
 #define BP_CHECKBOX             3
 #define RBS_UNCHECKEDNORMAL     1
+#define RBS_UNCHECKEDHOT        2
+#define RBS_UNCHECKEDPRESSED    3
 #define RBS_UNCHECKEDDISABLED   4
 #define RBS_CHECKEDNORMAL       5
+#define RBS_CHECKEDHOT          6
+#define RBS_CHECKEDPRESSED      7
 #define RBS_CHECKEDDISABLED     8
 #define CBS_UNCHECKEDNORMAL     1
+#define CBS_UNCHECKEDHOT        2
+#define CBS_UNCHECKEDPRESSED    3
 #define CBS_UNCHECKEDDISABLED   4
 #define CBS_CHECKEDNORMAL       5
+#define CBS_CHECKEDHOT          6
+#define CBS_CHECKEDPRESSED      7
 #define CBS_CHECKEDDISABLED     8
 
 /* Subclass IDs - one per control class we subclass. */
@@ -279,6 +291,8 @@ static void resolve_effective_mode(void) {
  * 1809). SYSTEM uses ALLOW_DARK so the OS still drives popup menus when the
  * user toggles the system theme later. */
 static void apply_os_preferred_mode(void) {
+    bool high_contrast = is_high_contrast_active();
+
     if (g_api.set_preferred_app_mode) {
         int os_mode;
         switch (g_mode) {
@@ -286,9 +300,12 @@ static void apply_os_preferred_mode(void) {
         case THEME_MODE_DARK:  os_mode = PREFERRED_APP_MODE_FORCE_DARK;  break;
         default:               os_mode = PREFERRED_APP_MODE_ALLOW_DARK;  break;
         }
+        if (high_contrast) {
+            os_mode = PREFERRED_APP_MODE_FORCE_LIGHT;
+        }
         g_api.set_preferred_app_mode(os_mode);
     } else if (g_api.allow_dark_mode_for_app) {
-        g_api.allow_dark_mode_for_app(g_mode != THEME_MODE_LIGHT);
+        g_api.allow_dark_mode_for_app(!high_contrast && g_mode != THEME_MODE_LIGHT);
     }
     if (g_api.refresh_immersive_color_policy_state) {
         g_api.refresh_immersive_color_policy_state();
@@ -464,9 +481,9 @@ void theme_core_apply_to_listview(HWND hwnd) {
         ListView_SetTextBkColor(hwnd, p->ctrl_bg);
         ListView_SetTextColor  (hwnd, p->text);
     } else {
-        ListView_SetBkColor    (hwnd, GetSysColor(COLOR_WINDOW));
-        ListView_SetTextBkColor(hwnd, GetSysColor(COLOR_WINDOW));
-        ListView_SetTextColor  (hwnd, GetSysColor(COLOR_WINDOWTEXT));
+        ListView_SetBkColor    (hwnd, CLR_DEFAULT);
+        ListView_SetTextBkColor(hwnd, CLR_DEFAULT);
+        ListView_SetTextColor  (hwnd, CLR_DEFAULT);
     }
     /* Subclass intercepts the header's NM_CUSTOMDRAW (which goes to the
      * ListView, not the dialog) so we can paint header text in our color. */
@@ -994,6 +1011,15 @@ static void paint_radio_check_dark(HWND hwnd, BOOL is_radio) {
 
     BOOL checked  = (SendMessageW(hwnd, BM_GETCHECK, 0, 0) == BST_CHECKED);
     BOOL disabled = !IsWindowEnabled(hwnd);
+    UINT button_state = (UINT)SendMessageW(hwnd, BM_GETSTATE, 0, 0);
+    BOOL pressed = (button_state & BST_PUSHED) != 0;
+    BOOL hot = FALSE;
+    if (!disabled) {
+        POINT cursor;
+        if (GetCursorPos(&cursor)) {
+            hot = (WindowFromPoint(cursor) == hwnd);
+        }
+    }
 
     int ind_size = GetSystemMetrics(SM_CXMENUCHECK);
     if (ind_size <= 0) ind_size = 13;
@@ -1009,11 +1035,29 @@ static void paint_radio_check_dark(HWND hwnd, BOOL is_radio) {
         int part = is_radio ? BP_RADIOBUTTON : BP_CHECKBOX;
         int state;
         if (is_radio) {
-            state = checked ? (disabled ? RBS_CHECKEDDISABLED   : RBS_CHECKEDNORMAL)
-                            : (disabled ? RBS_UNCHECKEDDISABLED : RBS_UNCHECKEDNORMAL);
+            if (checked) {
+                state = disabled ? RBS_CHECKEDDISABLED
+                      : pressed  ? RBS_CHECKEDPRESSED
+                      : hot      ? RBS_CHECKEDHOT
+                                 : RBS_CHECKEDNORMAL;
+            } else {
+                state = disabled ? RBS_UNCHECKEDDISABLED
+                      : pressed  ? RBS_UNCHECKEDPRESSED
+                      : hot      ? RBS_UNCHECKEDHOT
+                                 : RBS_UNCHECKEDNORMAL;
+            }
         } else {
-            state = checked ? (disabled ? CBS_CHECKEDDISABLED   : CBS_CHECKEDNORMAL)
-                            : (disabled ? CBS_UNCHECKEDDISABLED : CBS_UNCHECKEDNORMAL);
+            if (checked) {
+                state = disabled ? CBS_CHECKEDDISABLED
+                      : pressed  ? CBS_CHECKEDPRESSED
+                      : hot      ? CBS_CHECKEDHOT
+                                 : CBS_CHECKEDNORMAL;
+            } else {
+                state = disabled ? CBS_UNCHECKEDDISABLED
+                      : pressed  ? CBS_UNCHECKEDPRESSED
+                      : hot      ? CBS_UNCHECKEDHOT
+                                 : CBS_UNCHECKEDNORMAL;
+            }
         }
         DrawThemeBackground(ht, hdc, part, state, &ind_rc, NULL);
         CloseThemeData(ht);
@@ -1036,6 +1080,21 @@ static void paint_radio_check_dark(HWND hwnd, BOOL is_radio) {
         DrawTextW(hdc, text, len, &text_rc,
                   DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
+        if (!disabled && GetFocus() == hwnd) {
+            SIZE text_size = { 0, 0 };
+            RECT focus_rc;
+
+            GetTextExtentPoint32W(hdc, text, len, &text_size);
+            focus_rc.left = text_rc.left - 2;
+            focus_rc.top = (rc.top + rc.bottom - text_size.cy) / 2 - 1;
+            focus_rc.right = text_rc.left + text_size.cx + 2;
+            focus_rc.bottom = focus_rc.top + text_size.cy + 2;
+            if (focus_rc.right > text_rc.right) {
+                focus_rc.right = text_rc.right;
+            }
+            DrawFocusRect(hdc, &focus_rc);
+        }
+
         if (old_font) SelectObject(hdc, old_font);
     }
 
@@ -1055,6 +1114,30 @@ static LRESULT CALLBACK button_subclass_proc(HWND hwnd, UINT msg, WPARAM wp, LPA
     switch (msg) {
     case WM_ERASEBKGND:
         return 1;
+    case WM_MOUSEMOVE: {
+        TRACKMOUSEEVENT tme = { sizeof(tme), TME_LEAVE, hwnd, 0 };
+        LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
+        TrackMouseEvent(&tme);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return r;
+    }
+    case WM_MOUSELEAVE:
+        InvalidateRect(hwnd, NULL, FALSE);
+        return DefSubclassProc(hwnd, msg, wp, lp);
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_KEYDOWN:
+    case WM_KEYUP:
+    case BM_SETCHECK:
+    case BM_SETSTATE:
+    case WM_ENABLE:
+    case WM_SETFOCUS:
+    case WM_KILLFOCUS:
+    case WM_SETTEXT: {
+        LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return r;
+    }
     case WM_PAINT:
         if (btn_type == BS_GROUPBOX) {
             paint_groupbox_dark(hwnd);
@@ -1190,20 +1273,33 @@ void theme_core_paint_uah_menu_underline(HWND hwnd) {
  * §13  WM_SETTINGCHANGE handler
  * ========================================================================== */
 
-bool theme_core_on_setting_change(LPARAM lp) {
-    if (g_mode != THEME_MODE_SYSTEM) return false;     /* not following OS */
-    const wchar_t *param = (const wchar_t *)lp;
-    if (!param || lstrcmpiW(param, L"ImmersiveColorSet") != 0) return false;
+bool theme_core_is_relevant_setting_change(WPARAM wparam, LPARAM lparam) {
+    const wchar_t *param = (const wchar_t *)lparam;
+
+    if (wparam == SPI_SETHIGHCONTRAST) return true;
+    return param && lstrcmpiW(param, L"ImmersiveColorSet") == 0;
+}
+
+bool theme_core_on_setting_change(WPARAM wparam, LPARAM lparam) {
+    if (!theme_core_is_relevant_setting_change(wparam, lparam)) return false;
+    if (!g_api.initialized) theme_core_init();
 
     if (g_api.refresh_immersive_color_policy_state) {
         g_api.refresh_immersive_color_policy_state();
     }
-    bool was_dark = g_is_dark;
-    resolve_effective_mode();
-    if (was_dark == g_is_dark) return false;           /* no change */
-
-    /* OS pref flipped while we were in SYSTEM mode - re-sync. */
     apply_os_preferred_mode();
+    resolve_effective_mode();
+
+    refresh_palettes();
+    drop_menu_theme();
+    if (g_api.flush_menu_themes) g_api.flush_menu_themes();
+    return true;
+}
+
+bool theme_core_on_syscolor_change(void) {
+    if (!g_api.initialized) theme_core_init();
+    apply_os_preferred_mode();
+    resolve_effective_mode();
     refresh_palettes();
     drop_menu_theme();
     if (g_api.flush_menu_themes) g_api.flush_menu_themes();
