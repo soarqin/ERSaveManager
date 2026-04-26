@@ -17,8 +17,11 @@ Praxis is a practice save tool for Elden Ring (and potentially other games) that
 |--------|---------------|
 | Backup Full Save | Ctrl+Shift+F5 |
 | Backup Current Slot | Ctrl+Shift+F6 |
+| Backup & Replace Selected Save | Ctrl+Shift+F7 |
 | Restore (auto-detect full or slot) | Ctrl+Shift+F9 |
 | Undo Last Restore | Ctrl+Shift+Z |
+| Previous Save in Directory | Ctrl+Shift+Up |
+| Next Save in Directory | Ctrl+Shift+Down |
 
 ## Tree Storage
 

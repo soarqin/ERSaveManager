@@ -153,6 +153,9 @@ void register_hotkeys(HWND hwnd) {
     if (hotkey_parse_string(praxis_config.hotkey_backup_slot, &binding)) hotkey_register(HOTKEY_BACKUP_SLOT, &binding);
     if (hotkey_parse_string(praxis_config.hotkey_restore, &binding)) hotkey_register(HOTKEY_RESTORE, &binding);
     if (hotkey_parse_string(praxis_config.hotkey_undo_restore, &binding)) hotkey_register(HOTKEY_UNDO_RESTORE, &binding);
+    if (hotkey_parse_string(praxis_config.hotkey_backup_replace, &binding)) hotkey_register(HOTKEY_BACKUP_REPLACE, &binding);
+    if (hotkey_parse_string(praxis_config.hotkey_previous_save, &binding)) hotkey_register(HOTKEY_PREVIOUS_SAVE, &binding);
+    if (hotkey_parse_string(praxis_config.hotkey_next_save, &binding)) hotkey_register(HOTKEY_NEXT_SAVE, &binding);
 }
 
 void handle_profile_combo_change(HWND hwnd, UINT watcher_notify_msg) {
@@ -188,7 +191,8 @@ void handle_delete_backup(HWND hwnd, UINT watcher_notify_msg) {
     int backup_id = toolbar_get_selected_backup_id(g_app.toolbar);
 
     if (!backup_id) return;
-    if (MessageBoxW(hwnd, L"Delete this backup profile?", L"Confirm", MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+    if (MessageBoxW(hwnd, praxis_locale_str(STR_PRAXIS_CONFIRM_DELETE_BACKUP),
+        praxis_locale_str(STR_PRAXIS_CONFIRM), MB_YESNO | MB_ICONQUESTION) != IDYES) return;
     if (!profile_store_delete_backup(&g_profile_store, backup_id)) return;
     save_profile_store();
     populate_toolbar_profiles();

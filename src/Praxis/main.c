@@ -121,6 +121,17 @@ static void run_hotkey_action(HWND hwnd, hotkey_id_t hotkey_id) {
         if (ok && g_app.save_tree) save_tree_refresh_preserve_selection(g_app.save_tree);
         show_success_toast(STR_PRAXIS_TOAST_UNDO_SUCCESS, ok);
         break;
+    case HOTKEY_BACKUP_REPLACE:
+        ok = praxis_hotkey_action_backup_replace_selected(hwnd, &g_profile_store, g_app.save_tree,
+            get_active_compression_level());
+        show_success_toast(STR_PRAXIS_TOAST_BACKUP_REPLACE_SUCCESS, ok);
+        break;
+    case HOTKEY_PREVIOUS_SAVE:
+        if (g_app.save_tree) save_tree_select_sibling_file(g_app.save_tree, -1);
+        break;
+    case HOTKEY_NEXT_SAVE:
+        if (g_app.save_tree) save_tree_select_sibling_file(g_app.save_tree, 1);
+        break;
     }
 }
 
@@ -152,6 +163,12 @@ static LRESULT praxis_window_on_command(HWND hwnd, WPARAM wp) {
     case IDC_BTN_BACKUP_SLOT: {
         bool ok = praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
         show_success_toast(STR_PRAXIS_TOAST_BACKUP_SLOT_SUCCESS, ok);
+        return 0;
+    }
+    case IDC_BTN_BACKUP_REPLACE: {
+        bool ok = praxis_hotkey_action_backup_replace_selected(hwnd, &g_profile_store, g_app.save_tree,
+            get_active_compression_level());
+        show_success_toast(STR_PRAXIS_TOAST_BACKUP_REPLACE_SUCCESS, ok);
         return 0;
     }
     case IDC_BTN_RESTORE: {

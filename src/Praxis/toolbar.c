@@ -2,8 +2,8 @@
  * @file toolbar.c
  * @brief Implementation of the Praxis two-row toolbar widget.
  * @details Hosts a backup profile combobox plus add/delete buttons in a
- *          fixed-height (30 px) top container, and four wide action buttons
- *          (Backup Full, Backup Slot, Restore, Undo) in a 38 px bottom
+ *          fixed-height (30 px) top container, and five action buttons
+ *          (Backup Full, Backup Slot, Replace, Restore, Undo) in a 38 px bottom
  *          container. Both containers use the same custom window class which
  *          forwards WM_COMMAND/WM_NOTIFY from child controls up to the parent
  *          window.
@@ -33,7 +33,8 @@
 #define TOOLBAR_GAP              4
 #define TOOLBAR_GROUP_GAP        8
 #define TOOLBAR_BTN_SMALL_W      24
-#define TOOLBAR_BTN_LARGE_W      140    /* WIDER — fits "Backup Slot", "Undo Restore" with margin */
+#define TOOLBAR_BTN_LARGE_MIN_W  112
+#define TOOLBAR_ACTION_BUTTON_COUNT 5
 #define TOOLBAR_COMBO_MIN_W      120
 
 /* Window class name shared by both top and bottom toolbar containers. */
@@ -50,6 +51,7 @@ struct toolbar_s {
     HWND btn_del;           /* IDC_BTN_DEL_BACKUP      — child of hwnd_top */
     HWND btn_backup_full;   /* IDC_BTN_BACKUP_FULL     — child of hwnd_bottom */
     HWND btn_backup_slot;   /* IDC_BTN_BACKUP_SLOT     — child of hwnd_bottom */
+    HWND btn_backup_replace; /* IDC_BTN_BACKUP_REPLACE  — child of hwnd_bottom */
     HWND btn_restore;       /* IDC_BTN_RESTORE         — child of hwnd_bottom */
     HWND btn_undo;          /* IDC_BTN_UNDO            — child of hwnd_bottom */
     int top_height;         /* Fixed: TOOLBAR_TOP_HEIGHT */
@@ -137,6 +139,7 @@ static void toolbar_apply_default_font(const struct toolbar_s *t) {
     SendMessageW(t->btn_del,         WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_backup_full, WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_backup_slot, WM_SETFONT, (WPARAM)hfont, FALSE);
+    SendMessageW(t->btn_backup_replace, WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_restore,     WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_undo,        WM_SETFONT, (WPARAM)hfont, FALSE);
 }
@@ -169,7 +172,7 @@ toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
         0, 0, 100, t->top_height,
         parent, (HMENU)(uintptr_t)IDC_TOOLBAR, hinst, NULL);
 
-    /* Bottom container: 4 action buttons. No control id needed; identified
+    /* Bottom container: 5 action buttons. No control id needed; identified
      * by HWND from its child controls' IDs. */
     t->hwnd_bottom = CreateWindowExW(
         0,
@@ -212,14 +215,14 @@ toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
         276, TOOLBAR_CTRL_Y, TOOLBAR_BTN_SMALL_W, TOOLBAR_CTRL_HEIGHT,
         t->hwnd_top, (HMENU)(uintptr_t)IDC_BTN_DEL_BACKUP, hinst, NULL);
 
-    /* --- Bottom container children: 4 wide action buttons --- */
+    /* --- Bottom container children: 5 action buttons --- */
 
     /* "Backup Full" */
     t->btn_backup_full = CreateWindowExW(
         0,
         L"BUTTON", praxis_locale_str(STR_PRAXIS_TIP_BACKUP_FULL),
         BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-        TOOLBAR_LEFT_MARGIN, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_W, TOOLBAR_BTN_LARGE_HEIGHT,
+        TOOLBAR_LEFT_MARGIN, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_MIN_W, TOOLBAR_BTN_LARGE_HEIGHT,
         t->hwnd_bottom, (HMENU)(uintptr_t)IDC_BTN_BACKUP_FULL, hinst, NULL);
 
     /* "Backup Slot" */
@@ -227,15 +230,23 @@ toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
         0,
         L"BUTTON", praxis_locale_str(STR_PRAXIS_TIP_BACKUP_SLOT),
         BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-        148, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_W, TOOLBAR_BTN_LARGE_HEIGHT,
+        120, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_MIN_W, TOOLBAR_BTN_LARGE_HEIGHT,
         t->hwnd_bottom, (HMENU)(uintptr_t)IDC_BTN_BACKUP_SLOT, hinst, NULL);
+
+    /* "Backup & Replace" */
+    t->btn_backup_replace = CreateWindowExW(
+        0,
+        L"BUTTON", praxis_locale_str(STR_PRAXIS_TIP_BACKUP_REPLACE),
+        BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+        236, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_MIN_W, TOOLBAR_BTN_LARGE_HEIGHT,
+        t->hwnd_bottom, (HMENU)(uintptr_t)IDC_BTN_BACKUP_REPLACE, hinst, NULL);
 
     /* "Restore" */
     t->btn_restore = CreateWindowExW(
         0,
         L"BUTTON", praxis_locale_str(STR_PRAXIS_TIP_RESTORE),
         BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-        292, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_W, TOOLBAR_BTN_LARGE_HEIGHT,
+        352, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_MIN_W, TOOLBAR_BTN_LARGE_HEIGHT,
         t->hwnd_bottom, (HMENU)(uintptr_t)IDC_BTN_RESTORE, hinst, NULL);
 
     /* "Undo Last Restore" */
@@ -243,13 +254,13 @@ toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
         0,
         L"BUTTON", praxis_locale_str(STR_PRAXIS_TIP_UNDO),
         BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-        436, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_W, TOOLBAR_BTN_LARGE_HEIGHT,
+        468, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_MIN_W, TOOLBAR_BTN_LARGE_HEIGHT,
         t->hwnd_bottom, (HMENU)(uintptr_t)IDC_BTN_UNDO, hinst, NULL);
 
     /* Bail out if any control failed to create. Both container windows will
      * be torn down along with any partially-created children. */
     if (!t->combo || !t->btn_add || !t->btn_del ||
-        !t->btn_backup_full || !t->btn_backup_slot ||
+        !t->btn_backup_full || !t->btn_backup_slot || !t->btn_backup_replace ||
         !t->btn_restore || !t->btn_undo) {
         DestroyWindow(t->hwnd_top);
         DestroyWindow(t->hwnd_bottom);
@@ -326,25 +337,35 @@ void toolbar_layout_top(toolbar_t *t, int parent_width) {
 
 void toolbar_layout_bottom(toolbar_t *t, int parent_width, int y_top) {
     int x;
+    int available_width;
+    int button_width;
 
     if (!t || !t->hwnd_bottom) {
         return;
     }
 
-    /* All 4 action buttons left-aligned with equal width
-     * (TOOLBAR_BTN_LARGE_W = 140 px) so even long localized labels such as
-     * "Backup Full Save" / "Undo Last Restore" fit without clipping. */
+    available_width = parent_width - TOOLBAR_LEFT_MARGIN - TOOLBAR_RIGHT_MARGIN
+        - TOOLBAR_GAP * (TOOLBAR_ACTION_BUTTON_COUNT - 1);
+    button_width = available_width / TOOLBAR_ACTION_BUTTON_COUNT;
+    if (button_width < TOOLBAR_BTN_LARGE_MIN_W) {
+        button_width = TOOLBAR_BTN_LARGE_MIN_W;
+    }
+
+    /* All action buttons are left-aligned with equal width. */
     x = TOOLBAR_LEFT_MARGIN;
-    MoveWindow(t->btn_backup_full, x, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_W, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
-    x += TOOLBAR_BTN_LARGE_W + TOOLBAR_GAP;
+    MoveWindow(t->btn_backup_full, x, TOOLBAR_BTN_LARGE_Y, button_width, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
+    x += button_width + TOOLBAR_GAP;
 
-    MoveWindow(t->btn_backup_slot, x, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_W, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
-    x += TOOLBAR_BTN_LARGE_W + TOOLBAR_GAP;
+    MoveWindow(t->btn_backup_slot, x, TOOLBAR_BTN_LARGE_Y, button_width, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
+    x += button_width + TOOLBAR_GAP;
 
-    MoveWindow(t->btn_restore, x, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_W, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
-    x += TOOLBAR_BTN_LARGE_W + TOOLBAR_GAP;
+    MoveWindow(t->btn_backup_replace, x, TOOLBAR_BTN_LARGE_Y, button_width, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
+    x += button_width + TOOLBAR_GAP;
 
-    MoveWindow(t->btn_undo, x, TOOLBAR_BTN_LARGE_Y, TOOLBAR_BTN_LARGE_W, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
+    MoveWindow(t->btn_restore, x, TOOLBAR_BTN_LARGE_Y, button_width, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
+    x += button_width + TOOLBAR_GAP;
+
+    MoveWindow(t->btn_undo, x, TOOLBAR_BTN_LARGE_Y, button_width, TOOLBAR_BTN_LARGE_HEIGHT, TRUE);
 
     /* Reposition + resize the bottom container to (0, y_top) spanning the
      * parent width. */
@@ -442,6 +463,7 @@ void toolbar_set_actions_enabled(toolbar_t *t, bool enabled) {
     EnableWindow(t->btn_del,         flag);
     EnableWindow(t->btn_backup_full, flag);
     EnableWindow(t->btn_backup_slot, flag);
+    EnableWindow(t->btn_backup_replace, flag);
     EnableWindow(t->btn_restore,     flag);
     EnableWindow(t->btn_undo,        flag);
 
@@ -462,6 +484,9 @@ void toolbar_apply_locale_strings(toolbar_t *t) {
     }
     if (t->btn_backup_slot) {
         SetWindowTextW(t->btn_backup_slot, praxis_locale_str(STR_PRAXIS_TIP_BACKUP_SLOT));
+    }
+    if (t->btn_backup_replace) {
+        SetWindowTextW(t->btn_backup_replace, praxis_locale_str(STR_PRAXIS_TIP_BACKUP_REPLACE));
     }
     if (t->btn_restore) {
         SetWindowTextW(t->btn_restore, praxis_locale_str(STR_PRAXIS_TIP_RESTORE));

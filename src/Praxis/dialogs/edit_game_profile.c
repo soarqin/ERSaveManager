@@ -140,7 +140,7 @@ static void egp_auto_fill_name(HWND hwnd, const egp_state_t *state) {
 
     const game_backend_t *backend = egp_get_selected_backend(hwnd);
     const wchar_t *base_name = (backend && backend->display_name)
-        ? backend->display_name : L"Profile";
+        ? backend->display_name : praxis_locale_str(STR_PRAXIS_PROFILE);
 
     wchar_t unique_name[64];
     if (profile_store_find_unique_game_name(state->store, base_name, unique_name, 64)) {

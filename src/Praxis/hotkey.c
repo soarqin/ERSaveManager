@@ -14,8 +14,8 @@
 #include <windows.h>
 
 static HWND g_target_window = NULL;
-static hotkey_binding_t g_bindings[HOTKEY_UNDO_RESTORE + 1]; /* index 0 unused; 1-4 = hotkey_id_t */
-static bool g_registered[HOTKEY_UNDO_RESTORE + 1];
+static hotkey_binding_t g_bindings[HOTKEY_LAST + 1]; /* index 0 unused; indexed by hotkey_id_t */
+static bool g_registered[HOTKEY_LAST + 1];
 
 bool hotkey_init(HWND target_window) {
     g_target_window = target_window;
@@ -27,7 +27,7 @@ bool hotkey_init(HWND target_window) {
 bool hotkey_register(hotkey_id_t id, const hotkey_binding_t *binding) {
     UINT mods;
 
-    if (!g_target_window || id < HOTKEY_BACKUP_FULL || id > HOTKEY_UNDO_RESTORE || !binding || binding->vk == 0) {
+    if (!g_target_window || id < HOTKEY_FIRST || id > HOTKEY_LAST || !binding || binding->vk == 0) {
         return false;
     }
 
@@ -49,7 +49,7 @@ bool hotkey_register(hotkey_id_t id, const hotkey_binding_t *binding) {
 }
 
 bool hotkey_unregister(hotkey_id_t id) {
-    if (!g_target_window || id < HOTKEY_BACKUP_FULL || id > HOTKEY_UNDO_RESTORE) {
+    if (!g_target_window || id < HOTKEY_FIRST || id > HOTKEY_LAST) {
         return false;
     }
 
@@ -64,7 +64,7 @@ bool hotkey_unregister(hotkey_id_t id) {
 }
 
 void hotkey_unregister_all(void) {
-    for (int i = HOTKEY_BACKUP_FULL; i <= HOTKEY_UNDO_RESTORE; i++) {
+    for (int i = HOTKEY_FIRST; i <= HOTKEY_LAST; i++) {
         hotkey_unregister((hotkey_id_t)i);
     }
 }
@@ -101,6 +101,14 @@ bool hotkey_parse_string(const wchar_t *s, hotkey_binding_t *out) {
             } else {
                 return false;
             }
+        } else if (lstrcmpiW(tok, L"Up") == 0) {
+            vk = VK_UP;
+        } else if (lstrcmpiW(tok, L"Down") == 0) {
+            vk = VK_DOWN;
+        } else if (lstrcmpiW(tok, L"Left") == 0) {
+            vk = VK_LEFT;
+        } else if (lstrcmpiW(tok, L"Right") == 0) {
+            vk = VK_RIGHT;
         } else if (lstrlenW(tok) == 1) {
             SHORT scan = VkKeyScanW(towupper(tok[0]));
 
@@ -150,6 +158,14 @@ bool hotkey_to_string(const hotkey_binding_t *b, wchar_t *out, size_t out_chars)
         _snwprintf(fn, sizeof(fn) / sizeof(fn[0]), L"F%u", (unsigned)(b->vk - VK_F1 + 1));
         fn[(sizeof(fn) / sizeof(fn[0])) - 1] = L'\0';
         lstrcatW(buf, fn);
+    } else if (b->vk == VK_UP) {
+        lstrcatW(buf, L"Up");
+    } else if (b->vk == VK_DOWN) {
+        lstrcatW(buf, L"Down");
+    } else if (b->vk == VK_LEFT) {
+        lstrcatW(buf, L"Left");
+    } else if (b->vk == VK_RIGHT) {
+        lstrcatW(buf, L"Right");
     } else if (b->vk >= 'A' && b->vk <= 'Z') {
         wchar_t ch[2] = { (wchar_t)b->vk, 0 };
         lstrcatW(buf, ch);

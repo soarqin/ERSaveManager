@@ -284,6 +284,9 @@ bool profile_store_io_save(const profile_store_t *store, const wchar_t *ini_path
     char hotkey_bs[32 * 4]  = {0};
     char hotkey_r[32 * 4]   = {0};
     char hotkey_ur[32 * 4]  = {0};
+    char hotkey_br[32 * 4]  = {0};
+    char hotkey_prev[32 * 4] = {0};
+    char hotkey_next[32 * 4] = {0};
     WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_full, -1,
                         hotkey_bf, (int)sizeof(hotkey_bf), NULL, NULL);
     WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_slot, -1,
@@ -292,6 +295,12 @@ bool profile_store_io_save(const profile_store_t *store, const wchar_t *ini_path
                         hotkey_r, (int)sizeof(hotkey_r), NULL, NULL);
     WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_undo_restore, -1,
                         hotkey_ur, (int)sizeof(hotkey_ur), NULL, NULL);
+    WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_backup_replace, -1,
+                        hotkey_br, (int)sizeof(hotkey_br), NULL, NULL);
+    WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_previous_save, -1,
+                        hotkey_prev, (int)sizeof(hotkey_prev), NULL, NULL);
+    WideCharToMultiByte(CP_UTF8, 0, praxis_config.hotkey_next_save, -1,
+                        hotkey_next, (int)sizeof(hotkey_next), NULL, NULL);
 
     config_core_buf_t buf;
     config_core_buf_init(&buf);
@@ -310,6 +319,9 @@ bool profile_store_io_save(const profile_store_t *store, const wchar_t *ini_path
     config_core_buf_append(&buf, "HotkeyBackupSlot=%s\r\n", hotkey_bs);
     config_core_buf_append(&buf, "HotkeyRestore=%s\r\n", hotkey_r);
     config_core_buf_append(&buf, "HotkeyUndoRestore=%s\r\n", hotkey_ur);
+    config_core_buf_append(&buf, "HotkeyBackupReplace=%s\r\n", hotkey_br);
+    config_core_buf_append(&buf, "HotkeyPreviousSave=%s\r\n", hotkey_prev);
+    config_core_buf_append(&buf, "HotkeyNextSave=%s\r\n", hotkey_next);
     config_core_buf_append(&buf, "ActiveGameProfileId=%d\r\n", store->active_game_id);
     config_core_buf_append(&buf, "ActiveBackupProfileId=%d\r\n", store->active_backup_id);
     config_core_buf_append(&buf, "MigrationDismissed=%d\r\n", praxis_config.migration_dismissed);

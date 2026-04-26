@@ -1,6 +1,6 @@
 /**
  * @file hotkey_settings.h
- * @brief Modal dialog for editing the four global hotkey bindings.
+ * @brief Modal dialog for editing the global hotkey bindings.
  */
 
 #pragma once
@@ -10,8 +10,7 @@
 
 /**
  * @brief Show the Hotkey Settings modal dialog.
- * @details Displays a HOTKEY common control for each of the four global
- *          actions (Backup Full, Backup Slot, Restore, Undo Restore).
+ * @details Displays a HOTKEY common control for each global action.
  *          On OK the bindings are validated, written to praxis_config,
  *          persisted via save_profile_store(), and re-registered with the
  *          system. On Cancel no changes are made.

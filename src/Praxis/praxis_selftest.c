@@ -40,6 +40,10 @@
 #include <shellapi.h>
 #include <shlwapi.h>
 
+bool save_tree_select_sibling_file(save_tree_t *t, int direction);
+bool praxis_hotkey_action_backup_replace_selected(HWND hwnd, profile_store_t *store,
+                                                  save_tree_t *save_tree, int compression_level);
+
 /* Formatted wide-char printf honoring stdout redirect set by the parent process. */
 static void st_printf(const wchar_t *fmt, ...) {
     wchar_t buf[1024];
@@ -75,6 +79,22 @@ static void st_printf(const wchar_t *fmt, ...) {
         WideCharToMultiByte(CP_UTF8, 0, buf, -1, utf8, utf8_size, NULL, NULL);
         WriteFile(hOut, utf8, (DWORD)(utf8_size - 1), &written, NULL);
         LocalFree(utf8);
+    }
+}
+
+static bool selftest_locale_allows_english_fallback(praxis_string_index_t idx) {
+    switch (idx) {
+    case STR_PRAXIS_BACKUP:
+    case STR_PRAXIS_OPTIONS:
+    case STR_PRAXIS_FILE:
+    case STR_PRAXIS_ERROR:
+    case STR_PRAXIS_PROFILE_NAME:
+    case STR_PRAXIS_PROFILE_COMPRESSION:
+    case STR_PRAXIS_BTN_OK:
+    case STR_PRAXIS_THEME_SYSTEM:
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -329,6 +349,12 @@ static void selftest_config_kv_cb(const char *key, const char *value, void *user
         cfg->language = config_core_parse_int(value, 0);
     } else if (strcmp(key, "HotkeyBackupFull") == 0) {
         config_core_store_wide_value(cfg->hotkey_backup_full, 32, value);
+    } else if (strcmp(key, "HotkeyBackupReplace") == 0) {
+        config_core_store_wide_value(cfg->hotkey_backup_replace, 32, value);
+    } else if (strcmp(key, "HotkeyPreviousSave") == 0) {
+        config_core_store_wide_value(cfg->hotkey_previous_save, 32, value);
+    } else if (strcmp(key, "HotkeyNextSave") == 0) {
+        config_core_store_wide_value(cfg->hotkey_next_save, 32, value);
     } else if (strcmp(key, "RingSize") == 0) {
         cfg->ring_size = config_core_parse_int(value, 5);
     } else if (strcmp(key, "CompressionLevel") == 0) {
@@ -595,6 +621,54 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                                     exit_code = 0;
                                 }
                             }
+                        }
+
+                        save_tree_destroy(t);
+                        DestroyWindow(host);
+                    }
+                }
+            }
+        } else if (wcscmp(sub, L"tree-cycle-sibling-files") == 0) {
+            if (argc < 7) {
+                st_printf(L"usage: --selftest tree-cycle-sibling-files <root> <select_relpath> <direction> <expected_relpath>\n");
+                exit_code = 2;
+            } else {
+                HWND host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
+                    0, 0, 200, 200, NULL, NULL, GetModuleHandleW(NULL), NULL);
+                save_tree_t *t;
+
+                if (!host) {
+                    exit_code = 1;
+                } else {
+                    t = save_tree_create(host, GetModuleHandleW(NULL), 0);
+                    if (!t) {
+                        DestroyWindow(host);
+                        exit_code = 1;
+                    } else {
+                        wchar_t select_full[MAX_PATH];
+                        wchar_t expected_full[MAX_PATH];
+                        wchar_t selected_full[MAX_PATH];
+                        int direction = _wtoi(argv[5]);
+
+                        save_tree_set_root(t, argv[3]);
+                        if (!selftest_build_tree_path(argv[3], argv[4], select_full, MAX_PATH) ||
+                            !save_tree_select_full_path(t, select_full)) {
+                            st_printf(L"tree-cycle-sibling-files: selection failed\n");
+                            exit_code = 1;
+                        } else if (!save_tree_select_sibling_file(t, direction)) {
+                            st_printf(L"tree-cycle-sibling-files: cycle failed\n");
+                            exit_code = 1;
+                        } else if (!selftest_build_tree_path(argv[3], argv[6], expected_full, MAX_PATH)) {
+                            exit_code = 1;
+                        } else if (!save_tree_get_selected_path(t, selected_full, MAX_PATH)) {
+                            st_printf(L"tree-cycle-sibling-files: no selected path\n");
+                            exit_code = 1;
+                        } else if (lstrcmpW(selected_full, expected_full) != 0) {
+                            st_printf(L"expected=%ls\nselected=%ls\n", expected_full, selected_full);
+                            exit_code = 1;
+                        } else {
+                            st_printf(L"selected=%ls\n", selected_full);
+                            exit_code = 0;
                         }
 
                         save_tree_destroy(t);
@@ -946,6 +1020,34 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 st_printf(L"%d: %ls\n", i, praxis_locale_str((praxis_string_index_t)i));
             }
             exit_code = 0;
+        } else if (wcscmp(sub, L"locale-audit") == 0) {
+            int previous_locale = praxis_locale_get_current();
+            bool ok = true;
+
+            for (int idx = 0; idx < (int)STR_PRAXIS_MAX; idx++) {
+                praxis_string_index_t str_idx = (praxis_string_index_t)idx;
+                const wchar_t *english;
+
+                if (selftest_locale_allows_english_fallback(str_idx)) {
+                    continue;
+                }
+                praxis_locale_set_current(0);
+                english = praxis_locale_str(str_idx);
+                for (int locale_idx = 1; locale_idx < praxis_locale_count(); locale_idx++) {
+                    const wchar_t *translated;
+
+                    praxis_locale_set_current(locale_idx);
+                    translated = praxis_locale_str(str_idx);
+                    if (translated[0] == L'\0' || wcscmp(translated, english) == 0) {
+                        st_printf(L"locale-audit: locale=%d idx=%d text=%ls\n",
+                            locale_idx, idx, translated);
+                        ok = false;
+                    }
+                }
+            }
+
+            praxis_locale_set_current(previous_locale);
+            exit_code = ok ? 0 : 1;
         } else if (wcscmp(sub, L"watcher-state") == 0) {
             if (argc < 4) {
                 exit_code = 2;
@@ -987,12 +1089,96 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     exit_code = 0;
                 }
             }
+        } else if (wcscmp(sub, L"backup-replace-selected") == 0) {
+            if (argc < 6) {
+                st_printf(L"usage: --selftest backup-replace-selected <save_dir> <game_tree_root> <selected_relpath>\n");
+                exit_code = 2;
+            } else {
+                HWND host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
+                    0, 0, 200, 200, NULL, NULL, GetModuleHandleW(NULL), NULL);
+                save_tree_t *t;
+
+                if (!host) {
+                    exit_code = 1;
+                } else {
+                    t = save_tree_create(host, GetModuleHandleW(NULL), 0);
+                    if (!t) {
+                        DestroyWindow(host);
+                        exit_code = 1;
+                    } else {
+                        profile_store_t store;
+                        game_profile_t gp;
+                        wchar_t backup_root[MAX_PATH];
+                        wchar_t selected_full_before[MAX_PATH];
+                        wchar_t selected_full_after[MAX_PATH];
+                        save_kind_t before_kind;
+                        save_kind_t after_kind;
+
+                        profile_store_init(&store);
+                        ZeroMemory(&gp, sizeof(gp));
+                        lstrcpyW(gp.name, L"Selftest");
+                        gp.game_id = GAME_ID_ELDEN_RING;
+                        lstrcpynW(gp.original_save_dir, argv[3], MAX_PATH);
+                        lstrcpynW(gp.tree_root, argv[4], MAX_PATH);
+
+                        if (!profile_store_add_game(&store, &gp) ||
+                            !profile_store_resolve_backup_root(&store, store.active_backup_id,
+                                backup_root, MAX_PATH)) {
+                            st_printf(L"backup-replace-selected: profile setup failed\n");
+                            exit_code = 1;
+                        } else {
+                            wchar_t select_full[MAX_PATH];
+
+                            save_tree_set_root(t, backup_root);
+                            if (!selftest_build_tree_path(backup_root, argv[5], select_full, MAX_PATH) ||
+                                !save_tree_select_full_path(t, select_full)) {
+                                st_printf(L"backup-replace-selected: selection failed\n");
+                                exit_code = 1;
+                            } else if (!save_tree_get_selected_path(t, selected_full_before, MAX_PATH)) {
+                                st_printf(L"backup-replace-selected: selected path failed\n");
+                                exit_code = 1;
+                            } else {
+                                before_kind = save_compress_classify_backup(selected_full_before);
+                                if (before_kind == SAVE_KIND_UNKNOWN) {
+                                    st_printf(L"backup-replace-selected: unknown kind before replace\n");
+                                    exit_code = 1;
+                                } else if (!praxis_hotkey_action_backup_replace_selected(host, &store, t, COMP_LEVEL_MEDIUM)) {
+                                    st_printf(L"backup-replace-selected: action failed\n");
+                                    exit_code = 1;
+                                } else if (!save_tree_get_selected_path(t, selected_full_after, MAX_PATH)) {
+                                    st_printf(L"backup-replace-selected: selected path lost\n");
+                                    exit_code = 1;
+                                } else if (lstrcmpW(selected_full_before, selected_full_after) != 0) {
+                                    st_printf(L"before=%ls\nafter=%ls\n", selected_full_before, selected_full_after);
+                                    exit_code = 1;
+                                } else {
+                                    after_kind = save_compress_classify_backup(selected_full_after);
+                                    if (after_kind != before_kind) {
+                                        st_printf(L"before_kind=%d after_kind=%d\n",
+                                            (int)before_kind, (int)after_kind);
+                                        exit_code = 1;
+                                    } else {
+                                        st_printf(L"backup-replace-selected: ok kind=%d\n", (int)after_kind);
+                                        exit_code = 0;
+                                    }
+                                }
+                            }
+                        }
+
+                        save_tree_destroy(t);
+                        DestroyWindow(host);
+                    }
+                }
+            }
         } else if (wcscmp(sub, L"hotkey-defaults") == 0) {
             praxis_load_config();
             st_printf(L"backup_full=%ls\n", praxis_config.hotkey_backup_full);
             st_printf(L"restore=%ls\n", praxis_config.hotkey_restore);
             st_printf(L"undo=%ls\n", praxis_config.hotkey_undo_restore);
             st_printf(L"backup_slot=%ls\n", praxis_config.hotkey_backup_slot);
+            st_printf(L"backup_replace=%ls\n", praxis_config.hotkey_backup_replace);
+            st_printf(L"previous_save=%ls\n", praxis_config.hotkey_previous_save);
+            st_printf(L"next_save=%ls\n", praxis_config.hotkey_next_save);
             exit_code = 0;
         } else if (wcscmp(sub, L"config-load") == 0) {
             if (argc < 4) {
@@ -1023,6 +1209,9 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 st_printf(L"tree_root=%ls\n", praxis_config.tree_root);
                 st_printf(L"language=%d\n", praxis_config.language);
                 st_printf(L"hotkeys_backup_full=%ls\n", praxis_config.hotkey_backup_full);
+                st_printf(L"hotkeys_backup_replace=%ls\n", praxis_config.hotkey_backup_replace);
+                st_printf(L"hotkeys_previous_save=%ls\n", praxis_config.hotkey_previous_save);
+                st_printf(L"hotkeys_next_save=%ls\n", praxis_config.hotkey_next_save);
                 st_printf(L"ring_size=%d\n", praxis_config.ring_size);
                 st_printf(L"compression_level=%d\n", praxis_config.compression_level);
                 exit_code = 0;

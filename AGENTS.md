@@ -109,7 +109,10 @@ cmake --build build --config Release
   - Backup Full Save: `Ctrl+Shift+F5`
   - Restore (auto-detect full or slot): `Ctrl+Shift+F9`
   - Backup Current Slot: `Ctrl+Shift+F6`
+  - Backup & Replace Selected Save: `Ctrl+Shift+F7`
   - Undo Last Restore: `Ctrl+Shift+Z`
+  - Previous Save in Directory: `Ctrl+Shift+Up`
+  - Next Save in Directory: `Ctrl+Shift+Down`
 - **Ring Backup Location**: `<tree_root>/.praxis_ring/` (hidden directory).
 - **Backend Interface**: Compile-time vtable defined in `src/Praxis/game_backend.h`.
 - **`--selftest` subcommands** (selected; see `praxis_selftest.c` for the full list):

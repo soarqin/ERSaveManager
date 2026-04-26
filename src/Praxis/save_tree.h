@@ -43,6 +43,17 @@ bool save_tree_get_selected_path(const save_tree_t *t, wchar_t *out, size_t out_
  */
 bool save_tree_select_full_path(save_tree_t *t, const wchar_t *full_path);
 /**
+ * @brief Select the previous or next file in the selected item's directory.
+ * @details Files are ordered the same way they appear in the tree. If the
+ *          current selection is a file, cycles among files in that file's
+ *          parent directory. If the current selection is a directory or the
+ *          root wrapper, selects the first/last file directly inside it.
+ * @param t Tree widget instance.
+ * @param direction Negative selects previous, positive selects next.
+ * @return true when a sibling file was selected, false otherwise.
+ */
+bool save_tree_select_sibling_file(save_tree_t *t, int direction);
+/**
  * @brief Get the directory path of the currently selected item.
  * @details If the selection is a directory, returns its full path. If the
  *          selection is a file, returns the parent directory's full path.

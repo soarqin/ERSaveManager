@@ -40,6 +40,9 @@ static void apply_defaults(void) {
     lstrcpyW(praxis_config.hotkey_backup_slot, L"Ctrl+Shift+F6");
     lstrcpyW(praxis_config.hotkey_restore, L"Ctrl+Shift+F9");
     lstrcpyW(praxis_config.hotkey_undo_restore, L"Ctrl+Shift+Z");
+    lstrcpyW(praxis_config.hotkey_backup_replace, L"Ctrl+Shift+F7");
+    lstrcpyW(praxis_config.hotkey_previous_save, L"Ctrl+Shift+Up");
+    lstrcpyW(praxis_config.hotkey_next_save, L"Ctrl+Shift+Down");
     praxis_config.migration_dismissed = 0;
     praxis_config.theme = 0;  /* THEME_MODE_SYSTEM */
 }
@@ -72,6 +75,12 @@ static void kv_callback(const char *key, const char *value, void *user) {
         config_core_store_wide_value(cfg->hotkey_restore, 32, value);
     } else if (strcmp(key, "HotkeyUndoRestore") == 0) {
         config_core_store_wide_value(cfg->hotkey_undo_restore, 32, value);
+    } else if (strcmp(key, "HotkeyBackupReplace") == 0) {
+        config_core_store_wide_value(cfg->hotkey_backup_replace, 32, value);
+    } else if (strcmp(key, "HotkeyPreviousSave") == 0) {
+        config_core_store_wide_value(cfg->hotkey_previous_save, 32, value);
+    } else if (strcmp(key, "HotkeyNextSave") == 0) {
+        config_core_store_wide_value(cfg->hotkey_next_save, 32, value);
     } else if (strcmp(key, "MigrationDismissed") == 0) {
         cfg->migration_dismissed = config_core_parse_int(value, 0);
     } else if (strcmp(key, "Theme") == 0) {

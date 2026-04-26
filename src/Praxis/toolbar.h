@@ -4,8 +4,8 @@
  * @details Provides two fixed-height child container windows:
  *          - Top container (30 px): backup profile combobox + add ("+") and
  *            delete ("-") buttons.
- *          - Bottom container (38 px): four wide action buttons — Backup Full,
- *            Backup Slot, Restore, Undo Last Restore.
+ *          - Bottom container (38 px): five action buttons — Backup Full,
+ *            Backup Slot, Backup & Replace, Restore, Undo Last Restore.
  *          Both containers are purely UI hosts; WM_COMMAND routing for the
  *          buttons and combobox is handled by the main window procedure via
  *          the toolbar container WndProc forwarding.
@@ -75,9 +75,8 @@ void toolbar_layout_top(toolbar_t *t, int parent_width);
 
 /**
  * @brief Reflow the bottom toolbar layout for a new parent width and y position.
- * @details All four action buttons are left-aligned with equal width
- *          (TOOLBAR_BTN_LARGE_W). The container is repositioned to
- *          (0, @p y_top) and resized to span @p parent_width.
+ * @details All action buttons are left-aligned with equal width. The container
+ *          is repositioned to (0, @p y_top) and resized to span @p parent_width.
  * @param t Toolbar handle.
  * @param parent_width Width of parent client area in pixels.
  * @param y_top        Y coordinate (in parent client space) for the top edge
@@ -114,8 +113,8 @@ void toolbar_set_selected_backup_id(toolbar_t *t, int backup_id);
  * @brief Enable or disable all action buttons.
  * @details When disabled, only the combobox and the "+" (add backup) button
  *          remain enabled so users can still create their first profile.
- *          The "-", Backup Full, Backup Slot, Restore, and Undo buttons are
- *          gated by this flag.
+ *          The "-", Backup Full, Backup Slot, Backup & Replace, Restore, and
+ *          Undo buttons are gated by this flag.
  * @param t       Toolbar handle.
  * @param enabled true to enable action buttons, false to disable.
  */

@@ -1,8 +1,8 @@
 /**
  * @file hotkey_settings.c
  * @brief Implementation of the Hotkey Settings modal dialog.
- * @details Wraps four msctls_hotkey32 (HOTKEY common control) instances —
- *          one per global action — and translates between the control's
+ * @details Wraps msctls_hotkey32 (HOTKEY common control) instances — one per
+ *          global action — and translates between the control's
  *          packed wParam encoding (HOTKEYF_* | vk) and the project's
  *          hotkey_binding_t (MOD_* | vk) on dialog entry / commit.
  */
@@ -29,6 +29,9 @@ static const wchar_t *HK_DEFAULT_BACKUP_FULL = L"Ctrl+Shift+F5";
 static const wchar_t *HK_DEFAULT_BACKUP_SLOT = L"Ctrl+Shift+F6";
 static const wchar_t *HK_DEFAULT_RESTORE     = L"Ctrl+Shift+F9";
 static const wchar_t *HK_DEFAULT_UNDO        = L"Ctrl+Shift+Z";
+static const wchar_t *HK_DEFAULT_BACKUP_REPLACE = L"Ctrl+Shift+F7";
+static const wchar_t *HK_DEFAULT_PREVIOUS_SAVE  = L"Ctrl+Shift+Up";
+static const wchar_t *HK_DEFAULT_NEXT_SAVE      = L"Ctrl+Shift+Down";
 
 /* Translate hotkey_binding_t modifier flags (MOD_*) to the HOTKEYF_*
  * bit format used by msctls_hotkey32's HKM_SETHOTKEY message. */
@@ -123,7 +126,7 @@ static void hk_binding_to_config_string(const hotkey_binding_t *b,
     }
 }
 
-/* Re-register all four global hotkeys from praxis_config. Returns true if
+/* Re-register all global hotkeys from praxis_config. Returns true if
  * every parseable binding registered without conflict. */
 static bool hk_reregister_all(void) {
     hotkey_binding_t b;
@@ -143,11 +146,20 @@ static bool hk_reregister_all(void) {
     if (hotkey_parse_string(praxis_config.hotkey_undo_restore, &b)) {
         ok &= hotkey_register(HOTKEY_UNDO_RESTORE, &b);
     }
+    if (hotkey_parse_string(praxis_config.hotkey_backup_replace, &b)) {
+        ok &= hotkey_register(HOTKEY_BACKUP_REPLACE, &b);
+    }
+    if (hotkey_parse_string(praxis_config.hotkey_previous_save, &b)) {
+        ok &= hotkey_register(HOTKEY_PREVIOUS_SAVE, &b);
+    }
+    if (hotkey_parse_string(praxis_config.hotkey_next_save, &b)) {
+        ok &= hotkey_register(HOTKEY_NEXT_SAVE, &b);
+    }
 
     return ok;
 }
 
-/* Read all four controls and write them into praxis_config. */
+/* Read all controls and write them into praxis_config. */
 static void hk_commit_to_config(HWND dlg) {
     hotkey_binding_t b;
 
@@ -174,6 +186,24 @@ static void hk_commit_to_config(HWND dlg) {
             sizeof(praxis_config.hotkey_undo_restore) / sizeof(wchar_t));
     } else {
         praxis_config.hotkey_undo_restore[0] = L'\0';
+    }
+    if (hk_get_binding_from_control(dlg, IDC_HK_BACKUP_REPLACE, &b)) {
+        hk_binding_to_config_string(&b, praxis_config.hotkey_backup_replace,
+            sizeof(praxis_config.hotkey_backup_replace) / sizeof(wchar_t));
+    } else {
+        praxis_config.hotkey_backup_replace[0] = L'\0';
+    }
+    if (hk_get_binding_from_control(dlg, IDC_HK_PREVIOUS_SAVE, &b)) {
+        hk_binding_to_config_string(&b, praxis_config.hotkey_previous_save,
+            sizeof(praxis_config.hotkey_previous_save) / sizeof(wchar_t));
+    } else {
+        praxis_config.hotkey_previous_save[0] = L'\0';
+    }
+    if (hk_get_binding_from_control(dlg, IDC_HK_NEXT_SAVE, &b)) {
+        hk_binding_to_config_string(&b, praxis_config.hotkey_next_save,
+            sizeof(praxis_config.hotkey_next_save) / sizeof(wchar_t));
+    } else {
+        praxis_config.hotkey_next_save[0] = L'\0';
     }
 }
 
@@ -208,8 +238,15 @@ static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
             praxis_locale_str(STR_PRAXIS_RESTORE));
         SetDlgItemTextW(hwnd, IDC_HK_LBL_UNDO,
             praxis_locale_str(STR_PRAXIS_UNDO_RESTORE));
+        SetDlgItemTextW(hwnd, IDC_HK_LBL_BACKUP_REPLACE,
+            praxis_locale_str(STR_PRAXIS_BACKUP_REPLACE));
+        SetDlgItemTextW(hwnd, IDC_HK_LBL_PREVIOUS_SAVE,
+            praxis_locale_str(STR_PRAXIS_PREVIOUS_SAVE));
+        SetDlgItemTextW(hwnd, IDC_HK_LBL_NEXT_SAVE,
+            praxis_locale_str(STR_PRAXIS_NEXT_SAVE));
         SetDlgItemTextW(hwnd, IDOK,     praxis_locale_str(STR_PRAXIS_BTN_OK));
         SetDlgItemTextW(hwnd, IDCANCEL, praxis_locale_str(STR_PRAXIS_BTN_CANCEL));
+        SetDlgItemTextW(hwnd, IDC_HK_RESET, praxis_locale_str(STR_PRAXIS_BTN_RESET_DEFAULTS));
 
         /* Restrict the HOTKEY controls to combinations that include at least
          * one modifier — global hotkeys without a modifier are unusable in
@@ -226,11 +263,23 @@ static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
         SendDlgItemMessageW(hwnd, IDC_HK_UNDO, HKM_SETRULES,
             (WPARAM)(HKCOMB_NONE | HKCOMB_S | HKCOMB_A),
             MAKELPARAM(HOTKEYF_CONTROL, 0));
+        SendDlgItemMessageW(hwnd, IDC_HK_BACKUP_REPLACE, HKM_SETRULES,
+            (WPARAM)(HKCOMB_NONE | HKCOMB_S | HKCOMB_A),
+            MAKELPARAM(HOTKEYF_CONTROL, 0));
+        SendDlgItemMessageW(hwnd, IDC_HK_PREVIOUS_SAVE, HKM_SETRULES,
+            (WPARAM)(HKCOMB_NONE | HKCOMB_S | HKCOMB_A),
+            MAKELPARAM(HOTKEYF_CONTROL, 0));
+        SendDlgItemMessageW(hwnd, IDC_HK_NEXT_SAVE, HKM_SETRULES,
+            (WPARAM)(HKCOMB_NONE | HKCOMB_S | HKCOMB_A),
+            MAKELPARAM(HOTKEYF_CONTROL, 0));
 
         hk_set_control_from_string(hwnd, IDC_HK_BACKUP_FULL, praxis_config.hotkey_backup_full);
         hk_set_control_from_string(hwnd, IDC_HK_BACKUP_SLOT, praxis_config.hotkey_backup_slot);
         hk_set_control_from_string(hwnd, IDC_HK_RESTORE,     praxis_config.hotkey_restore);
         hk_set_control_from_string(hwnd, IDC_HK_UNDO,        praxis_config.hotkey_undo_restore);
+        hk_set_control_from_string(hwnd, IDC_HK_BACKUP_REPLACE, praxis_config.hotkey_backup_replace);
+        hk_set_control_from_string(hwnd, IDC_HK_PREVIOUS_SAVE,  praxis_config.hotkey_previous_save);
+        hk_set_control_from_string(hwnd, IDC_HK_NEXT_SAVE,      praxis_config.hotkey_next_save);
         praxis_theme_apply_to_window(hwnd);
         return TRUE;
 
@@ -257,6 +306,9 @@ static INT_PTR CALLBACK hotkey_settings_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
             hk_set_control_from_string(hwnd, IDC_HK_BACKUP_SLOT, HK_DEFAULT_BACKUP_SLOT);
             hk_set_control_from_string(hwnd, IDC_HK_RESTORE,     HK_DEFAULT_RESTORE);
             hk_set_control_from_string(hwnd, IDC_HK_UNDO,        HK_DEFAULT_UNDO);
+            hk_set_control_from_string(hwnd, IDC_HK_BACKUP_REPLACE, HK_DEFAULT_BACKUP_REPLACE);
+            hk_set_control_from_string(hwnd, IDC_HK_PREVIOUS_SAVE,  HK_DEFAULT_PREVIOUS_SAVE);
+            hk_set_control_from_string(hwnd, IDC_HK_NEXT_SAVE,      HK_DEFAULT_NEXT_SAVE);
             return TRUE;
 
         case IDOK:

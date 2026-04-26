@@ -556,6 +556,87 @@ bool save_tree_select_full_path(save_tree_t *t, const wchar_t *full_path) {
     return true;
 }
 
+bool save_tree_select_sibling_file(save_tree_t *t, int direction) {
+    HTREEITEM selection;
+    save_item_t selected_item;
+    size_t selected_index = (size_t)-1;
+    wchar_t parent_relpath[MAX_PATH];
+    size_t first_candidate = (size_t)-1;
+    size_t last_candidate = (size_t)-1;
+    size_t prev_candidate = (size_t)-1;
+    size_t target_index = (size_t)-1;
+    bool selected_is_file = false;
+    bool selected_seen = false;
+    int step = direction < 0 ? -1 : 1;
+
+    if (!t || !t->hwnd || direction == 0) {
+        return false;
+    }
+
+    parent_relpath[0] = L'\0';
+    selection = TreeView_GetSelection(t->hwnd);
+    if (selection && save_tree_get_item_info(t, selection, &selected_index, &selected_item)) {
+        if (selected_item.is_directory) {
+            lstrcpynW(parent_relpath, selected_item.relative_path, MAX_PATH);
+        } else {
+            selected_is_file = save_tree_get_parent_relpath(selected_item.relative_path,
+                parent_relpath, MAX_PATH);
+        }
+    }
+
+    for (size_t i = 0; i < t->item_count; i++) {
+        wchar_t item_parent[MAX_PATH];
+
+        if (t->items[i].is_directory) {
+            continue;
+        }
+        if (!save_tree_get_parent_relpath(t->items[i].relative_path, item_parent, MAX_PATH) ||
+            lstrcmpW(item_parent, parent_relpath) != 0) {
+            continue;
+        }
+
+        if (first_candidate == (size_t)-1) {
+            first_candidate = i;
+        }
+
+        if (selected_is_file && i == selected_index) {
+            selected_seen = true;
+            if (step < 0) {
+                target_index = prev_candidate;
+                if (target_index != (size_t)-1) {
+                    break;
+                }
+            }
+        } else if (selected_seen && step > 0) {
+            target_index = i;
+            break;
+        }
+
+        prev_candidate = i;
+        last_candidate = i;
+    }
+
+    if (first_candidate == (size_t)-1) {
+        return false;
+    }
+    if (target_index == (size_t)-1) {
+        target_index = step > 0 ? first_candidate : last_candidate;
+    }
+
+    {
+        HTREEITEM target = find_hitem_by_lparam(t->hwnd, TreeView_GetRoot(t->hwnd),
+            (LPARAM)(uintptr_t)target_index);
+        if (!target) {
+            return false;
+        }
+
+        TreeView_SelectItem(t->hwnd, target);
+        TreeView_EnsureVisible(t->hwnd, target);
+    }
+
+    return true;
+}
+
 bool save_tree_get_selected_dir(const save_tree_t *t, wchar_t *out, size_t out_chars) {
     HTREEITEM selection;
     save_item_t item;

@@ -1,8 +1,9 @@
 /**
  * @file praxis_hotkey_actions.c
  * @brief Hotkey-triggered backup/restore action implementations.
- * @details Provides the four core operations (backup-full, backup-slot,
- *          restore, undo) invoked from both global hotkeys and toolbar buttons.
+ * @details Provides the core operations (backup-full, backup-slot,
+ *          backup-replace, restore, undo) invoked from both global hotkeys
+ *          and toolbar buttons.
  *          All functions are stateless with respect to global variables: they
  *          receive the profile store and save-tree widget as parameters.
  */
@@ -101,6 +102,28 @@ static void make_backup_filename(const wchar_t *base_dir, const wchar_t *prefix,
         st.wHour, st.wMinute, st.wSecond, ext);
 }
 
+static bool make_replace_temp_path(const wchar_t *target_path, wchar_t *out, size_t out_chars) {
+    if (!target_path || !out || out_chars == 0) {
+        return false;
+    }
+
+    return _snwprintf_s(out, out_chars, _TRUNCATE, L"%ls.replace.tmp", target_path) >= 0;
+}
+
+static bool commit_replace_temp_file(const wchar_t *temp_path, const wchar_t *target_path) {
+    if (!temp_path || !target_path) {
+        return false;
+    }
+
+    if (!MoveFileExW(temp_path, target_path,
+        MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        DeleteFileW(temp_path);
+        return false;
+    }
+
+    return true;
+}
+
 /* Copy a raw BND4 save file to dst_path, wrapping it with the ERSM
  * raw-BND4 container so it round-trips through save_compress_classify_backup. */
 static bool backup_full_raw(const wchar_t *src_path, const wchar_t *dst_path) {
@@ -143,6 +166,21 @@ static bool backup_full_raw(const wchar_t *src_path, const wchar_t *dst_path) {
     ok = ersm_write_raw_bnd4_to_file(dst_path, buf, (size_t)bytes_read);
     LocalFree(buf);
     return ok;
+}
+
+static bool backup_full_to_path(const game_backend_t *backend,
+                                const wchar_t *save_path,
+                                const wchar_t *dst_path,
+                                compression_level_t compression_level) {
+    if (!backend || !save_path || !dst_path) {
+        return false;
+    }
+
+    if (compression_level == COMP_LEVEL_NONE) {
+        return backup_full_raw(save_path, dst_path);
+    }
+
+    return backend->backup_full(save_path, dst_path, comp_level_to_lzma(compression_level));
 }
 
 /*
@@ -254,6 +292,55 @@ bool praxis_hotkey_action_backup_slot(HWND hwnd, profile_store_t *store,
     }
 
     return ok;
+}
+
+bool praxis_hotkey_action_backup_replace_selected(HWND hwnd, profile_store_t *store,
+                                                  save_tree_t *save_tree, int compression_level) {
+    const backup_profile_t *bp = profile_store_get_active_backup(store);
+    const game_backend_t *backend = get_active_backend_for(store);
+    compression_level_t cl = (compression_level_t)compression_level;
+    wchar_t selected_path[MAX_PATH] = {0};
+    wchar_t save_path[MAX_PATH];
+    wchar_t temp_path[MAX_PATH];
+    save_kind_t selected_kind;
+    bool ok = false;
+
+    (void)hwnd;
+
+    if (!bp || !backend || !save_tree ||
+        !save_tree_get_selected_path(save_tree, selected_path, MAX_PATH) ||
+        !selected_path[0] ||
+        !resolve_save_path_for(store, save_path, MAX_PATH) ||
+        !make_replace_temp_path(selected_path, temp_path, MAX_PATH)) {
+        return false;
+    }
+
+    selected_kind = save_compress_classify_backup(selected_path);
+    if (selected_kind == SAVE_KIND_FULL) {
+        ok = backup_full_to_path(backend, save_path, temp_path, cl);
+    } else if (selected_kind == SAVE_KIND_SLOT) {
+        int slot = -1;
+
+        if (game_backend_supports_slot_ops(backend) &&
+            backend->get_active_slot(save_path, &slot)) {
+            ok = backend->backup_slot(save_path, slot, temp_path, comp_level_to_lzma(cl));
+        }
+    } else {
+        return false;
+    }
+
+    if (!ok) {
+        DeleteFileW(temp_path);
+        return false;
+    }
+
+    if (!commit_replace_temp_file(temp_path, selected_path)) {
+        return false;
+    }
+
+    save_tree_refresh(save_tree);
+    save_tree_select_full_path(save_tree, selected_path);
+    return true;
 }
 
 bool praxis_hotkey_action_restore(HWND hwnd, profile_store_t *store, save_tree_t *save_tree) {

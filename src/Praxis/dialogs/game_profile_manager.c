@@ -79,7 +79,7 @@ static void gpm_truncate_path_for_column(HWND list, int col,
 static const wchar_t *game_id_display_name(game_id_t gid) {
     switch (gid) {
     case GAME_ID_ELDEN_RING: return L"Elden Ring";
-    default:                 return L"Unknown";
+    default:                 return praxis_locale_str(STR_PRAXIS_UNKNOWN);
     }
 }
 

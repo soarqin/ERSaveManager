@@ -1,7 +1,7 @@
 /**
  * @file praxis_hotkey_actions.h
  * @brief Hotkey-triggered backup/restore action handlers.
- * @details Implements the four core backup/restore operations invoked from the
+ * @details Implements the core backup/restore operations invoked from the
  *          WM_HOTKEY message and the toolbar action buttons. Each function
  *          operates on the active game/backup profile from the provided store
  *          and refreshes the save tree widget on success.
@@ -46,6 +46,23 @@ bool praxis_hotkey_action_backup_full(HWND hwnd, profile_store_t *store,
  */
 bool praxis_hotkey_action_backup_slot(HWND hwnd, profile_store_t *store,
                                       save_tree_t *save_tree, int compression_level);
+
+/**
+ * @brief Replace the selected backup with a fresh backup of the same kind.
+ * @details Classifies the currently selected backup by file magic. Full-save
+ *          backups are replaced with a fresh full-save backup; slot backups
+ *          are replaced with a fresh backup of the currently active slot.
+ *          The replacement is written to a temporary file first, then moved
+ *          over the selected backup only after the new backup succeeds.
+ *          Refreshes save_tree and keeps the same selected path on success.
+ * @param hwnd Main window handle (reserved for future MessageBox feedback).
+ * @param store Profile store containing the active game/backup profile.
+ * @param save_tree Save tree widget providing the selected backup path.
+ * @param compression_level compression_level_t value cast to int.
+ * @return true on success, false on any error.
+ */
+bool praxis_hotkey_action_backup_replace_selected(HWND hwnd, profile_store_t *store,
+                                                  save_tree_t *save_tree, int compression_level);
 
 /**
  * @brief Restore the currently selected backup to the active save.

@@ -39,6 +39,7 @@
 #define IDC_BTN_BACKUP_SLOT  215
 #define IDC_BTN_RESTORE      216
 #define IDC_BTN_UNDO         217
+#define IDC_BTN_BACKUP_REPLACE 218
 
 /* Dialog IDs */
 #define IDD_HOTKEY_SETTINGS 300
@@ -85,10 +86,16 @@
 #define IDC_HK_LBL_BACKUP_SLOT 4302
 #define IDC_HK_LBL_RESTORE     4303
 #define IDC_HK_LBL_UNDO        4304
+#define IDC_HK_LBL_BACKUP_REPLACE 4305
+#define IDC_HK_LBL_PREVIOUS_SAVE  4306
+#define IDC_HK_LBL_NEXT_SAVE      4307
 #define IDC_HK_BACKUP_FULL     4311
 #define IDC_HK_BACKUP_SLOT     4312
 #define IDC_HK_RESTORE         4313
 #define IDC_HK_UNDO            4314
+#define IDC_HK_BACKUP_REPLACE  4315
+#define IDC_HK_PREVIOUS_SAVE   4316
+#define IDC_HK_NEXT_SAVE       4317
 #define IDC_HK_RESET           4321
 
 /* Icon */
