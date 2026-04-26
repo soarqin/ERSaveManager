@@ -37,7 +37,9 @@ int locale_core_detect_system_language(int default_index, const wchar_t **langua
     /* Pass 1: progressively trim trailing subtags and look for an exact match.
      * Example: "zh-Hans-CN" -> "zh-Hans" -> "zh". */
     wchar_t candidate[LOCALE_NAME_MAX_LENGTH];
-    lstrcpynW(candidate, locale_name, LOCALE_NAME_MAX_LENGTH);
+    if (!lstrcpynW(candidate, locale_name, LOCALE_NAME_MAX_LENGTH)) {
+        return default_index;
+    }
     while (candidate[0] != L'\0') {
         for (int i = 0; i < count; i++) {
             if (wcsicmp_local(candidate, language_codes[i]) == 0) {

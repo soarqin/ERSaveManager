@@ -325,10 +325,10 @@ save_kind_t save_compress_classify_backup(const wchar_t *path) {
 
     uint8_t hdr[21];
     DWORD bytes_read = 0;
-    ReadFile(fh, hdr, 21, &bytes_read, NULL);
+    BOOL ok = ReadFile(fh, hdr, sizeof(hdr), &bytes_read, NULL);
     CloseHandle(fh);
 
-    if (bytes_read < 4) return SAVE_KIND_UNKNOWN;
+    if (!ok || bytes_read < 4) return SAVE_KIND_UNKNOWN;
 
     /* Check for BND4 magic (raw save file) */
     if (memcmp(hdr, "BND4", 4) == 0) return SAVE_KIND_FULL;

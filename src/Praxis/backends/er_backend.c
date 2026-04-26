@@ -174,6 +174,13 @@ static bool er_restore_full(const wchar_t *src_backup, const wchar_t *dst_save) 
         uint8_t data_type = 0;
         uint8_t *buf = ersm_decompress_from_file(src_backup, &buf_size, &data_type);
         if (!buf) return false;
+        if (data_type != ERSM_TYPE_FULL_SAVE ||
+            buf_size < 4 ||
+            RtlCompareMemory(buf, "BND4", 4) != 4) {
+            LocalFree(buf);
+            DeleteFileW(temp_path);
+            return false;
+        }
 
         HANDLE file = CreateFileW(temp_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (file == INVALID_HANDLE_VALUE) {

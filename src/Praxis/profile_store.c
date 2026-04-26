@@ -90,8 +90,8 @@ bool profile_store_resolve_backup_root(const profile_store_t *store,
         return false;
     }
 
-    _snwprintf_s(out, out_chars, _TRUNCATE, L"%ls\\%ls", gp->tree_root, bp->name);
-    return true;
+    return _snwprintf_s(out, out_chars, _TRUNCATE, L"%ls\\%ls",
+                        gp->tree_root, bp->name) >= 0;
 }
 
 /* ==== Game profile CRUD ==== */
@@ -378,5 +378,4 @@ bool profile_store_find_unique_game_name(const profile_store_t *store,
 
     return false;
 }
-
 
