@@ -16,15 +16,64 @@
 #include "../../common/theme_core.h"
 
 #include <commctrl.h>
+#include <shlwapi.h>
 #include <stdbool.h>
 #include <wchar.h>
 #include <windows.h>
+
+/* Subclass ID for the listview installed by this dialog. Distinct from
+ * theme_core's listview subclass so the two coexist in the chain. */
+#define GPM_LISTVIEW_SUBCLASS_ID 0xC0DE0001U
 
 /* Dialog state pointer stored in DWLP_USER. */
 typedef struct gpm_state_s {
     profile_store_t *store;
     const wchar_t *ini_path;
 } gpm_state_t;
+
+/* Forward declaration: defined further down so it can call gpm_refresh_list. */
+static LRESULT CALLBACK gpm_listview_subclass(HWND hwnd, UINT msg, WPARAM wp,
+                                              LPARAM lp, UINT_PTR uid, DWORD_PTR ref);
+
+/* Truncate @p src so it fits column @p col of @p list using middle (path-style)
+ * ellipsis, e.g. "C:\\Users\\Foo\\...\\path\\to\\file.txt". The result is
+ * written to @p dst (capacity @p dst_chars wide chars). When the source path
+ * already fits, or when the column is too narrow to compact even with a
+ * middle ellipsis, @p dst contains a usable string (the original or whatever
+ * PathCompactPathW could produce) and the listview's default end-ellipsis
+ * gracefully clamps the rest. */
+static void gpm_truncate_path_for_column(HWND list, int col,
+        const wchar_t *src, wchar_t *dst, size_t dst_chars) {
+    HDC hdc;
+    HFONT font;
+    HFONT old_font = NULL;
+    int col_width;
+    /* Listview cell text padding: ~6px on each side in the default style. */
+    const int padding_px = 12;
+
+    if (!dst || dst_chars == 0) return;
+    if (!src) {
+        dst[0] = L'\0';
+        return;
+    }
+    /* Default: full copy. PathCompactPathW overwrites with a shorter form
+     * if (and only if) truncation is needed and possible. */
+    lstrcpynW(dst, src, (int)dst_chars);
+
+    if (!list) return;
+    col_width = ListView_GetColumnWidth(list, col);
+    if (col_width <= padding_px) return;
+
+    hdc = GetDC(list);
+    if (!hdc) return;
+    font = (HFONT)SendMessageW(list, WM_GETFONT, 0, 0);
+    if (font) old_font = (HFONT)SelectObject(hdc, font);
+
+    PathCompactPathW(hdc, dst, (UINT)(col_width - padding_px));
+
+    if (old_font) SelectObject(hdc, old_font);
+    ReleaseDC(list, hdc);
+}
 
 /* Look up the display name for a game_id_t. */
 static const wchar_t *game_id_display_name(game_id_t gid) {
@@ -34,9 +83,12 @@ static const wchar_t *game_id_display_name(game_id_t gid) {
     }
 }
 
-/* Initialize ListView columns once on dialog creation. */
+/* Initialize ListView columns once on dialog creation. The two path columns
+ * (Save Dir / Tree Root) absorb the remaining width so the four columns fill
+ * the listview client area without leaving empty space. */
 static void gpm_init_columns(HWND list) {
     LVCOLUMNW col;
+    RECT rc;
 
     ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
 
@@ -62,15 +114,42 @@ static void gpm_init_columns(HWND list) {
     col.cx = 80;
     col.iSubItem = 3;
     ListView_InsertColumn(list, 3, &col);
+
+    /* Distribute the listview client width across the four columns:
+     *   Name = 22%, Game = 14%, the two path columns split the remainder.
+     * A 2px reserve keeps subpixel rounding from triggering a horizontal
+     * scrollbar. The minimums protect very small DPI / dialog sizes from
+     * collapsing a column to zero width. */
+    if (GetClientRect(list, &rc)) {
+        int total_w = rc.right - rc.left;
+        if (total_w > 4) total_w -= 2;
+        if (total_w > 0) {
+            int name_w = total_w * 22 / 100;
+            int game_w = total_w * 14 / 100;
+            int dir_w  = (total_w - name_w - game_w) / 2;
+            if (name_w < 80)  name_w = 80;
+            if (game_w < 80)  game_w = 80;
+            if (dir_w  < 100) dir_w  = 100;
+            ListView_SetColumnWidth(list, 0, name_w);
+            ListView_SetColumnWidth(list, 1, game_w);
+            ListView_SetColumnWidth(list, 2, dir_w);
+            ListView_SetColumnWidth(list, 3, dir_w);
+        }
+    }
 }
 
-/* Repopulate the ListView from the current store contents. */
+/* Repopulate the ListView from the current store contents. Path columns
+ * are pre-truncated with middle ellipsis to fit the current column widths;
+ * the listview's column-resize subclass calls back into this function so
+ * the displayed truncation tracks subsequent column drags. */
 static void gpm_refresh_list(HWND list, const profile_store_t *store) {
     ListView_DeleteAllItems(list);
 
     for (size_t i = 0; i < store->game_count; i++) {
         const game_profile_t *gp = &store->games[i];
         LVITEMW item;
+        wchar_t save_buf[MAX_PATH];
+        wchar_t tree_buf[MAX_PATH];
 
         ZeroMemory(&item, sizeof(item));
         item.mask = LVIF_TEXT | LVIF_PARAM;
@@ -84,8 +163,11 @@ static void gpm_refresh_list(HWND list, const profile_store_t *store) {
         }
 
         ListView_SetItemText(list, idx, 1, (LPWSTR)game_id_display_name(gp->game_id));
-        ListView_SetItemText(list, idx, 2, (LPWSTR)gp->original_save_dir);
-        ListView_SetItemText(list, idx, 3, (LPWSTR)gp->tree_root);
+
+        gpm_truncate_path_for_column(list, 2, gp->original_save_dir, save_buf, MAX_PATH);
+        gpm_truncate_path_for_column(list, 3, gp->tree_root,         tree_buf, MAX_PATH);
+        ListView_SetItemText(list, idx, 2, save_buf);
+        ListView_SetItemText(list, idx, 3, tree_buf);
     }
 }
 
@@ -210,6 +292,38 @@ static void gpm_handle_delete(HWND hwnd, gpm_state_t *state) {
     }
 }
 
+/* Listview subclass that re-truncates the path columns whenever the user
+ * resizes a column (drag end or divider double-click). The state pointer
+ * is passed via DWORD_PTR ref at SetWindowSubclass time; it remains valid
+ * for the entire dialog lifetime since DialogBoxParamW blocks until the
+ * dialog ends. */
+static LRESULT CALLBACK gpm_listview_subclass(HWND hwnd, UINT msg, WPARAM wp,
+                                              LPARAM lp, UINT_PTR uid, DWORD_PTR ref) {
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, gpm_listview_subclass, uid);
+        return DefSubclassProc(hwnd, msg, wp, lp);
+    }
+    if (msg == WM_NOTIFY) {
+        NMHDR *nmh = (NMHDR *)lp;
+        if (nmh) {
+            HWND header = (HWND)SendMessageW(hwnd, LVM_GETHEADER, 0, 0);
+            if (header && nmh->hwndFrom == header &&
+                (nmh->code == HDN_ENDTRACK || nmh->code == HDN_DIVIDERDBLCLICK)) {
+                /* Let the listview default handler commit the new column
+                 * widths first, then refresh items so the path-column
+                 * middle-ellipsis reflects the updated widths. */
+                LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
+                gpm_state_t *state = (gpm_state_t *)ref;
+                if (state && state->store) {
+                    gpm_refresh_list(hwnd, state->store);
+                }
+                return r;
+            }
+        }
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
 static INT_PTR CALLBACK gpm_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     gpm_state_t *state = (gpm_state_t *)GetWindowLongPtrW(hwnd, DWLP_USER);
 
@@ -233,7 +347,8 @@ static INT_PTR CALLBACK gpm_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         return FALSE;
     }
 
-    case WM_INITDIALOG:
+    case WM_INITDIALOG: {
+        HWND list;
         SetWindowLongPtrW(hwnd, DWLP_USER, (LONG_PTR)lp);
         state = (gpm_state_t *)lp;
         SetWindowTextW(hwnd, praxis_locale_str(STR_PRAXIS_MANAGE_GAME_PROFILES));
@@ -241,12 +356,22 @@ static INT_PTR CALLBACK gpm_dlg_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         SetDlgItemTextW(hwnd, IDC_GPM_EDIT,   praxis_locale_str(STR_PRAXIS_BTN_EDIT));
         SetDlgItemTextW(hwnd, IDC_GPM_DELETE, praxis_locale_str(STR_PRAXIS_BTN_DELETE));
         SetDlgItemTextW(hwnd, IDC_GPM_CLOSE,  praxis_locale_str(STR_PRAXIS_BTN_CLOSE));
-        gpm_init_columns(GetDlgItem(hwnd, IDC_GPM_LIST));
+        list = GetDlgItem(hwnd, IDC_GPM_LIST);
+        gpm_init_columns(list);
         if (state) {
-            gpm_refresh_list(GetDlgItem(hwnd, IDC_GPM_LIST), state->store);
+            gpm_refresh_list(list, state->store);
         }
         praxis_theme_apply_to_window(hwnd);
+        /* Install column-resize subclass AFTER theme apply so this subclass
+         * sees WM_NOTIFY messages first; theme_core's listview subclass
+         * doesn't intercept HDN_* so the order doesn't strictly matter, but
+         * being on top keeps the refresh hook closest to the source. */
+        if (state && list) {
+            SetWindowSubclass(list, gpm_listview_subclass,
+                              GPM_LISTVIEW_SUBCLASS_ID, (DWORD_PTR)state);
+        }
         return TRUE;
+    }
 
     case WM_COMMAND:
         if (!state) {
