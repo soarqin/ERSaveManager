@@ -446,6 +446,18 @@ void theme_core_apply_to_listview(HWND hwnd) {
         InvalidateRect(header, NULL, TRUE);
     }
 
+    /* Enable LVS_EX_DOUBLEBUFFER so the listview renders WM_PAINT to an
+     * offscreen DC and BitBlts the result to the screen each frame. The
+     * BitBlt unconditionally overwrites whatever pixels are currently on
+     * screen — including XOR residue left by the OS-drawn column-divider
+     * tracking line during a column resize, which is otherwise highly
+     * visible as a "ghost" vertical line on the dark background. The flag
+     * is harmless in light mode and incidentally reduces flicker during
+     * any normal repaint, so it is applied unconditionally. The Ex variant
+     * with a mask preserves any other extended styles already set by the
+     * caller (e.g. LVS_EX_FULLROWSELECT, LVS_EX_GRIDLINES). */
+    ListView_SetExtendedListViewStyleEx(hwnd, LVS_EX_DOUBLEBUFFER, LVS_EX_DOUBLEBUFFER);
+
     const theme_palette_t *p = theme_core_palette();
     if (g_is_dark) {
         ListView_SetBkColor    (hwnd, p->ctrl_bg);
