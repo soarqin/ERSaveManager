@@ -102,7 +102,20 @@ typedef struct er_save_simple_data_s {
  * @param face_data Pointer to face data structure to validate
  * @return true if face data is valid (has correct magic numbers), false otherwise
  */
-static bool validate_face_data(const uint8_t *face_data) { return face_data[0x00] == 0x01 && RtlCompareMemory(face_data + 0x10, "FACE", 4) == 4; }
+static bool validate_face_data(const uint8_t *face_data) { return face_data && face_data[0x00] == 0x01 && RtlCompareMemory(face_data + 0x10, "FACE", 4) == 4; }
+
+static bool path_fits_fixed_buffer(const wchar_t *path) {
+    return path && (size_t)lstrlenW(path) < MAX_PATH;
+}
+
+static bool copy_name_field(uint8_t *field, size_t field_bytes, const wchar_t *name) {
+    if (!field || !name || field_bytes < sizeof(wchar_t)) {
+        return false;
+    }
+
+    ZeroMemory(field, field_bytes);
+    return lstrcpynW((wchar_t *)field, name, (int)(field_bytes / sizeof(wchar_t))) != NULL;
+}
 
 /**
  * @brief Helper function to read a uint8 value from a buffer
@@ -427,6 +440,10 @@ static bool read_summary_slot(er_summary_data_t *summary_data, HANDLE file) {
 }
 
 er_save_data_t *er_save_data_load(const wchar_t *path) {
+    if (!path_fits_fixed_buffer(path)) {
+        return NULL;
+    }
+
     er_save_data_t *save_data = LocalAlloc(LMEM_FIXED, sizeof(er_save_data_t));
     if (!save_data) {
         return NULL;
@@ -503,6 +520,10 @@ void er_save_data_free(er_save_data_t *save_data) {
 }
 
 er_save_simple_data_t *er_save_simple_data_load(const wchar_t *path) {
+    if (!path_fits_fixed_buffer(path)) {
+        return NULL;
+    }
+
     er_save_simple_data_t *save_data = LocalAlloc(LMEM_FIXED, sizeof(er_save_simple_data_t));
     if (!save_data) {
         return NULL;
@@ -544,22 +565,36 @@ er_save_simple_data_t *er_save_simple_data_load(const wchar_t *path) {
         CloseHandle(file);
         return NULL;
     }
-    er_summary_data_t summary_data;
-    summary_data.slot_offset = save_data->summary_slot_offset = *(uint32_t *)(&header[ER_HEADER_SLOT_OFFSET_BASE + 10 * ER_HEADER_SLOT_STRIDE]);
-    if (!read_summary_slot(&summary_data, file)) {
+    er_summary_data_t *summary_data = LocalAlloc(LMEM_FIXED, sizeof(er_summary_data_t));
+    if (!summary_data) {
         LocalFree(save_data);
         CloseHandle(file);
         return NULL;
     }
-    save_data->summary_profile_offset = summary_data.profile_offset;
-    const uint8_t *available_ptr = summary_data.data + summary_data.available_offset;
+    summary_data->slot_offset = save_data->summary_slot_offset = *(uint32_t *)(&header[ER_HEADER_SLOT_OFFSET_BASE + 10 * ER_HEADER_SLOT_STRIDE]);
+    if (!read_summary_slot(summary_data, file)) {
+        LocalFree(summary_data);
+        LocalFree(save_data);
+        CloseHandle(file);
+        return NULL;
+    }
+    save_data->summary_profile_offset = summary_data->profile_offset;
+    const uint8_t *available_ptr = summary_data->data + summary_data->available_offset;
     for (int i = 0; i < 10; i++) {
         if (available_ptr[i]) {
-            lstrcpyW(save_data->char_name[i], (wchar_t *)(summary_data.data + summary_data.profile_offset + ER_PROFILE_SIZE * i));
+            if (!lstrcpynW(save_data->char_name[i],
+                           (wchar_t *)(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * i),
+                           32)) {
+                LocalFree(summary_data);
+                LocalFree(save_data);
+                CloseHandle(file);
+                return NULL;
+            }
         } else {
             save_data->char_name[i][0] = 0;
         }
     }
+    LocalFree(summary_data);
 
     CloseHandle(file);
     lstrcpyW(save_data->full_path, path);
@@ -573,14 +608,14 @@ void er_save_simple_data_free(er_save_simple_data_t *save_data) {
 }
 
 const wchar_t *er_save_simple_data_get_char_name(const er_save_simple_data_t *save_data, int slot) {
-    if (slot < 0 || slot >= 10) {
+    if (!save_data || slot < 0 || slot >= 10) {
         return NULL;
     }
     return save_data->char_name[slot];
 }
 
 uint8_t *er_save_simple_data_slot_export(const er_save_simple_data_t *save_data, int slot) {
-    if (slot < 0 || slot >= 10) {
+    if (!save_data || slot < 0 || slot >= 10) {
         return NULL;
     }
     HANDLE file = CreateFileW(save_data->full_path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -730,7 +765,7 @@ const er_char_data_t *er_char_data_ref(const er_save_data_t *save_data, int slot
 }
 
 bool er_char_data_import(er_save_data_t *save_data, int slot, const er_char_data_t *char_data) {
-    if (slot < 0 || slot >= 10 || !char_data) {
+    if (!save_data || slot < 0 || slot >= 10 || !char_data) {
         return false;
     }
     HANDLE file = CreateFileW(save_data->full_path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -775,7 +810,7 @@ bool er_char_data_import_raw(er_save_data_t *save_data, int slot, const uint8_t 
 }
 
 bool er_char_data_set_name(er_save_data_t *save_data, int slot, const wchar_t *name) {
-    if (slot < 0 || slot >= 10 || !name) {
+    if (!save_data || slot < 0 || slot >= 10 || !name) {
         return false;
     }
 
@@ -790,12 +825,13 @@ bool er_char_data_set_name(er_save_data_t *save_data, int slot, const wchar_t *n
         return false;
     }
     er_char_data_t *char_data = &save_data->char_data[slot];
-    ZeroMemory(char_data->profile, ER_CHAR_NAME_SIZE);
-    lstrcpynW((wchar_t *)(char_data->profile + ER_CHAR_NAME_SIZE), name, ER_CHAR_NAME_SIZE / sizeof(wchar_t));
-    ZeroMemory(char_data->data + char_data->stats_offset + 4 * 37, ER_CHAR_NAME_SIZE);
-    lstrcpynW((wchar_t *)(char_data->data + char_data->stats_offset + 4 * 37), name, ER_CHAR_NAME_SIZE / sizeof(wchar_t));
-    ZeroMemory(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot, ER_CHAR_NAME_SIZE);
-    lstrcpynW((wchar_t *)(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot), name, ER_CHAR_NAME_SIZE / sizeof(wchar_t));
+    if (!copy_name_field(char_data->profile, ER_CHAR_NAME_SIZE, name)
+        || !copy_name_field(char_data->data + char_data->stats_offset + 4 * 37, ER_CHAR_NAME_SIZE, name)
+        || !copy_name_field(summary_data->data + summary_data->profile_offset + ER_PROFILE_SIZE * slot,
+                            ER_CHAR_NAME_SIZE, name)) {
+        CloseHandle(file);
+        return false;
+    }
 
     uint8_t md5[0x10];
     md5_buffer(char_data->data, sizeof(char_data->data), md5);
@@ -835,6 +871,10 @@ bool er_char_data_info(const er_char_data_t *char_data, er_char_info_t *info) {
 }
 
 er_char_data_t *er_char_data_from_file(const wchar_t *path) {
+    if (!path) {
+        return NULL;
+    }
+
     er_char_data_t *char_data = LocalAlloc(LMEM_FIXED, sizeof(er_char_data_t));
     if (!char_data) {
         return NULL;
@@ -866,6 +906,10 @@ er_char_data_t *er_char_data_from_file(const wchar_t *path) {
 }
 
 er_char_data_t *er_char_data_from_memory(const uint8_t *data) {
+    if (!data) {
+        return NULL;
+    }
+
     er_char_data_t *char_data = LocalAlloc(LMEM_FIXED, sizeof(er_char_data_t));
     if (!char_data) {
         return NULL;
@@ -880,6 +924,10 @@ er_char_data_t *er_char_data_from_memory(const uint8_t *data) {
 }
 
 bool er_char_data_to_file(const er_char_data_t *char_data, const wchar_t *path) {
+    if (!char_data || !path) {
+        return false;
+    }
+
     HANDLE file = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE) {
         return false;
@@ -918,7 +966,7 @@ const uint8_t *er_face_data_ref(const er_save_data_t *save_data, int slot) {
 }
 
 bool er_face_data_import(er_save_data_t *save_data, int slot, const uint8_t *face_data) {
-    if (slot < 0 || slot >= 15 || !validate_face_data(face_data)) {
+    if (!save_data || slot < 0 || slot >= 15 || !validate_face_data(face_data)) {
         return false;
     }
     er_summary_data_t *summary_data = &save_data->summary_data;
@@ -941,11 +989,19 @@ void er_face_data_info(const uint8_t *face_data, uint8_t *available, uint8_t *ge
     if (!face_data) {
         return;
     }
-    *available = face_data[0x0];
-    *gender = face_data[0x1];
+    if (available) {
+        *available = face_data[0x0];
+    }
+    if (gender) {
+        *gender = face_data[0x1];
+    }
 }
 
 uint8_t *er_face_data_from_file(const wchar_t *path) {
+    if (!path) {
+        return NULL;
+    }
+
     uint8_t *face_data = LocalAlloc(LMEM_FIXED, ER_FACE_DATA_SIZE);
     if (!face_data) {
         return NULL;
@@ -970,6 +1026,10 @@ uint8_t *er_face_data_from_file(const wchar_t *path) {
 }
 
 bool er_face_data_to_file(const uint8_t *face_data, const wchar_t *path) {
+    if (!face_data || !path) {
+        return false;
+    }
+
     HANDLE file = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE) {
         return false;
