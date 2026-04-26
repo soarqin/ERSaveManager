@@ -29,9 +29,11 @@ ERSaveManager/
 │   └── md5/                # MD5 hash library
 └── src/                    # Main application source
     ├── CMakeLists.txt      # add_subdirectory(common/ERSaveManager/Praxis)
-    ├── common/             # src/common: Static library: ersave, save_compress, file_dialog, locale_core, config_core
+    ├── common/             # src/common: Static library: ersave, save_compress, file_dialog, locale_core, config_core, theme_core
+    │   ├── theme_core.c/h  # Generic Win32 dark/light theme infrastructure (shared between apps)
     │   └── CMakeLists.txt
     ├── ERSaveManager/      # src/ERSaveManager: ERSaveManager executable sources
+    │   ├── theme.c/h       # Per-app dark/light theme glue module
     │   └── CMakeLists.txt
     └── Praxis/             # src/Praxis: Praxis executable sources
         ├── CMakeLists.txt
@@ -41,8 +43,12 @@ ERSaveManager/
         ├── praxis_selftest.c/h         # Selftest subcommand dispatcher
         ├── praxis_hotkey_actions.c/h   # Hotkey action handlers (backup/restore/undo)
         ├── praxis_main_menu.c/h        # Dynamic main menu construction
+        ├── praxis_toast.c/h            # Centered, auto-fading notification panel (toast)
+        ├── praxis_window_common.c/h    # Shared helpers for the Praxis main window
         ├── save_tree_notify.c/h        # Save tree WM_NOTIFY handler
         ├── save_tree_internal.h        # Save tree internal types (shared between save_tree.c and save_tree_notify.c)
+        ├── save_tree_walk.c            # Filesystem walking helpers for the save tree
+        ├── theme.c/h                   # Per-app dark/light theme glue module
         ├── profile_store_io.c/h        # Profile store INI persistence (read/write Praxis.ini)
         └── ...
 ```
@@ -106,7 +112,7 @@ cmake --build build --config Release
   - Undo Last Restore: `Ctrl+Shift+Z`
 - **Ring Backup Location**: `<tree_root>/.praxis_ring/` (hidden directory).
 - **Backend Interface**: Compile-time vtable defined in `src/Praxis/game_backend.h`.
-- **New `--selftest` subcommands** (Phase 2):
+- **`--selftest` subcommands** (selected; see `praxis_selftest.c` for the full list):
   - `locale-dump` — print all STR_PRAXIS_* string values
   - `profile-roundtrip <ini>` — write/reload profile store, assert byte-equal
   - `profile-load <ini>` — dump store contents
@@ -119,6 +125,12 @@ cmake --build build --config Release
   - `watcher-state <root>` — start watcher briefly, verify clean exit
   - `backup-full-with-active <src> <dst>` — backup full save using the active backend, exit 0 on success
   - `write-raw-bnd4 <src> <dst>`, `classify <file>` — save format helpers
+  - `backend-default-save-dir <game_id>` — call backend's `get_default_save_dir`; exit 0 even when no dir found
+  - `char-set-name-profile <save_path>` — round-trip char name set/get via ersave profile
+  - `detect-system-language-debug` — print locale detection intermediate state
+  - `ersave-null-guards` — verify null-guard behavior in ersave public API
+  - `theme-change-classify` — verify `theme_core_is_relevant_setting_change` logic
+  - `unique-game-name <ini> <base_name>` — print unique game name for the given base name
 - **Invoking selftest commands (PowerShell)**:
   ```powershell
   & .\build\bin\Release\Praxis.exe --selftest <subcommand>
@@ -218,6 +230,12 @@ Static (file-local) helpers have no prefix and are declared `static`.
 - Window procedures return `0` when a message is handled; fall through to
   `DefWindowProcW` for unhandled messages.
 - `BeginDeferWindowPos` / `DeferWindowPos` / `EndDeferWindowPos` for bulk layout.
+- **Theme handling** — every window proc and dialog proc must handle these three messages:
+  - `WM_SETTINGCHANGE` → call `theme_core_on_setting_change(wp, lp)`; if it returns `true`, re-apply theme.
+  - `WM_SYSCOLORCHANGE` → call `theme_core_on_syscolor_change()`; if it returns `true`, re-apply theme.
+  - `WM_THEMECHANGED` → re-apply theme unconditionally.
+  - Main windows re-apply with `theme_core_apply_to_window_and_children(hwnd)`; modal dialogs use
+    `theme_apply_to_window(hwnd)` (ERSaveManager) or `praxis_theme_apply_to_window(hwnd)` (Praxis).
 
 ### CMake Style
 - `if () / endif ()` with a space before `()`.
