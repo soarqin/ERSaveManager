@@ -9,12 +9,13 @@
 extern const game_backend_t er_backend;
 
 static const game_backend_t *const g_backends[] = {
-    &er_backend,
-    NULL
+    &er_backend
 };
 
+#define BACKEND_COUNT (sizeof(g_backends) / sizeof(g_backends[0]))
+
 const game_backend_t *backend_registry_get_by_id(game_id_t id) {
-    for (size_t i = 0; g_backends[i] != NULL; i++) {
+    for (size_t i = 0; i < BACKEND_COUNT; i++) {
         if (g_backends[i]->id == id) return g_backends[i];
     }
 
@@ -26,14 +27,10 @@ const game_backend_t *backend_registry_get_default(void) {
 }
 
 size_t backend_registry_count(void) {
-    size_t n = 0;
-    while (g_backends[n] != NULL) n++;
-    return n;
+    return BACKEND_COUNT;
 }
 
 const game_backend_t *backend_registry_get_at(size_t index) {
-    size_t n = 0;
-    while (g_backends[n] != NULL) n++;
-    if (index >= n) return NULL;
+    if (index >= BACKEND_COUNT) return NULL;
     return g_backends[index];
 }
