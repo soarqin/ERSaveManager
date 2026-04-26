@@ -10,6 +10,7 @@
 #include "locale.h"
 #include "config.h"
 #include "resource.h"
+#include "praxis_window_common.h"
 #include "theme.h"
 
 #include <stdbool.h>
@@ -206,7 +207,7 @@ bool praxis_main_menu_handle_command(HWND hwnd, WPARAM wparam, profile_store_t *
             save_profile_store();
             /* Update window title and menu bar strings immediately without a restart.
              * The Language submenu checkmark is updated on next WM_INITMENUPOPUP. */
-            SetWindowTextW(hwnd, praxis_locale_str(STR_PRAXIS_APP_TITLE));
+            praxis_window_set_title(hwnd);
             praxis_main_menu_apply_locale_strings(hwnd);
         }
         return true;

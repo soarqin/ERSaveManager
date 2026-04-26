@@ -180,23 +180,33 @@ static LRESULT praxis_window_on_command(HWND hwnd, WPARAM wp) {
 }
 
 static void praxis_first_launch_setup(const wchar_t *ini_path) {
-    profile_store_t probe_store;
+    profile_store_t *probe_store;
     game_profile_t game_profile;
 
     if (!ini_path || praxis_config.migration_dismissed) return;
-    profile_store_init(&probe_store);
-    profile_store_io_load(&probe_store, ini_path);
-    if (probe_store.game_count != 0) return;
+    probe_store = (profile_store_t *)LocalAlloc(LMEM_FIXED, sizeof(*probe_store));
+    if (!probe_store) return;
+    profile_store_init(probe_store);
+    profile_store_io_load(probe_store, ini_path);
+    if (probe_store->game_count != 0) {
+        LocalFree(probe_store);
+        return;
+    }
     ZeroMemory(&game_profile, sizeof(game_profile));
     game_profile.game_id = GAME_ID_ELDEN_RING;
     /* Leave game_profile.name empty so the dialog auto-fills it with a unique
      * name derived from the selected backend's display_name (e.g. "Elden Ring"). */
-    if (praxis_config.tree_root[0] != L'\0') lstrcpynW(game_profile.tree_root, praxis_config.tree_root, MAX_PATH);
-    if (dialog_edit_game_profile_show(NULL, &probe_store, &game_profile, true) == IDOK) profile_store_add_game(&probe_store, &game_profile);
+    if (praxis_config.tree_root[0] != L'\0' &&
+        !lstrcpynW(game_profile.tree_root, praxis_config.tree_root, MAX_PATH)) {
+        LocalFree(probe_store);
+        return;
+    }
+    if (dialog_edit_game_profile_show(NULL, probe_store, &game_profile, true) == IDOK) profile_store_add_game(probe_store, &game_profile);
     else {
         praxis_config.migration_dismissed = 1;
     }
-    profile_store_io_save(&probe_store, ini_path);
+    profile_store_io_save(probe_store, ini_path);
+    LocalFree(probe_store);
 }
 
 static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -338,6 +348,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     int argc = 0;
     LPWSTR *argv;
     wchar_t ini_path[MAX_PATH];
+    wchar_t window_title[256];
     WNDCLASSEXW window_class = {0};
     HWND hwnd;
     MSG msg;
@@ -385,7 +396,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     window_class.hIconSm = window_class.hIcon;
     if (!RegisterClassExW(&window_class)) return com_initialized ? (CoUninitialize(), 1) : 1;
 
-    hwnd = CreateWindowExW(0, L"PRAXIS_MAIN", praxis_locale_str(STR_PRAXIS_APP_TITLE), WS_OVERLAPPEDWINDOW,
+    praxis_window_format_title(window_title, 256);
+    hwnd = CreateWindowExW(0, L"PRAXIS_MAIN", window_title, WS_OVERLAPPEDWINDOW,
         praxis_config.window_x == -1 ? CW_USEDEFAULT : praxis_config.window_x,
         praxis_config.window_y == -1 ? CW_USEDEFAULT : praxis_config.window_y,
         praxis_config.window_width == 0 ? 800 : praxis_config.window_width,

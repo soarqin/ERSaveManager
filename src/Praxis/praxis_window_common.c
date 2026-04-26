@@ -12,10 +12,12 @@
 #include "locale.h"
 #include "praxis_hotkey_actions.h"
 #include "profile_store_io.h"
+#include "version.h"
 #include "dialogs/edit_backup_profile.h"
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <wchar.h>
 
 #include <windows.h>
 #include <commctrl.h>
@@ -54,6 +56,20 @@ bool save_profile_store(void) {
 int get_active_compression_level(void) {
     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
     return bp ? (int)bp->compression_level : (int)COMP_LEVEL_NONE;
+}
+
+void praxis_window_format_title(wchar_t *buffer, size_t buffer_count) {
+    if (!buffer || buffer_count == 0) return;
+    _snwprintf_s(buffer, buffer_count, _TRUNCATE, L"%ls v%ls",
+        praxis_locale_str(STR_PRAXIS_APP_TITLE), VERSION_STR_W);
+}
+
+void praxis_window_set_title(HWND hwnd) {
+    wchar_t title[256];
+
+    if (!hwnd) return;
+    praxis_window_format_title(title, 256);
+    SetWindowTextW(hwnd, title);
 }
 
 void populate_toolbar_profiles(void) {

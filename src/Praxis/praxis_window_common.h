@@ -13,6 +13,7 @@
 #include "toolbar.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include <windows.h>
 
@@ -33,6 +34,8 @@ void log_write(const wchar_t *msg);
 const game_backend_t *get_active_backend(void);
 bool save_profile_store(void);
 int get_active_compression_level(void);
+void praxis_window_format_title(wchar_t *buffer, size_t buffer_count);
+void praxis_window_set_title(HWND hwnd);
 void populate_toolbar_profiles(void);
 void apply_active_profile_ui(HWND hwnd, UINT watcher_notify_msg);
 void destroy_main_children(void);
