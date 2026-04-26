@@ -132,6 +132,64 @@ static bool praxis_make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
     return ok;
 }
 
+static bool praxis_make_min_valid_sl2_with_slot(const wchar_t *path, uint64_t user_id,
+                                                int slot, const wchar_t *name) {
+    const uint32_t summary_slot_size = BND4_TEST_SUMMARY_SLOT_SIZE;
+    const uint32_t summary_offset = BND4_TEST_FILE_HEADER_SIZE + 10u * BND4_TEST_CHAR_SLOT_SIZE;
+    const uint32_t summary_layout_size = BND4_TEST_SUMMARY_FACE_SECTION + BND4_TEST_SUMMARY_LAYOUT_ADJUSTMENT;
+    const uint32_t available_offset = BND4_TEST_SUMMARY_SZ_OFFSET + 4u + summary_layout_size;
+    const uint32_t profile_offset = available_offset + 10u;
+    HANDLE file;
+    uint8_t *summary_payload;
+    DWORD bytes_read;
+    DWORD written;
+    uint8_t md5[16];
+    bool ok;
+
+    if (slot < 0 || slot >= 10 || !praxis_make_min_valid_sl2(path, user_id)) {
+        return false;
+    }
+
+    file = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    summary_payload = (uint8_t *)LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, BND4_TEST_SUMMARY_DATA_SIZE);
+    if (!summary_payload) {
+        CloseHandle(file);
+        return false;
+    }
+
+    if (SetFilePointer(file, summary_offset + BND4_TEST_MD5_HEADER_SIZE, NULL, FILE_BEGIN)
+            != summary_offset + BND4_TEST_MD5_HEADER_SIZE
+        || !ReadFile(file, summary_payload, BND4_TEST_SUMMARY_DATA_SIZE, &bytes_read, NULL)
+        || bytes_read != BND4_TEST_SUMMARY_DATA_SIZE) {
+        LocalFree(summary_payload);
+        CloseHandle(file);
+        return false;
+    }
+
+    summary_payload[available_offset + (uint32_t)slot] = 1;
+    if (name) {
+        lstrcpynW((wchar_t *)(summary_payload + profile_offset + BND4_TEST_PROFILE_SIZE * (uint32_t)slot),
+                  name, BND4_TEST_CHAR_NAME_SIZE / sizeof(wchar_t));
+    }
+
+    md5_buffer(summary_payload, BND4_TEST_SUMMARY_DATA_SIZE, md5);
+    ok = SetFilePointer(file, summary_offset, NULL, FILE_BEGIN) == summary_offset
+        && WriteFile(file, md5, sizeof(md5), &written, NULL)
+        && written == sizeof(md5)
+        && SetFilePointer(file, summary_offset + BND4_TEST_MD5_HEADER_SIZE, NULL, FILE_BEGIN)
+            == summary_offset + BND4_TEST_MD5_HEADER_SIZE
+        && WriteFile(file, summary_payload, summary_slot_size - BND4_TEST_MD5_HEADER_SIZE, &written, NULL)
+        && written == summary_slot_size - BND4_TEST_MD5_HEADER_SIZE;
+
+    LocalFree(summary_payload);
+    CloseHandle(file);
+    return ok;
+}
+
 static int selftest_make_valid_ersm(const wchar_t *path) {
     uint8_t buf[16] = {0};
 
@@ -320,6 +378,79 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 exit_code = 2;
             } else {
                 exit_code = praxis_make_min_valid_sl2(argv[3], 76561199999999999ULL) ? 0 : 1;
+            }
+        } else if (wcscmp(sub, L"char-set-name-profile") == 0) {
+            if (argc < 4) {
+                st_printf(L"usage: --selftest char-set-name-profile <save_path>\n");
+                exit_code = 2;
+            } else {
+                er_save_data_t *save;
+                const er_char_data_t *slot_data;
+                uint8_t *flat;
+
+                exit_code = 1;
+                if (!praxis_make_min_valid_sl2_with_slot(argv[3], 76561199999999999ULL, 0, L"Initial")) {
+                    st_printf(L"char-set-name-profile: fixture failed\n");
+                } else {
+                    save = er_save_data_load(argv[3]);
+                    if (!save) {
+                        st_printf(L"char-set-name-profile: load failed\n");
+                    } else if (!er_char_data_set_name(save, 0, L"Renamed")) {
+                        st_printf(L"char-set-name-profile: set-name failed\n");
+                    } else {
+                        slot_data = er_char_data_ref(save, 0);
+                        flat = (uint8_t *)LocalAlloc(LMEM_FIXED, BND4_TEST_CHAR_DATA_SIZE + BND4_TEST_PROFILE_SIZE);
+                        if (!slot_data || !flat) {
+                            st_printf(L"char-set-name-profile: export setup failed\n");
+                        } else if (!er_char_data_serialize(slot_data, flat,
+                                   BND4_TEST_CHAR_DATA_SIZE + BND4_TEST_PROFILE_SIZE)) {
+                            st_printf(L"char-set-name-profile: serialize failed\n");
+                        } else if (lstrcmpW((const wchar_t *)(flat + BND4_TEST_CHAR_DATA_SIZE),
+                                            L"Renamed") != 0) {
+                            st_printf(L"char-set-name-profile: profile name mismatch\n");
+                        } else {
+                            st_printf(L"char-set-name-profile: ok\n");
+                            exit_code = 0;
+                        }
+                        if (flat) {
+                            LocalFree(flat);
+                        }
+                    }
+                    if (save) {
+                        er_save_data_free(save);
+                    }
+                }
+            }
+        } else if (wcscmp(sub, L"ersave-null-guards") == 0) {
+            uint8_t dummy_face[BND4_TEST_CHAR_NAME_SIZE] = {0};
+
+            exit_code = 0;
+            if (er_save_simple_data_get_char_name(NULL, 0) != NULL) {
+                st_printf(L"ersave-null-guards: simple name should be NULL\n");
+                exit_code = 1;
+            } else if (er_save_simple_data_slot_export(NULL, 0) != NULL) {
+                st_printf(L"ersave-null-guards: simple export should be NULL\n");
+                exit_code = 1;
+            } else if (er_char_data_import(NULL, 0, NULL)) {
+                st_printf(L"ersave-null-guards: char import should fail\n");
+                exit_code = 1;
+            } else if (er_char_data_set_name(NULL, 0, L"Name")) {
+                st_printf(L"ersave-null-guards: set name should fail\n");
+                exit_code = 1;
+            } else if (er_face_data_ref(NULL, 0) != NULL) {
+                st_printf(L"ersave-null-guards: face ref should be NULL\n");
+                exit_code = 1;
+            } else if (er_face_data_import(NULL, 0, NULL)) {
+                st_printf(L"ersave-null-guards: face import NULL should fail\n");
+                exit_code = 1;
+            } else if (er_face_data_import(NULL, 0, dummy_face)) {
+                st_printf(L"ersave-null-guards: face import save NULL should fail\n");
+                exit_code = 1;
+            } else if (er_face_data_to_file(NULL, L"NUL")) {
+                st_printf(L"ersave-null-guards: face write NULL should fail\n");
+                exit_code = 1;
+            } else {
+                st_printf(L"ersave-null-guards: ok\n");
             }
         } else if (wcscmp(sub, L"backup-full-headless") == 0) {
             if (argc < 5) {

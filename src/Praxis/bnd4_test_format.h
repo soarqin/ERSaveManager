@@ -14,8 +14,11 @@
 
 /* ER save file slot sizes */
 #define BND4_TEST_CHAR_SLOT_SIZE    0x280010u  /* ER_CHAR_SLOT_FILE_SIZE */
+#define BND4_TEST_CHAR_DATA_SIZE    0x280000u  /* ER_CHAR_DATA_SIZE */
 #define BND4_TEST_SUMMARY_SLOT_SIZE 0x60010u   /* ER_SUMMARY_SLOT_FILE_SIZE */
 #define BND4_TEST_SUMMARY_DATA_SIZE 0x60000u   /* ER_SUMMARY_DATA_SIZE */
+#define BND4_TEST_PROFILE_SIZE      0x24Cu     /* ER_PROFILE_SIZE */
+#define BND4_TEST_CHAR_NAME_SIZE    0x22u      /* ER_CHAR_NAME_SIZE */
 
 /* ER save file offsets and layout */
 #define BND4_TEST_FILE_HEADER_SIZE       0x300u   /* ER_FILE_HEADER_SIZE */
