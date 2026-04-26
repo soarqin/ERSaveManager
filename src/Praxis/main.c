@@ -18,6 +18,7 @@
 #include "profile_store_io.h"
 #include "praxis_main_menu.h"
 #include "praxis_selftest.h"
+#include "praxis_toast.h"
 #include "praxis_window_common.h"
 #include "theme.h"
 #include "toolbar.h"
@@ -80,23 +81,43 @@ static void praxis_window_on_create(HWND hwnd, HINSTANCE instance) {
     g_app.main_window = hwnd;
     praxis_main_menu_apply_locale_strings(hwnd);
     register_hotkeys(hwnd);
+    /* Toast must be created last so it sits on top of every other child in
+     * the sibling Z-order; show() will additionally HWND_TOP it on demand. */
+    g_app.toast = praxis_toast_create(hwnd, instance);
     /* Apply theme to top-level window AND every child created above. */
     praxis_theme_apply_to_window(hwnd);
 }
 
+/* Show the standard green success toast for a backup/restore action.
+ * Acts only when @p ok is true; failures are silent (caller may add its
+ * own diagnostics later). The success color is resolved at call time so
+ * it tracks the active theme without needing a reapply path. */
+static void show_success_toast(praxis_string_index_t msg, bool ok) {
+    if (!ok || !g_app.toast) return;
+    praxis_toast_show(g_app.toast, praxis_locale_str(msg),
+                      praxis_toast_color_success(),
+                      PRAXIS_TOAST_DEFAULT_DURATION_MS);
+}
+
 static void run_hotkey_action(HWND hwnd, hotkey_id_t hotkey_id) {
+    bool ok;
     switch (hotkey_id) {
     case HOTKEY_BACKUP_FULL:
-        praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        ok = praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        show_success_toast(STR_PRAXIS_TOAST_BACKUP_FULL_SUCCESS, ok);
         break;
     case HOTKEY_BACKUP_SLOT:
-        praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        ok = praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        show_success_toast(STR_PRAXIS_TOAST_BACKUP_SLOT_SUCCESS, ok);
         break;
     case HOTKEY_RESTORE:
-        praxis_hotkey_action_restore(hwnd, &g_profile_store, g_app.save_tree);
+        ok = praxis_hotkey_action_restore(hwnd, &g_profile_store, g_app.save_tree);
+        show_success_toast(STR_PRAXIS_TOAST_RESTORE_SUCCESS, ok);
         break;
     case HOTKEY_UNDO_RESTORE:
-        if (praxis_hotkey_action_undo(hwnd, &g_profile_store) && g_app.save_tree) save_tree_refresh(g_app.save_tree);
+        ok = praxis_hotkey_action_undo(hwnd, &g_profile_store);
+        if (ok && g_app.save_tree) save_tree_refresh(g_app.save_tree);
+        show_success_toast(STR_PRAXIS_TOAST_UNDO_SUCCESS, ok);
         break;
     }
 }
@@ -121,18 +142,27 @@ static LRESULT praxis_window_on_command(HWND hwnd, WPARAM wp) {
         apply_active_profile_ui(hwnd, WM_WATCHER_NOTIFY);
         return 0;
     }
-    case IDC_BTN_BACKUP_FULL:
-        praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+    case IDC_BTN_BACKUP_FULL: {
+        bool ok = praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        show_success_toast(STR_PRAXIS_TOAST_BACKUP_FULL_SUCCESS, ok);
         return 0;
-    case IDC_BTN_BACKUP_SLOT:
-        praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+    }
+    case IDC_BTN_BACKUP_SLOT: {
+        bool ok = praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        show_success_toast(STR_PRAXIS_TOAST_BACKUP_SLOT_SUCCESS, ok);
         return 0;
-    case IDC_BTN_RESTORE:
-        praxis_hotkey_action_restore(hwnd, &g_profile_store, g_app.save_tree);
+    }
+    case IDC_BTN_RESTORE: {
+        bool ok = praxis_hotkey_action_restore(hwnd, &g_profile_store, g_app.save_tree);
+        show_success_toast(STR_PRAXIS_TOAST_RESTORE_SUCCESS, ok);
         return 0;
-    case IDC_BTN_UNDO:
-        if (praxis_hotkey_action_undo(hwnd, &g_profile_store) && g_app.save_tree) save_tree_refresh(g_app.save_tree);
+    }
+    case IDC_BTN_UNDO: {
+        bool ok = praxis_hotkey_action_undo(hwnd, &g_profile_store);
+        if (ok && g_app.save_tree) save_tree_refresh(g_app.save_tree);
+        show_success_toast(STR_PRAXIS_TOAST_UNDO_SUCCESS, ok);
         return 0;
+    }
     case IDC_BTN_ADD_BACKUP:
         handle_add_backup(hwnd, WM_WATCHER_NOTIFY);
         return 0;
@@ -231,6 +261,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
 
     case WM_SIZE:
         layout_main_window(wp, lp);
+        if (g_app.toast) praxis_toast_recenter(g_app.toast);
         return 0;
     case WM_NOTIFY:
         if (g_app.save_tree) {

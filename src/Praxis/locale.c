@@ -92,6 +92,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"System",
         L"Light",
         L"Dark",
+        L"Backup created",
+        L"Slot backup created",
+        L"Restore complete",
+        L"Undo complete",
     },
     /* 1: Français */
     {
@@ -162,6 +166,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Système",
         L"Clair",
         L"Sombre",
+        L"Sauvegarde créée",
+        L"Sauvegarde de l'emplacement créée",
+        L"Restauration terminée",
+        L"Annulation effectuée",
     },
     /* 2: Deutsch */
     {
@@ -232,6 +240,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"System",
         L"Hell",
         L"Dunkel",
+        L"Sicherung erstellt",
+        L"Slot-Sicherung erstellt",
+        L"Wiederherstellung abgeschlossen",
+        L"Rückgängig abgeschlossen",
     },
     /* 3: Italiano */
     {
@@ -302,6 +314,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Sistema",
         L"Chiaro",
         L"Scuro",
+        L"Backup creato",
+        L"Backup dello slot creato",
+        L"Ripristino completato",
+        L"Annullamento completato",
     },
     /* 4: Español */
     {
@@ -372,6 +388,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Sistema",
         L"Claro",
         L"Oscuro",
+        L"Respaldo creado",
+        L"Respaldo de ranura creado",
+        L"Restauración completada",
+        L"Deshacer completado",
     },
     /* 5: Português */
     {
@@ -442,6 +462,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Sistema",
         L"Claro",
         L"Escuro",
+        L"Backup criado",
+        L"Backup do slot criado",
+        L"Restauração concluída",
+        L"Desfazer concluído",
     },
     /* 6: Русский */
     {
@@ -512,6 +536,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"Системная",
         L"Светлая",
         L"Тёмная",
+        L"Копия создана",
+        L"Копия слота создана",
+        L"Восстановление завершено",
+        L"Отмена завершена",
     },
     /* 7: 日本語 */
     {
@@ -582,6 +610,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"システム",
         L"ライト",
         L"ダーク",
+        L"バックアップを作成しました",
+        L"スロットのバックアップを作成しました",
+        L"復元が完了しました",
+        L"元に戻しました",
     },
     /* 8: 한국어 */
     {
@@ -652,6 +684,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"시스템",
         L"라이트",
         L"다크",
+        L"백업이 생성되었습니다",
+        L"슬롯 백업이 생성되었습니다",
+        L"복원이 완료되었습니다",
+        L"실행 취소가 완료되었습니다",
     },
     /* 9: 简体中文 */
     {
@@ -722,6 +758,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"跟随系统",
         L"浅色",
         L"深色",
+        L"已创建备份",
+        L"已创建角色槽备份",
+        L"恢复完成",
+        L"已撤销恢复",
     },
     /* 10: 繁體中文 */
     {
@@ -792,6 +832,10 @@ static const wchar_t *praxis_locale_strings[11][STR_PRAXIS_MAX] = {
         L"跟隨系統",
         L"淺色",
         L"深色",
+        L"已建立備份",
+        L"已建立角色欄位備份",
+        L"還原完成",
+        L"已復原還原",
     },
 };
 

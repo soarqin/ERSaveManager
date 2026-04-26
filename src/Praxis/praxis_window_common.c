@@ -98,10 +98,12 @@ void destroy_main_children(void) {
     if (g_app.save_watcher) save_watcher_stop(g_app.save_watcher);
     if (g_app.toolbar) toolbar_destroy(g_app.toolbar);
     if (g_app.save_tree) save_tree_destroy(g_app.save_tree);
+    if (g_app.toast) praxis_toast_destroy(g_app.toast);
     g_app.save_watcher = NULL;
     g_app.toolbar = NULL;
     g_app.save_tree = NULL;
     g_app.status_bar = NULL;
+    g_app.toast = NULL;
 }
 
 void layout_main_window(WPARAM wp, LPARAM lp) {

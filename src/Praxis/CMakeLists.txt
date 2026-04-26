@@ -31,6 +31,8 @@ add_project(praxis WIN32
     praxis_main_menu.h
     praxis_selftest.c
     praxis_selftest.h
+    praxis_toast.c
+    praxis_toast.h
     praxis_window_common.c
     praxis_window_common.h
     toolbar.c

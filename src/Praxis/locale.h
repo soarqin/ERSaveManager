@@ -77,6 +77,11 @@ typedef enum praxis_string_index_e {
     STR_PRAXIS_THEME_SYSTEM,
     STR_PRAXIS_THEME_LIGHT,
     STR_PRAXIS_THEME_DARK,
+    /* Toast panel notifications shown on successful backup/restore actions. */
+    STR_PRAXIS_TOAST_BACKUP_FULL_SUCCESS,
+    STR_PRAXIS_TOAST_BACKUP_SLOT_SUCCESS,
+    STR_PRAXIS_TOAST_RESTORE_SUCCESS,
+    STR_PRAXIS_TOAST_UNDO_SUCCESS,
     STR_PRAXIS_MAX
 } praxis_string_index_t;
 

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "game_backend.h"
+#include "praxis_toast.h"
 #include "profile_store.h"
 #include "save_tree.h"
 #include "save_watcher.h"
@@ -21,6 +22,7 @@ typedef struct praxis_app_s {
     save_watcher_t *save_watcher;
     HWND status_bar;
     toolbar_t *toolbar;
+    praxis_toast_t *toast;
 } praxis_app_t;
 
 extern praxis_app_t g_app;
