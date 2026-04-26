@@ -5,6 +5,7 @@
 
 #include "save_watcher.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 struct save_watcher_s {
@@ -48,7 +49,10 @@ static bool copy_root_path(save_watcher_t *w, wchar_t *out_root, int out_chars) 
     }
 
     EnterCriticalSection(&w->cs);
-    lstrcpynW(out_root, w->root_path, out_chars);
+    if (!lstrcpynW(out_root, w->root_path, out_chars)) {
+        LeaveCriticalSection(&w->cs);
+        return false;
+    }
     LeaveCriticalSection(&w->cs);
     return true;
 }
@@ -146,7 +150,8 @@ static DWORD WINAPI watcher_thread_proc(LPVOID param) {
 save_watcher_t *save_watcher_start(HWND notify_hwnd, const wchar_t *root_path, UINT message_id) {
     save_watcher_t *w;
 
-    if (!notify_hwnd || !root_path || root_path[0] == L'\0') {
+    if (!notify_hwnd || !root_path || root_path[0] == L'\0' ||
+        (size_t)lstrlenW(root_path) >= MAX_PATH) {
         return NULL;
     }
 
@@ -159,7 +164,10 @@ save_watcher_t *save_watcher_start(HWND notify_hwnd, const wchar_t *root_path, U
     w->notify_hwnd = notify_hwnd;
     w->message_id = message_id;
     w->dir_handle = INVALID_HANDLE_VALUE;
-    lstrcpynW(w->root_path, root_path, MAX_PATH);
+    if (!lstrcpynW(w->root_path, root_path, MAX_PATH)) {
+        LocalFree(w);
+        return NULL;
+    }
     InitializeCriticalSection(&w->cs);
 
     w->shutdown_event = CreateEventW(NULL, FALSE, FALSE, NULL);
@@ -211,8 +219,6 @@ save_watcher_t *save_watcher_start(HWND notify_hwnd, const wchar_t *root_path, U
 }
 
 void save_watcher_stop(save_watcher_t *w) {
-    DWORD wait_result;
-
     if (!w) {
         return;
     }
@@ -221,9 +227,12 @@ void save_watcher_stop(save_watcher_t *w) {
         SetEvent(w->shutdown_event);
     }
 
-    wait_result = w->thread_handle ? WaitForSingleObject(w->thread_handle, 5000) : WAIT_OBJECT_0;
-    if (wait_result == WAIT_TIMEOUT && w->thread_handle) {
-        TerminateThread(w->thread_handle, 0);
+    if (w->dir_handle != INVALID_HANDLE_VALUE) {
+        CancelIoEx(w->dir_handle, &w->ovl);
+    }
+
+    if (w->thread_handle) {
+        WaitForSingleObject(w->thread_handle, INFINITE);
     }
 
     if (w->thread_handle) {
@@ -247,12 +256,16 @@ void save_watcher_stop(save_watcher_t *w) {
 }
 
 bool save_watcher_change_root(save_watcher_t *w, const wchar_t *new_root) {
-    if (!w || !new_root || new_root[0] == L'\0') {
+    if (!w || !new_root || new_root[0] == L'\0' ||
+        (size_t)lstrlenW(new_root) >= MAX_PATH) {
         return false;
     }
 
     EnterCriticalSection(&w->cs);
-    lstrcpynW(w->root_path, new_root, MAX_PATH);
+    if (!lstrcpynW(w->root_path, new_root, MAX_PATH)) {
+        LeaveCriticalSection(&w->cs);
+        return false;
+    }
     LeaveCriticalSection(&w->cs);
 
     if (!w->wakeup_event) {
