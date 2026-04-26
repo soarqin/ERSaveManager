@@ -23,20 +23,28 @@ static int ring_list_files(const wchar_t *ring_dir, wchar_t out_paths[][MAX_PATH
     if (!ring_dir || !out_paths || out_capacity <= 0) return -1;
 
     wchar_t search[MAX_PATH];
+    if ((size_t)lstrlenW(ring_dir) >= MAX_PATH) return -1;
     lstrcpyW(search, ring_dir);
-    PathAppendW(search, L"ring_*.ersm");
+    if (!PathAppendW(search, L"ring_*.ersm")) return -1;
 
-    wchar_t temp_files[64][MAX_PATH];
+    wchar_t (*temp_files)[MAX_PATH] = NULL;
     int count = 0;
     WIN32_FIND_DATAW fd;
     HANDLE h = FindFirstFileW(search, &fd);
     if (h == INVALID_HANDLE_VALUE) return 0;
 
+    temp_files = (wchar_t (*)[MAX_PATH])LocalAlloc(LMEM_FIXED, 64 * sizeof(wchar_t[MAX_PATH]));
+    if (!temp_files) {
+        FindClose(h);
+        return -1;
+    }
+
     do {
         if (count < 64) {
             lstrcpyW(temp_files[count], ring_dir);
-            PathAppendW(temp_files[count], fd.cFileName);
-            count++;
+            if (PathAppendW(temp_files[count], fd.cFileName)) {
+                count++;
+            }
         }
     } while (FindNextFileW(h, &fd));
     FindClose(h);
@@ -58,12 +66,14 @@ static int ring_list_files(const wchar_t *ring_dir, wchar_t out_paths[][MAX_PATH
     for (int i = 0; i < copy_count; i++) {
         lstrcpyW(out_paths[i], temp_files[i]);
     }
+    LocalFree(temp_files);
     return copy_count;
 }
 
 bool ring_backup_init(const wchar_t *tree_root, int ring_size) {
+    if (!tree_root || (size_t)lstrlenW(tree_root) >= MAX_PATH) return false;
     lstrcpyW(g_ring_dir, tree_root);
-    PathAppendW(g_ring_dir, PRAXIS_RING_DIR_NAME);
+    if (!PathAppendW(g_ring_dir, PRAXIS_RING_DIR_NAME)) return false;
     g_ring_size = ring_size > 0 ? ring_size : 5;
     if (!CreateDirectoryW(g_ring_dir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
     SetFileAttributesW(g_ring_dir, FILE_ATTRIBUTE_HIDDEN);
@@ -81,24 +91,31 @@ bool ring_backup_snapshot(const game_backend_t *backend, const wchar_t *current_
     SYSTEMTIME st;
     GetSystemTime(&st);
     wchar_t filename[MAX_PATH];
-    _snwprintf(filename, MAX_PATH, L"ring_%04d%02d%02d%02d%02d%02d%03d_%ls.ersm",
-        st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
-        st.wMilliseconds, operation_label);
+    if (_snwprintf_s(filename, MAX_PATH, _TRUNCATE,
+            L"ring_%04d%02d%02d%02d%02d%02d%03d_%ls.ersm",
+            st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
+            st.wMilliseconds, operation_label) < 0) {
+        return false;
+    }
 
     wchar_t dst[MAX_PATH];
     lstrcpyW(dst, g_ring_dir);
-    PathAppendW(dst, filename);
+    if (!PathAppendW(dst, filename)) return false;
 
     /* Rotate: delete oldest if count >= ring_size */
     {
-        wchar_t ring_files[64][MAX_PATH];
-        int ring_count = ring_list_files(g_ring_dir, ring_files, 64);
-        if (ring_count < 0) ring_count = 0;
+        wchar_t (*ring_files)[MAX_PATH] = (wchar_t (*)[MAX_PATH])LocalAlloc(
+            LMEM_FIXED, 64 * sizeof(wchar_t[MAX_PATH]));
+        if (ring_files) {
+            int ring_count = ring_list_files(g_ring_dir, ring_files, 64);
+            if (ring_count < 0) ring_count = 0;
 
-        /* Delete oldest (last in descending-sorted list) until count < ring_size */
-        while (ring_count >= g_ring_size) {
-            DeleteFileW(ring_files[ring_count - 1]);
-            ring_count--;
+            /* Delete oldest (last in descending-sorted list) until count < ring_size */
+            while (ring_count >= g_ring_size) {
+                DeleteFileW(ring_files[ring_count - 1]);
+                ring_count--;
+            }
+            LocalFree(ring_files);
         }
     }
 
@@ -117,15 +134,26 @@ bool ring_backup_snapshot(const game_backend_t *backend, const wchar_t *current_
 
 bool ring_backup_get_latest(const wchar_t *tree_root, wchar_t *out_path, size_t out_chars) {
     wchar_t ring_dir[MAX_PATH];
+    if (!tree_root || !out_path || out_chars == 0 || (size_t)lstrlenW(tree_root) >= MAX_PATH) return false;
     lstrcpyW(ring_dir, tree_root);
-    PathAppendW(ring_dir, PRAXIS_RING_DIR_NAME);
+    if (!PathAppendW(ring_dir, PRAXIS_RING_DIR_NAME)) return false;
 
-    wchar_t ring_files[64][MAX_PATH];
+    wchar_t (*ring_files)[MAX_PATH] = (wchar_t (*)[MAX_PATH])LocalAlloc(
+        LMEM_FIXED, 64 * sizeof(wchar_t[MAX_PATH]));
+    if (!ring_files) return false;
+
     int ring_count = ring_list_files(ring_dir, ring_files, 64);
-    if (ring_count <= 0) return false;
+    if (ring_count <= 0) {
+        LocalFree(ring_files);
+        return false;
+    }
 
     /* First file is newest (descending sort) */
-    if ((size_t)lstrlenW(ring_files[0]) >= out_chars) return false;
+    if ((size_t)lstrlenW(ring_files[0]) >= out_chars) {
+        LocalFree(ring_files);
+        return false;
+    }
     lstrcpyW(out_path, ring_files[0]);
+    LocalFree(ring_files);
     return true;
 }
