@@ -40,6 +40,7 @@
 #define IDC_BTN_RESTORE      216
 #define IDC_BTN_UNDO         217
 #define IDC_BTN_BACKUP_REPLACE 218
+#define IDC_SORT_COMBO       219
 
 /* Dialog IDs */
 #define IDD_HOTKEY_SETTINGS 300

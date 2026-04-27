@@ -362,6 +362,31 @@ static void selftest_config_kv_cb(const char *key, const char *value, void *user
     }
 }
 
+static bool selftest_parse_tree_sort_mode(const wchar_t *value, save_tree_sort_mode_t *out_mode) {
+    if (!value || !out_mode) {
+        return false;
+    }
+
+    if (wcscmp(value, L"name-asc") == 0) {
+        *out_mode = SAVE_TREE_SORT_NAME_ASC;
+        return true;
+    }
+    if (wcscmp(value, L"name-desc") == 0) {
+        *out_mode = SAVE_TREE_SORT_NAME_DESC;
+        return true;
+    }
+    if (wcscmp(value, L"modified-asc") == 0) {
+        *out_mode = SAVE_TREE_SORT_MODIFIED_ASC;
+        return true;
+    }
+    if (wcscmp(value, L"modified-desc") == 0) {
+        *out_mode = SAVE_TREE_SORT_MODIFIED_DESC;
+        return true;
+    }
+
+    return false;
+}
+
 int praxis_selftest_run(int argc, wchar_t **argv) {
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD type = hOut ? GetFileType(hOut) : FILE_TYPE_UNKNOWN;
@@ -674,6 +699,127 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                         save_tree_destroy(t);
                         DestroyWindow(host);
                     }
+                }
+            }
+        } else if (wcscmp(sub, L"tree-cycle-sibling-files-sorted") == 0) {
+            if (argc < 8) {
+                st_printf(L"usage: --selftest tree-cycle-sibling-files-sorted <root> <sort_mode> <select_relpath> <direction> <expected_relpath>\n");
+                exit_code = 2;
+            } else {
+                HWND host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
+                    0, 0, 200, 200, NULL, NULL, GetModuleHandleW(NULL), NULL);
+                save_tree_t *t;
+                save_tree_sort_mode_t sort_mode;
+
+                if (!selftest_parse_tree_sort_mode(argv[4], &sort_mode)) {
+                    st_printf(L"tree-cycle-sibling-files-sorted: invalid sort mode\n");
+                    exit_code = 2;
+                } else if (!host) {
+                    exit_code = 1;
+                } else {
+                    t = save_tree_create(host, GetModuleHandleW(NULL), 0);
+                    if (!t) {
+                        DestroyWindow(host);
+                        exit_code = 1;
+                    } else {
+                        wchar_t select_full[MAX_PATH];
+                        wchar_t expected_full[MAX_PATH];
+                        wchar_t selected_full[MAX_PATH];
+                        int direction = _wtoi(argv[6]);
+
+                        save_tree_set_sort_mode(t, sort_mode);
+                        save_tree_set_root(t, argv[3]);
+                        if (!selftest_build_tree_path(argv[3], argv[5], select_full, MAX_PATH) ||
+                            !save_tree_select_full_path(t, select_full)) {
+                            st_printf(L"tree-cycle-sibling-files-sorted: selection failed\n");
+                            exit_code = 1;
+                        } else if (!save_tree_select_sibling_file(t, direction)) {
+                            st_printf(L"tree-cycle-sibling-files-sorted: cycle failed\n");
+                            exit_code = 1;
+                        } else if (!selftest_build_tree_path(argv[3], argv[7], expected_full, MAX_PATH)) {
+                            exit_code = 1;
+                        } else if (!save_tree_get_selected_path(t, selected_full, MAX_PATH)) {
+                            st_printf(L"tree-cycle-sibling-files-sorted: no selected path\n");
+                            exit_code = 1;
+                        } else if (lstrcmpW(selected_full, expected_full) != 0) {
+                            st_printf(L"expected=%ls\nselected=%ls\n", expected_full, selected_full);
+                            exit_code = 1;
+                        } else {
+                            st_printf(L"selected=%ls\n", selected_full);
+                            exit_code = 0;
+                        }
+
+                        save_tree_destroy(t);
+                        DestroyWindow(host);
+                    }
+                }
+            }
+        } else if (wcscmp(sub, L"tree-readonly-toggle") == 0) {
+            if (argc < 5) {
+                st_printf(L"usage: --selftest tree-readonly-toggle <root> <relpath>\n");
+                exit_code = 2;
+            } else {
+                save_tree_t *t = save_tree_create(NULL, NULL, 0);
+                wchar_t full[MAX_PATH];
+
+                if (!t || !selftest_build_tree_path(argv[3], argv[4], full, MAX_PATH)) {
+                    if (t) {
+                        save_tree_destroy(t);
+                    }
+                    exit_code = 1;
+                } else {
+                    DWORD attrs;
+
+                    save_tree_set_root(t, argv[3]);
+                    SetFileAttributesW(full, FILE_ATTRIBUTE_NORMAL);
+                    if (!save_tree_set_file_readonly(t, argv[4], true)) {
+                        st_printf(L"tree-readonly-toggle: set failed\n");
+                        exit_code = 1;
+                    } else {
+                        attrs = GetFileAttributesW(full);
+                        if (attrs == INVALID_FILE_ATTRIBUTES ||
+                            (attrs & FILE_ATTRIBUTE_READONLY) == 0) {
+                            st_printf(L"tree-readonly-toggle: readonly bit missing\n");
+                            exit_code = 1;
+                        } else if (!save_tree_set_file_readonly(t, argv[4], false)) {
+                            st_printf(L"tree-readonly-toggle: clear failed\n");
+                            exit_code = 1;
+                        } else {
+                            attrs = GetFileAttributesW(full);
+                            if (attrs == INVALID_FILE_ATTRIBUTES ||
+                                (attrs & FILE_ATTRIBUTE_READONLY) != 0) {
+                                st_printf(L"tree-readonly-toggle: readonly bit still set\n");
+                                exit_code = 1;
+                            } else {
+                                st_printf(L"tree-readonly-toggle: ok\n");
+                                exit_code = 0;
+                            }
+                        }
+                    }
+
+                    save_tree_destroy(t);
+                }
+            }
+        } else if (wcscmp(sub, L"tree-readonly-reject-folder") == 0) {
+            if (argc < 5) {
+                st_printf(L"usage: --selftest tree-readonly-reject-folder <root> <relpath>\n");
+                exit_code = 2;
+            } else {
+                save_tree_t *t = save_tree_create(NULL, NULL, 0);
+
+                if (!t) {
+                    exit_code = 1;
+                } else {
+                    save_tree_set_root(t, argv[3]);
+                    if (save_tree_set_file_readonly(t, argv[4], true)) {
+                        st_printf(L"tree-readonly-reject-folder: folder was changed\n");
+                        exit_code = 1;
+                    } else {
+                        st_printf(L"tree-readonly-reject-folder: ok\n");
+                        exit_code = 0;
+                    }
+
+                    save_tree_destroy(t);
                 }
             }
         } else if (wcscmp(sub, L"tree-rename") == 0) {
@@ -1162,6 +1308,74 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                                         exit_code = 0;
                                     }
                                 }
+                            }
+                        }
+
+                        save_tree_destroy(t);
+                        DestroyWindow(host);
+                    }
+                }
+            }
+        } else if (wcscmp(sub, L"backup-replace-selected-readonly") == 0) {
+            if (argc < 6) {
+                st_printf(L"usage: --selftest backup-replace-selected-readonly <save_dir> <game_tree_root> <selected_relpath>\n");
+                exit_code = 2;
+            } else {
+                HWND host = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED,
+                    0, 0, 200, 200, NULL, NULL, GetModuleHandleW(NULL), NULL);
+                save_tree_t *t;
+
+                if (!host) {
+                    exit_code = 1;
+                } else {
+                    t = save_tree_create(host, GetModuleHandleW(NULL), 0);
+                    if (!t) {
+                        DestroyWindow(host);
+                        exit_code = 1;
+                    } else {
+                        profile_store_t store;
+                        game_profile_t gp;
+                        wchar_t backup_root[MAX_PATH];
+                        wchar_t selected_full[MAX_PATH];
+                        wchar_t temp_path[MAX_PATH];
+
+                        profile_store_init(&store);
+                        ZeroMemory(&gp, sizeof(gp));
+                        lstrcpyW(gp.name, L"Selftest");
+                        gp.game_id = GAME_ID_ELDEN_RING;
+                        lstrcpynW(gp.original_save_dir, argv[3], MAX_PATH);
+                        lstrcpynW(gp.tree_root, argv[4], MAX_PATH);
+
+                        if (!profile_store_add_game(&store, &gp) ||
+                            !profile_store_resolve_backup_root(&store, store.active_backup_id,
+                                backup_root, MAX_PATH)) {
+                            st_printf(L"backup-replace-selected-readonly: profile setup failed\n");
+                            exit_code = 1;
+                        } else {
+                            wchar_t select_full[MAX_PATH];
+
+                            save_tree_set_root(t, backup_root);
+                            if (!selftest_build_tree_path(backup_root, argv[5], select_full, MAX_PATH) ||
+                                !save_tree_select_full_path(t, select_full) ||
+                                !save_tree_get_selected_path(t, selected_full, MAX_PATH)) {
+                                st_printf(L"backup-replace-selected-readonly: selection failed\n");
+                                exit_code = 1;
+                            } else {
+                                _snwprintf_s(temp_path, MAX_PATH, _TRUNCATE, L"%ls.replace.tmp", selected_full);
+                                DeleteFileW(temp_path);
+                                SetFileAttributesW(selected_full, FILE_ATTRIBUTE_READONLY);
+                                if (praxis_hotkey_action_backup_replace_selected(host, &store, t, COMP_LEVEL_MEDIUM)) {
+                                    st_printf(L"backup-replace-selected-readonly: action should fail\n");
+                                    exit_code = 1;
+                                } else if (PathFileExistsW(temp_path)) {
+                                    st_printf(L"backup-replace-selected-readonly: temp file left behind\n");
+                                    DeleteFileW(temp_path);
+                                    exit_code = 1;
+                                } else {
+                                    st_printf(L"backup-replace-selected-readonly: ok\n");
+                                    exit_code = 0;
+                                }
+                                SetFileAttributesW(selected_full, FILE_ATTRIBUTE_NORMAL);
                             }
                         }
 

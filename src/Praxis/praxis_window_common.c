@@ -76,6 +76,20 @@ void populate_toolbar_profiles(void) {
     if (g_app.toolbar) toolbar_populate_profiles(g_app.toolbar, &g_profile_store);
 }
 
+void update_toolbar_action_state(void) {
+    const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
+    bool actions_enabled = bp != NULL;
+    bool replace_enabled = actions_enabled && g_app.save_tree
+        && save_tree_selected_file_can_replace(g_app.save_tree);
+
+    if (!g_app.toolbar) {
+        return;
+    }
+
+    toolbar_set_actions_enabled(g_app.toolbar, actions_enabled);
+    toolbar_set_backup_replace_enabled(g_app.toolbar, replace_enabled);
+}
+
 static void set_active_status_text(void) {
     const game_profile_t *gp = NULL;
     const backup_profile_t *bp = profile_store_get_active_backup(&g_profile_store);
@@ -98,13 +112,16 @@ void apply_active_profile_ui(HWND hwnd, UINT watcher_notify_msg) {
 
     if (g_app.toolbar) {
         toolbar_set_selected_backup_id(g_app.toolbar, bp ? bp->id : 0);
-        toolbar_set_actions_enabled(g_app.toolbar, bp != NULL);
+        update_toolbar_action_state();
     }
     if (!bp || !profile_store_resolve_backup_root(&g_profile_store, bp->id, backup_root, MAX_PATH)) {
         set_active_status_text();
         return;
     }
-    if (g_app.save_tree) save_tree_set_root(g_app.save_tree, backup_root);
+    if (g_app.save_tree) {
+        save_tree_set_root(g_app.save_tree, backup_root);
+        update_toolbar_action_state();
+    }
     if (g_app.save_watcher) save_watcher_change_root(g_app.save_watcher, backup_root);
     else g_app.save_watcher = save_watcher_start(hwnd, backup_root, watcher_notify_msg);
     set_active_status_text();

@@ -104,14 +104,17 @@ static void run_hotkey_action(HWND hwnd, hotkey_id_t hotkey_id) {
     switch (hotkey_id) {
     case HOTKEY_BACKUP_FULL:
         ok = praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_BACKUP_FULL_SUCCESS, ok);
         break;
     case HOTKEY_BACKUP_SLOT:
         ok = praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_BACKUP_SLOT_SUCCESS, ok);
         break;
     case HOTKEY_RESTORE:
         ok = praxis_hotkey_action_restore(hwnd, &g_profile_store, g_app.save_tree);
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_RESTORE_SUCCESS, ok);
         break;
     case HOTKEY_UNDO_RESTORE:
@@ -119,18 +122,25 @@ static void run_hotkey_action(HWND hwnd, hotkey_id_t hotkey_id) {
         /* Preserve the current selection across the refresh so the tree does
          * not jump back to the root after undoing a restore. */
         if (ok && g_app.save_tree) save_tree_refresh_preserve_selection(g_app.save_tree);
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_UNDO_SUCCESS, ok);
         break;
     case HOTKEY_BACKUP_REPLACE:
+        if (!save_tree_selected_file_can_replace(g_app.save_tree)) {
+            return;
+        }
         ok = praxis_hotkey_action_backup_replace_selected(hwnd, &g_profile_store, g_app.save_tree,
             get_active_compression_level());
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_BACKUP_REPLACE_SUCCESS, ok);
         break;
     case HOTKEY_PREVIOUS_SAVE:
         if (g_app.save_tree) save_tree_select_sibling_file(g_app.save_tree, -1);
+        update_toolbar_action_state();
         break;
     case HOTKEY_NEXT_SAVE:
         if (g_app.save_tree) save_tree_select_sibling_file(g_app.save_tree, 1);
+        update_toolbar_action_state();
         break;
     }
 }
@@ -146,6 +156,13 @@ static LRESULT praxis_window_on_command(HWND hwnd, WPARAM wp) {
         handle_profile_combo_change(hwnd, WM_WATCHER_NOTIFY);
         return 0;
     }
+    if (HIWORD(wp) == CBN_SELCHANGE && LOWORD(wp) == IDC_SORT_COMBO) {
+        if (g_app.toolbar && g_app.save_tree) {
+            save_tree_set_sort_mode(g_app.save_tree, toolbar_get_selected_sort_mode(g_app.toolbar));
+            update_toolbar_action_state();
+        }
+        return 0;
+    }
     switch (LOWORD(wp)) {
     case IDM_GAME_MANAGE: {
         wchar_t ini[MAX_PATH];
@@ -157,28 +174,33 @@ static LRESULT praxis_window_on_command(HWND hwnd, WPARAM wp) {
     }
     case IDC_BTN_BACKUP_FULL: {
         bool ok = praxis_hotkey_action_backup_full(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_BACKUP_FULL_SUCCESS, ok);
         return 0;
     }
     case IDC_BTN_BACKUP_SLOT: {
         bool ok = praxis_hotkey_action_backup_slot(hwnd, &g_profile_store, g_app.save_tree, get_active_compression_level());
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_BACKUP_SLOT_SUCCESS, ok);
         return 0;
     }
     case IDC_BTN_BACKUP_REPLACE: {
         bool ok = praxis_hotkey_action_backup_replace_selected(hwnd, &g_profile_store, g_app.save_tree,
             get_active_compression_level());
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_BACKUP_REPLACE_SUCCESS, ok);
         return 0;
     }
     case IDC_BTN_RESTORE: {
         bool ok = praxis_hotkey_action_restore(hwnd, &g_profile_store, g_app.save_tree);
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_RESTORE_SUCCESS, ok);
         return 0;
     }
     case IDC_BTN_UNDO: {
         bool ok = praxis_hotkey_action_undo(hwnd, &g_profile_store);
         if (ok && g_app.save_tree) save_tree_refresh(g_app.save_tree);
+        update_toolbar_action_state();
         show_success_toast(STR_PRAXIS_TOAST_UNDO_SUCCESS, ok);
         return 0;
     }
@@ -300,9 +322,24 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         if (g_app.toast) praxis_toast_recenter(g_app.toast);
         return 0;
     case WM_NOTIFY:
+        {
+            NMHDR *nmhdr = (NMHDR *)lp;
+
+            if (nmhdr && g_app.save_tree && nmhdr->hwndFrom == save_tree_get_hwnd(g_app.save_tree) &&
+                (nmhdr->code == TVN_SELCHANGEDW || nmhdr->code == TVN_SELCHANGEDA)) {
+                update_toolbar_action_state();
+                return 0;
+            }
+        }
         if (g_app.save_tree) {
             LRESULT notify_result = 0;
-            if (save_tree_handle_notify(g_app.save_tree, (LPNMHDR)lp, &notify_result)) return notify_result;
+            if (save_tree_handle_notify(g_app.save_tree, (LPNMHDR)lp, &notify_result)) {
+                NMHDR *nmhdr = (NMHDR *)lp;
+                if (nmhdr && nmhdr->code != NM_CUSTOMDRAW) {
+                    update_toolbar_action_state();
+                }
+                return notify_result;
+            }
         }
         /* Custom-draw fallback for any tree/listview not consumed above. */
         {
@@ -330,6 +367,7 @@ static LRESULT CALLBACK praxis_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         if (wp == IDT_REFRESH_DEBOUNCE) {
             KillTimer(hwnd, IDT_REFRESH_DEBOUNCE);
             if (g_app.save_tree) save_tree_refresh_preserve_selection(g_app.save_tree);
+            update_toolbar_action_state();
         }
         return 0;
     case WM_COMMAND:

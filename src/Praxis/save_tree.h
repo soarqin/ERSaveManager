@@ -15,10 +15,31 @@
 
 typedef struct save_tree_s save_tree_t;
 
+typedef enum save_tree_sort_mode_e {
+    SAVE_TREE_SORT_NAME_ASC = 0,
+    SAVE_TREE_SORT_NAME_DESC,
+    SAVE_TREE_SORT_MODIFIED_ASC,
+    SAVE_TREE_SORT_MODIFIED_DESC
+} save_tree_sort_mode_t;
+
 save_tree_t *save_tree_create(HWND parent, HINSTANCE hinst, int id);
 void save_tree_destroy(save_tree_t *t);
 bool save_tree_set_root(save_tree_t *t, const wchar_t *root_path);
 void save_tree_refresh(save_tree_t *t);
+/**
+ * @brief Set the file ordering used when rebuilding the tree.
+ * @details Directories stay grouped before files; files in each directory are
+ *          sorted by the selected name or modified-time mode.
+ * @param t Tree widget instance.
+ * @param mode Sort mode to apply.
+ */
+void save_tree_set_sort_mode(save_tree_t *t, save_tree_sort_mode_t mode);
+/**
+ * @brief Get the current file sort mode.
+ * @param t Tree widget instance.
+ * @return Current sort mode, or SAVE_TREE_SORT_NAME_ASC if @p t is NULL.
+ */
+save_tree_sort_mode_t save_tree_get_sort_mode(const save_tree_t *t);
 /**
  * @brief Refresh the tree preserving the selection by relative path.
  * @details Captures the currently selected item's relative path before
@@ -54,6 +75,21 @@ bool save_tree_select_full_path(save_tree_t *t, const wchar_t *full_path);
  */
 bool save_tree_select_sibling_file(save_tree_t *t, int direction);
 /**
+ * @brief Report whether the current selection is a writable file.
+ * @details Returns false for folders, the tree root, missing selections, and
+ *          files with FILE_ATTRIBUTE_READONLY set.
+ * @param t Tree widget instance.
+ * @return true when Backup & Replace can target the selected item.
+ */
+bool save_tree_selected_file_can_replace(const save_tree_t *t);
+/**
+ * @brief Read the selected file's read-only state.
+ * @param t Tree widget instance.
+ * @param out_readonly Receives true when the selected file is read-only.
+ * @return true when the current selection is a file, false otherwise.
+ */
+bool save_tree_get_selected_file_readonly(const save_tree_t *t, bool *out_readonly);
+/**
  * @brief Get the directory path of the currently selected item.
  * @details If the selection is a directory, returns its full path. If the
  *          selection is a file, returns the parent directory's full path.
@@ -73,4 +109,14 @@ bool save_tree_rename(save_tree_t *t, const wchar_t *old_relpath, const wchar_t 
 bool save_tree_delete(save_tree_t *t, const wchar_t *relpath);
 bool save_tree_new_folder(save_tree_t *t, const wchar_t *parent_relpath, const wchar_t *name);
 bool save_tree_move(save_tree_t *t, const wchar_t *src_relpath, const wchar_t *dst_parent_relpath);
+/**
+ * @brief Set or clear FILE_ATTRIBUTE_READONLY for a file in the tree.
+ * @details Directories and the wrapper root are rejected. On success the tree
+ *          is refreshed while preserving the current selection.
+ * @param t Tree widget instance.
+ * @param relpath Relative file path under the tree root.
+ * @param read_only true to set read-only, false to clear it.
+ * @return true on success, false when the path is not a file or attributes fail.
+ */
+bool save_tree_set_file_readonly(save_tree_t *t, const wchar_t *relpath, bool read_only);
 int save_tree_item_count(const save_tree_t *t);

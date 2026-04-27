@@ -37,6 +37,7 @@ int get_active_compression_level(void);
 void praxis_window_format_title(wchar_t *buffer, size_t buffer_count);
 void praxis_window_set_title(HWND hwnd);
 void populate_toolbar_profiles(void);
+void update_toolbar_action_state(void);
 void apply_active_profile_ui(HWND hwnd, UINT watcher_notify_msg);
 void destroy_main_children(void);
 void layout_main_window(WPARAM wp, LPARAM lp);

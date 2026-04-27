@@ -2,8 +2,8 @@
  * @file toolbar.h
  * @brief Two-row toolbar widget: backup profile combobox (top) + action buttons (bottom).
  * @details Provides two fixed-height child container windows:
- *          - Top container (30 px): backup profile combobox + add ("+") and
- *            delete ("-") buttons.
+ *          - Top container (30 px): backup profile combobox + add ("+"),
+ *            delete ("-"), and file sort combobox controls.
  *          - Bottom container (38 px): five action buttons — Backup Full,
  *            Backup Slot, Backup & Replace, Restore, Undo Last Restore.
  *          Both containers are purely UI hosts; WM_COMMAND routing for the
@@ -17,6 +17,7 @@
 #include <windows.h>
 
 #include "profile_store.h"
+#include "save_tree.h"
 
 /* Opaque toolbar handle. */
 typedef struct toolbar_s toolbar_t;
@@ -110,6 +111,20 @@ int toolbar_get_selected_backup_id(const toolbar_t *t);
 void toolbar_set_selected_backup_id(toolbar_t *t, int backup_id);
 
 /**
+ * @brief Get the current file sort mode selected in the sort combobox.
+ * @param t Toolbar handle.
+ * @return Selected sort mode, or SAVE_TREE_SORT_NAME_ASC if unavailable.
+ */
+save_tree_sort_mode_t toolbar_get_selected_sort_mode(const toolbar_t *t);
+
+/**
+ * @brief Select a file sort mode in the sort combobox.
+ * @param t Toolbar handle.
+ * @param mode Sort mode to select.
+ */
+void toolbar_set_selected_sort_mode(toolbar_t *t, save_tree_sort_mode_t mode);
+
+/**
  * @brief Enable or disable all action buttons.
  * @details When disabled, only the combobox and the "+" (add backup) button
  *          remain enabled so users can still create their first profile.
@@ -119,6 +134,13 @@ void toolbar_set_selected_backup_id(toolbar_t *t, int backup_id);
  * @param enabled true to enable action buttons, false to disable.
  */
 void toolbar_set_actions_enabled(toolbar_t *t, bool enabled);
+
+/**
+ * @brief Enable or disable only the Backup & Replace action button.
+ * @param t Toolbar handle.
+ * @param enabled true to enable the button, false to disable it.
+ */
+void toolbar_set_backup_replace_enabled(toolbar_t *t, bool enabled);
 
 /**
  * @brief Re-apply localized strings to all toolbar buttons.

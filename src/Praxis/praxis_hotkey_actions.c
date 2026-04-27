@@ -124,6 +124,19 @@ static bool commit_replace_temp_file(const wchar_t *temp_path, const wchar_t *ta
     return true;
 }
 
+static bool path_is_writable_file(const wchar_t *path) {
+    DWORD attrs;
+
+    if (!path || path[0] == L'\0') {
+        return false;
+    }
+
+    attrs = GetFileAttributesW(path);
+    return attrs != INVALID_FILE_ATTRIBUTES
+        && (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0
+        && (attrs & FILE_ATTRIBUTE_READONLY) == 0;
+}
+
 /* Copy a raw BND4 save file to dst_path, wrapping it with the ERSM
  * raw-BND4 container so it round-trips through save_compress_classify_backup. */
 static bool backup_full_raw(const wchar_t *src_path, const wchar_t *dst_path) {
@@ -310,6 +323,7 @@ bool praxis_hotkey_action_backup_replace_selected(HWND hwnd, profile_store_t *st
     if (!bp || !backend || !save_tree ||
         !save_tree_get_selected_path(save_tree, selected_path, MAX_PATH) ||
         !selected_path[0] ||
+        !path_is_writable_file(selected_path) ||
         !resolve_save_path_for(store, save_path, MAX_PATH) ||
         !make_replace_temp_path(selected_path, temp_path, MAX_PATH)) {
         return false;

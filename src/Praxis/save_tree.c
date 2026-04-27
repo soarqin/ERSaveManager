@@ -158,7 +158,8 @@ static bool is_valid_name(const wchar_t *name) {
     return true;
 }
 
-bool save_tree_append_item(save_tree_t *t, const wchar_t *relative_path, bool is_directory, size_t *out_index) {
+bool save_tree_append_item(save_tree_t *t, const wchar_t *relative_path, bool is_directory,
+    bool is_readonly, const FILETIME *last_write_time, size_t *out_index) {
     size_t index;
 
     if (!t || !relative_path || !ensure_capacity(t)) {
@@ -168,6 +169,12 @@ bool save_tree_append_item(save_tree_t *t, const wchar_t *relative_path, bool is
     index = t->item_count;
     lstrcpynW(t->items[index].relative_path, relative_path, MAX_PATH);
     t->items[index].is_directory = is_directory;
+    t->items[index].is_readonly = !is_directory && is_readonly;
+    if (last_write_time) {
+        t->items[index].last_write_time = *last_write_time;
+    } else {
+        ZeroMemory(&t->items[index].last_write_time, sizeof(t->items[index].last_write_time));
+    }
     t->item_count++;
 
     if (out_index) {
@@ -227,6 +234,7 @@ save_tree_t *save_tree_create(HWND parent, HINSTANCE hinst, int id) {
     }
 
     t->folder_icon_idx = -1;
+    t->sort_mode = SAVE_TREE_SORT_NAME_ASC;
 
     if (parent) {
         HIMAGELIST sys_imgl;
@@ -290,6 +298,31 @@ bool save_tree_set_root(save_tree_t *t, const wchar_t *root_path) {
     return true;
 }
 
+static bool save_tree_sort_mode_is_valid(save_tree_sort_mode_t mode) {
+    return mode >= SAVE_TREE_SORT_NAME_ASC && mode <= SAVE_TREE_SORT_MODIFIED_DESC;
+}
+
+void save_tree_set_sort_mode(save_tree_t *t, save_tree_sort_mode_t mode) {
+    if (!t) {
+        return;
+    }
+    if (!save_tree_sort_mode_is_valid(mode)) {
+        mode = SAVE_TREE_SORT_NAME_ASC;
+    }
+    if (t->sort_mode == mode) {
+        return;
+    }
+
+    t->sort_mode = mode;
+    if (t->root_path[0] != L'\0') {
+        save_tree_refresh_preserve_selection(t);
+    }
+}
+
+save_tree_sort_mode_t save_tree_get_sort_mode(const save_tree_t *t) {
+    return t ? t->sort_mode : SAVE_TREE_SORT_NAME_ASC;
+}
+
 /* Inner refresh: rebuild items[] and TreeView nodes WITHOUT touching the
  * WM_SETREDRAW state. Public refresh wrappers handle the redraw envelope. */
 static void save_tree_refresh_inner(save_tree_t *t) {
@@ -313,7 +346,7 @@ static void save_tree_refresh_inner(save_tree_t *t) {
         return;
     }
 
-    if (!save_tree_append_item(t, L"", true, &wrapper_index)) {
+    if (!save_tree_append_item(t, L"", true, false, NULL, &wrapper_index)) {
         return;
     }
 
@@ -637,6 +670,32 @@ bool save_tree_select_sibling_file(save_tree_t *t, int direction) {
     return true;
 }
 
+bool save_tree_get_selected_file_readonly(const save_tree_t *t, bool *out_readonly) {
+    HTREEITEM selection;
+    save_item_t item;
+
+    if (out_readonly) {
+        *out_readonly = false;
+    }
+    if (!t || !t->hwnd || !out_readonly) {
+        return false;
+    }
+
+    selection = TreeView_GetSelection(t->hwnd);
+    if (!selection || !save_tree_get_item_info(t, selection, NULL, &item) || item.is_directory) {
+        return false;
+    }
+
+    *out_readonly = item.is_readonly;
+    return true;
+}
+
+bool save_tree_selected_file_can_replace(const save_tree_t *t) {
+    bool is_readonly = false;
+
+    return save_tree_get_selected_file_readonly(t, &is_readonly) && !is_readonly;
+}
+
 bool save_tree_get_selected_dir(const save_tree_t *t, wchar_t *out, size_t out_chars) {
     HTREEITEM selection;
     save_item_t item;
@@ -834,6 +893,33 @@ bool save_tree_move(save_tree_t *t, const wchar_t *src_relpath, const wchar_t *d
     }
 
     save_tree_refresh(t);
+    return true;
+}
+
+bool save_tree_set_file_readonly(save_tree_t *t, const wchar_t *relpath, bool read_only) {
+    wchar_t full[MAX_PATH];
+    DWORD attrs;
+    DWORD new_attrs;
+
+    if (!t || !relpath || relpath[0] == L'\0' ||
+        !save_tree_build_full_path(t, relpath, full, MAX_PATH)) {
+        return false;
+    }
+
+    attrs = GetFileAttributesW(full);
+    if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+        return false;
+    }
+
+    new_attrs = read_only ? (attrs | FILE_ATTRIBUTE_READONLY) : (attrs & ~FILE_ATTRIBUTE_READONLY);
+    if (new_attrs == attrs) {
+        return true;
+    }
+    if (!SetFileAttributesW(full, new_attrs)) {
+        return false;
+    }
+
+    save_tree_refresh_preserve_selection(t);
     return true;
 }
 

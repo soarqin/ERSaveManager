@@ -14,11 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Praxis: Multi-profile support — game profiles (per-account/version) and backup profiles (per game) via `Praxis.ini` multi-section schema
 - Praxis: Game Profile Manager dialog (modal ListView) for managing game configurations
 - Praxis: Toolbar with backup profile combobox + Backup Full / Backup Slot / Restore / Undo Restore buttons
+- Praxis: Save tree sort selector with filename/modified-time ordering and ascending/descending modes
+- Praxis: Read-only backup file toggle from the save tree context menu, including locked display marker and Backup & Replace gating
 - Praxis: Filesystem watcher with auto-refresh (ReadDirectoryChangesW worker thread, 200ms debounce) and selection preservation
 - Praxis: First-launch profile setup prompt that creates a default game profile when `Praxis.ini` has no profiles
 - Praxis: 3 compression levels (none / low / high) per backup profile
 - Praxis: `Praxis.exe --selftest locale-dump`, `watcher-state`, and other new headless QA subcommands
 - Praxis: New `--selftest` subcommands: `config-load`, `hotkey-defaults`, `backend-vtable-shape`, `profile-resolve-active`, `watcher-debounce-timing`
+- Praxis: New `--selftest` subcommands for sorted sibling navigation, read-only toggling, read-only folder rejection, and read-only Backup & Replace rejection
 
 ### Changed (BREAKING)
 - Praxis: `restore_with_safety()` renamed to `restore_safe_full()`
@@ -51,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Praxis: Pre-existing `.ersm` extension on raw-BND4 ring snapshots was misleading (new files now use `.sl2`)
+- Praxis: Backup & Replace now rejects read-only selected files across toolbar, hotkey, and action-layer code paths
 
 ## [1.1.0] - 2026-04-25
 

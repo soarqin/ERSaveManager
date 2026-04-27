@@ -15,6 +15,8 @@
 typedef struct save_item_s {
     wchar_t relative_path[MAX_PATH]; /* Relative to tree root */
     bool is_directory;
+    bool is_readonly;
+    FILETIME last_write_time;
 } save_item_t;
 
 struct save_tree_s {
@@ -29,13 +31,15 @@ struct save_tree_s {
     HIMAGELIST drag_image;
     /* System icon indices for cached lookups (resolved lazily). */
     int folder_icon_idx;        /* Cached generic folder icon index, -1 if unresolved */
+    save_tree_sort_mode_t sort_mode;
 };
 
 void save_tree_make_display_name(const wchar_t *leaf, bool is_directory,
-    wchar_t *out, size_t out_chars);
+    bool is_readonly, wchar_t *out, size_t out_chars);
 HIMAGELIST save_tree_get_system_image_list(void);
 int save_tree_resolve_icon_index(const wchar_t *name, bool is_directory);
-bool save_tree_append_item(save_tree_t *t, const wchar_t *relative_path, bool is_directory, size_t *out_index);
+bool save_tree_append_item(save_tree_t *t, const wchar_t *relative_path, bool is_directory,
+    bool is_readonly, const FILETIME *last_write_time, size_t *out_index);
 bool save_tree_build_full_path(const save_tree_t *t, const wchar_t *relpath, wchar_t *out, size_t out_chars);
 bool save_tree_get_item_info(const save_tree_t *t, HTREEITEM item, size_t *out_index, save_item_t *out_value);
 bool save_tree_get_parent_relpath(const wchar_t *relpath, wchar_t *out, size_t out_chars);

@@ -24,6 +24,7 @@
 #define ID_SAVE_TREE_RENAME           50002
 #define ID_SAVE_TREE_DELETE           50003
 #define ID_SAVE_TREE_SHOW_IN_EXPLORER 50004
+#define ID_SAVE_TREE_SET_READONLY     50005
 
 /* Show a Yes/No confirmation dialog before deleting a save tree item.
  * The parent is the main window (tree's parent) so the dialog is centered
@@ -42,7 +43,7 @@ static bool confirm_save_tree_delete(const save_tree_t *t) {
  *    for a friendlier UX; the actual filename on disk keeps its extension and
  *    is used for all I/O via items[i].relative_path. */
 void save_tree_make_display_name(const wchar_t *leaf, bool is_directory,
-    wchar_t *out, size_t out_chars) {
+    bool is_readonly, wchar_t *out, size_t out_chars) {
     if (!out || out_chars == 0) {
         return;
     }
@@ -53,6 +54,15 @@ void save_tree_make_display_name(const wchar_t *leaf, bool is_directory,
     lstrcpynW(out, leaf, (int)out_chars);
     if (!is_directory) {
         PathRemoveExtensionW(out);
+        if (is_readonly) {
+            const wchar_t *marker = praxis_locale_str(STR_PRAXIS_READ_ONLY_MARK);
+            size_t cur_len = (size_t)lstrlenW(out);
+            size_t marker_len = marker ? (size_t)lstrlenW(marker) : 0;
+
+            if (marker && cur_len + marker_len + 1 <= out_chars) {
+                lstrcatW(out, marker);
+            }
+        }
     }
 }
 
@@ -258,7 +268,7 @@ bool save_tree_notify_handle(save_tree_t *t, NMHDR *nmhdr, LRESULT *result) {
                     wchar_t base[MAX_PATH];
                     const wchar_t *leaf = PathFindFileNameW(sel_item.relative_path);
 
-                    save_tree_make_display_name(leaf, false, base, MAX_PATH);
+                    save_tree_make_display_name(leaf, false, false, base, MAX_PATH);
                     SetWindowTextW(edit, base);
                     SendMessageW(edit, EM_SETSEL, 0, (LPARAM)-1);
                 }
@@ -364,12 +374,16 @@ bool save_tree_notify_handle(save_tree_t *t, NMHDR *nmhdr, LRESULT *result) {
             UINT cmd;
             save_item_t sel_item;
             wchar_t parent_relpath[MAX_PATH];
+            bool hit_is_file = false;
 
             ScreenToClient(t->hwnd, &client_pt);
             hit.pt = client_pt;
             TreeView_HitTest(t->hwnd, &hit);
             if (hit.hItem) {
                 TreeView_SelectItem(t->hwnd, hit.hItem);
+                if (save_tree_get_item_info(t, hit.hItem, NULL, &sel_item)) {
+                    hit_is_file = sel_item.relative_path[0] != L'\0' && !sel_item.is_directory;
+                }
             }
 
             menu = CreatePopupMenu();
@@ -380,6 +394,11 @@ bool save_tree_notify_handle(save_tree_t *t, NMHDR *nmhdr, LRESULT *result) {
             AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_NEW_FOLDER, praxis_locale_str(STR_PRAXIS_NEW_FOLDER));
             AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_RENAME, praxis_locale_str(STR_PRAXIS_RENAME));
             AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_DELETE, praxis_locale_str(STR_PRAXIS_DELETE));
+            AppendMenuW(menu, hit_is_file ? MF_STRING : (MF_STRING | MF_GRAYED),
+                ID_SAVE_TREE_SET_READONLY,
+                praxis_locale_str(hit_is_file && sel_item.is_readonly
+                    ? STR_PRAXIS_MAKE_WRITABLE
+                    : STR_PRAXIS_MAKE_READ_ONLY));
             AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
             AppendMenuW(menu, MF_STRING, ID_SAVE_TREE_SHOW_IN_EXPLORER,
                 praxis_locale_str(STR_PRAXIS_SHOW_IN_EXPLORER));
@@ -412,6 +431,14 @@ bool save_tree_notify_handle(save_tree_t *t, NMHDR *nmhdr, LRESULT *result) {
                     && sel_item.relative_path[0] != L'\0'
                     && confirm_save_tree_delete(t)) {
                     save_tree_delete(t, sel_item.relative_path);
+                }
+                break;
+
+            case ID_SAVE_TREE_SET_READONLY:
+                if (hit.hItem && save_tree_get_item_info(t, hit.hItem, NULL, &sel_item)
+                    && sel_item.relative_path[0] != L'\0'
+                    && !sel_item.is_directory) {
+                    save_tree_set_file_readonly(t, sel_item.relative_path, !sel_item.is_readonly);
                 }
                 break;
 

@@ -1,7 +1,8 @@
 /**
  * @file toolbar.c
  * @brief Implementation of the Praxis two-row toolbar widget.
- * @details Hosts a backup profile combobox plus add/delete buttons in a
+ * @details Hosts a backup profile combobox, add/delete buttons, and a sort
+ *          combobox in a
  *          fixed-height (30 px) top container, and five action buttons
  *          (Backup Full, Backup Slot, Replace, Restore, Undo) in a 38 px bottom
  *          container. Both containers use the same custom window class which
@@ -36,6 +37,7 @@
 #define TOOLBAR_BTN_LARGE_MIN_W  112
 #define TOOLBAR_ACTION_BUTTON_COUNT 5
 #define TOOLBAR_COMBO_MIN_W      120
+#define TOOLBAR_SORT_COMBO_W     168
 
 /* Window class name shared by both top and bottom toolbar containers. */
 static const wchar_t *TOOLBAR_CLASS_NAME = L"PraxisToolbar";
@@ -43,10 +45,25 @@ static const wchar_t *TOOLBAR_CLASS_NAME = L"PraxisToolbar";
 /* Track whether the toolbar window class has been registered already. */
 static bool g_toolbar_class_registered = false;
 
+static const save_tree_sort_mode_t g_sort_modes[] = {
+    SAVE_TREE_SORT_NAME_ASC,
+    SAVE_TREE_SORT_NAME_DESC,
+    SAVE_TREE_SORT_MODIFIED_ASC,
+    SAVE_TREE_SORT_MODIFIED_DESC,
+};
+
+static const praxis_string_index_t g_sort_labels[] = {
+    STR_PRAXIS_SORT_NAME_ASC,
+    STR_PRAXIS_SORT_NAME_DESC,
+    STR_PRAXIS_SORT_MODIFIED_ASC,
+    STR_PRAXIS_SORT_MODIFIED_DESC,
+};
+
 struct toolbar_s {
     HWND hwnd_top;          /* Top container child window */
     HWND hwnd_bottom;       /* Bottom container child window */
     HWND combo;             /* IDC_PROFILE_COMBO       — child of hwnd_top */
+    HWND combo_sort;        /* IDC_SORT_COMBO          — child of hwnd_top */
     HWND btn_add;           /* IDC_BTN_ADD_BACKUP      — child of hwnd_top */
     HWND btn_del;           /* IDC_BTN_DEL_BACKUP      — child of hwnd_top */
     HWND btn_backup_full;   /* IDC_BTN_BACKUP_FULL     — child of hwnd_bottom */
@@ -135,6 +152,7 @@ static void toolbar_apply_default_font(const struct toolbar_s *t) {
     HFONT hfont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 
     SendMessageW(t->combo,           WM_SETFONT, (WPARAM)hfont, FALSE);
+    SendMessageW(t->combo_sort,      WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_add,         WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_del,         WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_backup_full, WM_SETFONT, (WPARAM)hfont, FALSE);
@@ -142,6 +160,48 @@ static void toolbar_apply_default_font(const struct toolbar_s *t) {
     SendMessageW(t->btn_backup_replace, WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_restore,     WM_SETFONT, (WPARAM)hfont, FALSE);
     SendMessageW(t->btn_undo,        WM_SETFONT, (WPARAM)hfont, FALSE);
+}
+
+static save_tree_sort_mode_t toolbar_read_sort_selection(const struct toolbar_s *t) {
+    LRESULT sel;
+    LRESULT data;
+
+    if (!t || !t->combo_sort) {
+        return SAVE_TREE_SORT_NAME_ASC;
+    }
+
+    sel = SendMessageW(t->combo_sort, CB_GETCURSEL, 0, 0);
+    if (sel == CB_ERR) {
+        return SAVE_TREE_SORT_NAME_ASC;
+    }
+
+    data = SendMessageW(t->combo_sort, CB_GETITEMDATA, (WPARAM)sel, 0);
+    if (data == CB_ERR) {
+        return SAVE_TREE_SORT_NAME_ASC;
+    }
+
+    return (save_tree_sort_mode_t)data;
+}
+
+static void toolbar_populate_sort_combo(struct toolbar_s *t) {
+    save_tree_sort_mode_t selected;
+
+    if (!t || !t->combo_sort) {
+        return;
+    }
+
+    selected = toolbar_read_sort_selection(t);
+    SendMessageW(t->combo_sort, CB_RESETCONTENT, 0, 0);
+
+    for (int i = 0; i < (int)(sizeof(g_sort_modes) / sizeof(g_sort_modes[0])); i++) {
+        LRESULT idx = SendMessageW(t->combo_sort, CB_ADDSTRING, 0,
+            (LPARAM)praxis_locale_str(g_sort_labels[i]));
+        if (idx != CB_ERR && idx != CB_ERRSPACE) {
+            SendMessageW(t->combo_sort, CB_SETITEMDATA, (WPARAM)idx, (LPARAM)g_sort_modes[i]);
+        }
+    }
+
+    toolbar_set_selected_sort_mode(t, selected);
 }
 
 toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
@@ -189,7 +249,7 @@ toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
         return NULL;
     }
 
-    /* --- Top container children: backup profile combobox + add/del --- */
+    /* --- Top container children: backup profile combobox + add/del/sort --- */
 
     /* Backup profile combobox (drop-down list — no free typing). */
     t->combo = CreateWindowExW(
@@ -214,6 +274,14 @@ toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
         BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP,
         276, TOOLBAR_CTRL_Y, TOOLBAR_BTN_SMALL_W, TOOLBAR_CTRL_HEIGHT,
         t->hwnd_top, (HMENU)(uintptr_t)IDC_BTN_DEL_BACKUP, hinst, NULL);
+
+    /* File sort combobox (drop-down list — no free typing). */
+    t->combo_sort = CreateWindowExW(
+        0,
+        WC_COMBOBOXW, NULL,
+        CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL | WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+        304, TOOLBAR_CTRL_Y, TOOLBAR_SORT_COMBO_W, 200,
+        t->hwnd_top, (HMENU)(uintptr_t)IDC_SORT_COMBO, hinst, NULL);
 
     /* --- Bottom container children: 5 action buttons --- */
 
@@ -259,7 +327,7 @@ toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
 
     /* Bail out if any control failed to create. Both container windows will
      * be torn down along with any partially-created children. */
-    if (!t->combo || !t->btn_add || !t->btn_del ||
+    if (!t->combo || !t->combo_sort || !t->btn_add || !t->btn_del ||
         !t->btn_backup_full || !t->btn_backup_slot || !t->btn_backup_replace ||
         !t->btn_restore || !t->btn_undo) {
         DestroyWindow(t->hwnd_top);
@@ -268,6 +336,7 @@ toolbar_t *toolbar_create(HWND parent, HINSTANCE hinst) {
         return NULL;
     }
 
+    toolbar_populate_sort_combo(t);
     toolbar_apply_default_font(t);
 
     return t;
@@ -311,10 +380,9 @@ void toolbar_layout_top(toolbar_t *t, int parent_width) {
         return;
     }
 
-    /* Combo stretches; "+" / "-" stay on right of top toolbar. The fixed
-     * right-side footprint is two small buttons separated by gaps plus the
-     * trailing right margin. */
-    right_fixed = TOOLBAR_BTN_SMALL_W * 2 + TOOLBAR_GAP * 2 + TOOLBAR_RIGHT_MARGIN;
+    /* Combo stretches; "+" / "-" and sort stay on the right of the row. */
+    right_fixed = TOOLBAR_BTN_SMALL_W * 2 + TOOLBAR_SORT_COMBO_W
+        + TOOLBAR_GAP * 3 + TOOLBAR_RIGHT_MARGIN;
     combo_w = parent_width - right_fixed - TOOLBAR_LEFT_MARGIN;
     if (combo_w < TOOLBAR_COMBO_MIN_W) {
         combo_w = TOOLBAR_COMBO_MIN_W;
@@ -328,6 +396,9 @@ void toolbar_layout_top(toolbar_t *t, int parent_width) {
     x += TOOLBAR_BTN_SMALL_W + TOOLBAR_GAP;
 
     MoveWindow(t->btn_del, x, TOOLBAR_CTRL_Y, TOOLBAR_BTN_SMALL_W, TOOLBAR_CTRL_HEIGHT, TRUE);
+    x += TOOLBAR_BTN_SMALL_W + TOOLBAR_GAP;
+
+    MoveWindow(t->combo_sort, x, TOOLBAR_CTRL_Y, TOOLBAR_SORT_COMBO_W, TOOLBAR_CTRL_HEIGHT, TRUE);
 
     /* Resize the top toolbar container to span the parent width (anchored
      * at y=0). */
@@ -452,6 +523,29 @@ void toolbar_set_selected_backup_id(toolbar_t *t, int backup_id) {
     SendMessageW(t->combo, CB_SETCURSEL, (WPARAM)-1, 0);
 }
 
+save_tree_sort_mode_t toolbar_get_selected_sort_mode(const toolbar_t *t) {
+    return toolbar_read_sort_selection(t);
+}
+
+void toolbar_set_selected_sort_mode(toolbar_t *t, save_tree_sort_mode_t mode) {
+    LRESULT count;
+
+    if (!t || !t->combo_sort) {
+        return;
+    }
+
+    count = SendMessageW(t->combo_sort, CB_GETCOUNT, 0, 0);
+    for (LRESULT i = 0; i < count; i++) {
+        LRESULT data = SendMessageW(t->combo_sort, CB_GETITEMDATA, (WPARAM)i, 0);
+        if (data != CB_ERR && (save_tree_sort_mode_t)data == mode) {
+            SendMessageW(t->combo_sort, CB_SETCURSEL, (WPARAM)i, 0);
+            return;
+        }
+    }
+
+    SendMessageW(t->combo_sort, CB_SETCURSEL, 0, 0);
+}
+
 void toolbar_set_actions_enabled(toolbar_t *t, bool enabled) {
     BOOL flag;
 
@@ -470,6 +564,14 @@ void toolbar_set_actions_enabled(toolbar_t *t, bool enabled) {
     /* Combobox and "+" stay enabled so users can always create a profile. */
     EnableWindow(t->combo,   TRUE);
     EnableWindow(t->btn_add, TRUE);
+}
+
+void toolbar_set_backup_replace_enabled(toolbar_t *t, bool enabled) {
+    if (!t || !t->btn_backup_replace) {
+        return;
+    }
+
+    EnableWindow(t->btn_backup_replace, enabled ? TRUE : FALSE);
 }
 
 void toolbar_apply_locale_strings(toolbar_t *t) {
@@ -494,4 +596,5 @@ void toolbar_apply_locale_strings(toolbar_t *t) {
     if (t->btn_undo) {
         SetWindowTextW(t->btn_undo, praxis_locale_str(STR_PRAXIS_TIP_UNDO));
     }
+    toolbar_populate_sort_combo(t);
 }

@@ -17,16 +17,34 @@
 typedef struct walk_entry_s {
     wchar_t name[MAX_PATH];
     DWORD attributes;
+    FILETIME last_write_time;
 } walk_entry_t;
+
+static save_tree_sort_mode_t g_walk_sort_mode = SAVE_TREE_SORT_NAME_ASC;
 
 static int __cdecl compare_walk_entries(const void *lhs, const void *rhs) {
     const walk_entry_t *left = (const walk_entry_t *)lhs;
     const walk_entry_t *right = (const walk_entry_t *)rhs;
     bool left_is_dir = (left->attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
     bool right_is_dir = (right->attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    int cmp;
 
     if (left_is_dir != right_is_dir) return left_is_dir ? -1 : 1;
-    return lstrcmpW(left->name, right->name);
+    if (left_is_dir) return lstrcmpW(left->name, right->name);
+
+    switch (g_walk_sort_mode) {
+    case SAVE_TREE_SORT_NAME_DESC:
+        return -lstrcmpW(left->name, right->name);
+    case SAVE_TREE_SORT_MODIFIED_ASC:
+        cmp = CompareFileTime(&left->last_write_time, &right->last_write_time);
+        return cmp != 0 ? cmp : lstrcmpW(left->name, right->name);
+    case SAVE_TREE_SORT_MODIFIED_DESC:
+        cmp = CompareFileTime(&left->last_write_time, &right->last_write_time);
+        return cmp != 0 ? -cmp : lstrcmpW(left->name, right->name);
+    case SAVE_TREE_SORT_NAME_ASC:
+    default:
+        return lstrcmpW(left->name, right->name);
+    }
 }
 
 void save_tree_collect_expanded_paths(save_tree_t *t, HTREEITEM hitem,
@@ -87,11 +105,13 @@ void save_tree_walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *
         }
         lstrcpynW(entries[entry_count].name, find_data.cFileName, MAX_PATH);
         entries[entry_count].attributes = find_data.dwFileAttributes;
+        entries[entry_count].last_write_time = find_data.ftLastWriteTime;
         entry_count++;
     } while (FindNextFileW(find_handle, &find_data));
 
     FindClose(find_handle);
     if (!entries) return;
+    g_walk_sort_mode = t->sort_mode;
     qsort(entries, entry_count, sizeof(walk_entry_t), compare_walk_entries);
 
     for (size_t i = 0; i < entry_count; i++) {
@@ -112,9 +132,12 @@ void save_tree_walk_dir(save_tree_t *t, const wchar_t *dir_path, const wchar_t *
         }
         lstrcpyW(full_path, dir_path);
         if (!PathAppendW(full_path, entries[i].name)) continue;
-        if (!save_tree_append_item(t, rel_path, is_directory, &index)) break;
+        if (!save_tree_append_item(t, rel_path, is_directory,
+            (entries[i].attributes & FILE_ATTRIBUTE_READONLY) != 0,
+            &entries[i].last_write_time, &index)) break;
 
-        save_tree_make_display_name(entries[i].name, is_directory, display_name, MAX_PATH);
+        save_tree_make_display_name(entries[i].name, is_directory,
+            (entries[i].attributes & FILE_ATTRIBUTE_READONLY) != 0, display_name, MAX_PATH);
         icon_index = save_tree_resolve_icon_index(entries[i].name, is_directory);
         if (t->hwnd) {
             insert.hParent = parent_item;

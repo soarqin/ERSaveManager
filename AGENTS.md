@@ -45,9 +45,10 @@ ERSaveManager/
         ├── praxis_main_menu.c/h        # Dynamic main menu construction
         ├── praxis_toast.c/h            # Centered, auto-fading notification panel (toast)
         ├── praxis_window_common.c/h    # Shared helpers for the Praxis main window
+        ├── toolbar.c/h                 # Backup profile selector, file sort selector, and action buttons
         ├── save_tree_notify.c/h        # Save tree WM_NOTIFY handler
         ├── save_tree_internal.h        # Save tree internal types (shared between save_tree.c and save_tree_notify.c)
-        ├── save_tree_walk.c            # Filesystem walking helpers for the save tree
+        ├── save_tree_walk.c            # Filesystem walking, sorting, and file attribute helpers for the save tree
         ├── theme.c/h                   # Per-app dark/light theme glue module
         ├── profile_store_io.c/h        # Profile store INI persistence (read/write Praxis.ini)
         └── ...
@@ -115,6 +116,8 @@ cmake --build build --config Release
   - Next Save in Directory: `Ctrl+Shift+Down`
 - **Ring Backup Location**: `<tree_root>/.praxis_ring/` (hidden directory).
 - **Backend Interface**: Compile-time vtable defined in `src/Praxis/game_backend.h`.
+- **Save Tree Sorting**: Top toolbar sort combobox supports filename ascending/descending and modified-time ascending/descending.
+- **Read-only Backups**: Save tree context menu can toggle read-only only for files. Read-only files show a locked marker; Backup & Replace is disabled for them and hotkey-triggered replacement is a no-op.
 - **`--selftest` subcommands** (selected; see `praxis_selftest.c` for the full list):
   - `locale-dump` — print all STR_PRAXIS_* string values
   - `profile-roundtrip <ini>` — write/reload profile store, assert byte-equal
@@ -125,8 +128,12 @@ cmake --build build --config Release
   - `profile-delete-game <id> <ini>`, `profile-delete-backup <id> <ini>`
   - `restore-auto-detect <backup>` — classify backup type
   - `tree-preserve-selection-walkup <root> <sel> <del>` — walk-up selection logic
+  - `tree-cycle-sibling-files-sorted <root> <sort_mode> <sel> <direction> <expected>` — sibling navigation under a save tree sort mode
+  - `tree-readonly-toggle <root> <relpath>` — set/clear read-only on a save tree file
+  - `tree-readonly-reject-folder <root> <relpath>` — verify folders cannot be toggled read-only through save tree file APIs
   - `watcher-state <root>` — start watcher briefly, verify clean exit
   - `backup-full-with-active <src> <dst>` — backup full save using the active backend, exit 0 on success
+  - `backup-replace-selected-readonly <save_dir> <tree_root> <relpath>` — verify Backup & Replace rejects read-only selected files
   - `write-raw-bnd4 <src> <dst>`, `classify <file>` — save format helpers
   - `backend-default-save-dir <game_id>` — call backend's `get_default_save_dir`; exit 0 even when no dir found
   - `char-set-name-profile <save_path>` — round-trip char name set/get via ersave profile
