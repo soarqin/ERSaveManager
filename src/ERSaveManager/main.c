@@ -1354,6 +1354,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
     icex.dwICC = ICC_LISTVIEW_CLASSES;
     InitCommonControlsEx(&icex);
 
+    /* Initialize COM for IFileDialog (file_dialog_open/save/open_folder) */
+    HRESULT com_hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    bool com_initialized = SUCCEEDED(com_hr) || com_hr == S_FALSE;
+
     /* Enable visual styles */
     SetThemeAppProperties(STAP_ALLOW_NONCLIENT | STAP_ALLOW_CONTROLS | STAP_ALLOW_WEBCONTENT);
 
@@ -1384,5 +1388,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, LPWSTR cmd_line
         DispatchMessageW(&msg);
     }
 
+    if (com_initialized) CoUninitialize();
     return (int)msg.wParam;
 }

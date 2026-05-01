@@ -835,6 +835,7 @@ int locale_count(void) {
  * @return Pointer to the locale name string
  */
 const wchar_t *locale_name(int locale_index) {
+    if (locale_index < 0 || locale_index >= locale_count()) return NULL;
     return locales[locale_index];
 }
 

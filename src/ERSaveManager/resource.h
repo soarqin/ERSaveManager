@@ -1,5 +1,4 @@
-#ifndef RESOURCE_H
-#define RESOURCE_H
+#pragma once
 
 /* Application version and shared UI constants */
 #define STAT_COUNT 8
@@ -43,4 +42,3 @@
 #define IDM_EMBEDDED_FACE_DATA_START 1100 /* Start ID for embedded face data menu items, range: 1100-1299 */
 #define IDM_LOCALE_START 1300  /* Start ID for locale menu items, range: 1300-1399 */
 
-#endif /* RESOURCE_H */

@@ -120,7 +120,6 @@ bool ersm_compress_to_file(const wchar_t *path, const uint8_t *src, size_t src_l
     dest_capacity = (SIZE_T)(LZMA_PROPS_SIZE + src_len + (src_len / 3) + 128);
     dest = LocalAlloc(LMEM_FIXED, dest_capacity);
     if (!dest) {
-        DeleteFileW(path);
         return false;
     }
 
@@ -133,7 +132,6 @@ bool ersm_compress_to_file(const wchar_t *path, const uint8_t *src, size_t src_l
                      0, NULL, &g_Alloc, &g_Alloc);
     if (res != SZ_OK || props_size != LZMA_PROPS_SIZE) {
         LocalFree(dest);
-        DeleteFileW(path);
         return false;
     }
 

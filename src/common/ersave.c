@@ -178,7 +178,10 @@ static bool parse_item_list(er_char_data_t *char_data, const uint8_t **ptr, cons
 
 static bool parse_character_info(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
     (void)char_data;
-    (void)end;
+    static const size_t total_size = (size_t)ER_STATS_SECTION_SIZE + ER_CHAR_NAME_SIZE
+        + 1 + 1 + 3 + 1 + ER_CHAR_POST_GIFT_SIZE + 1 + ER_CHAR_POST_MATCHMAKING_SIZE
+        + 0x12 * 6 + 0x34 + 0xd0;
+    if ((size_t)(end - *ptr) < total_size) return false;
     /* character data */
     *ptr += ER_STATS_SECTION_SIZE;
     /* charname */
@@ -204,7 +207,8 @@ static bool parse_character_info(er_char_data_t *char_data, const uint8_t **ptr,
 
 static bool parse_equipment(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
     (void)char_data;
-    (void)end;
+    static const size_t total_size = 4 * 6 + 4 * 4 + 4 * 2 + 4 * 4 + 4 + 4 * 4 + 4 + 4 * 29 + 4 * 22;
+    if ((size_t)(end - *ptr) < total_size) return false;
     /* equip data */
     /* weapons */
     *ptr += 4 * 6;
@@ -228,7 +232,10 @@ static bool parse_equipment(er_char_data_t *char_data, const uint8_t **ptr, cons
 
 static bool parse_inventory(er_char_data_t *char_data, const uint8_t **ptr, const uint8_t *end) {
     (void)char_data;
-    (void)end;
+    static const size_t total_size = 4 + (size_t)0x0C * ER_INV1_PART1_COUNT + 4
+        + (size_t)0x0C * ER_INV1_PART2_COUNT + 4 + 4
+        + 8 * 14 + 4 + 8 * 10 + 4 + 8 * 6 + 8 + 4 * 6;
+    if ((size_t)(end - *ptr) < total_size) return false;
     /* inventory 1 */
     /* count 1 */
     *ptr += 4;
@@ -444,7 +451,7 @@ er_save_data_t *er_save_data_load(const wchar_t *path) {
         return NULL;
     }
 
-    er_save_data_t *save_data = LocalAlloc(LMEM_FIXED, sizeof(er_save_data_t));
+    er_save_data_t *save_data = LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, sizeof(er_save_data_t));
     if (!save_data) {
         return NULL;
     }
@@ -800,7 +807,7 @@ bool er_char_data_import(er_save_data_t *save_data, int slot, const er_char_data
 }
 
 bool er_char_data_import_raw(er_save_data_t *save_data, int slot, const uint8_t *raw_data) {
-    if (slot < 0 || slot >= 10 || !raw_data) {
+    if (!save_data || slot < 0 || slot >= 10 || !raw_data) {
         return false;
     }
     er_char_data_t *new_char = er_char_data_from_memory(raw_data);
