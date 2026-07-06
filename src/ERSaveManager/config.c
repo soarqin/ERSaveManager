@@ -36,7 +36,7 @@
 /* Upper bound for each UTF-8 path before conversion. Worst case is 4 bytes per
  * wchar_t for UTF-8, so size the intermediate buffer accordingly. */
 #define CONFIG_UTF8_PATH_BYTES (MAX_PATH * 4)
-#define CONFIG_UTF8_SUBFOLDER_BYTES (32 * 4)
+#define CONFIG_UTF8_SUBFOLDER_BYTES (MAX_PATH * 4)
 
 /* Global configuration variable (zero-initialised at program start) */
 config_t config;
@@ -55,7 +55,7 @@ static void on_settings_kv(const char *key, const char *value, void *user) {
     if (strcmp(key, CONFIG_KEY_SAVE_PATH) == 0) {
         config_core_store_wide_value(cfg->save_path, MAX_PATH, value);
     } else if (strcmp(key, CONFIG_KEY_SAVE_SUBFOLDER) == 0) {
-        config_core_store_wide_value(cfg->save_subfolder, 32, value);
+        config_core_store_wide_value(cfg->save_subfolder, MAX_PATH, value);
     } else if (strcmp(key, CONFIG_KEY_LANGUAGE) == 0) {
         cfg->language = config_core_parse_int(value, cfg->language);
     } else if (strcmp(key, CONFIG_KEY_WINDOW_X) == 0) {

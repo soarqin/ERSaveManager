@@ -14,10 +14,10 @@
 #include "embedded_face_data.h"
 #include "resource.h"
 #include "save_compress.h"
+#include "save_discovery.h"
 #include "theme.h"
 #include "theme_core.h"
 #include "ui_layout.h"
-#include <stdint.h>
 #include <wchar.h>
 #include <windows.h>
 #include <commctrl.h>
@@ -104,60 +104,129 @@ static void create_embedded_face_data_menu(HWND hwnd) {
     AppendMenuW(embedded_face_data_menu, MF_POPUP, (UINT_PTR)popup_menus[3], locale_str(STR_NPC_DLC_NON_INTERACTABLE));
 }
 
-/* Fill the save-folder combo box with valid Steam subfolders */
+static bool copy_path_to_buffer(wchar_t *out, const wchar_t *path) {
+    if (!out || !path || (size_t)lstrlenW(path) >= MAX_PATH) {
+        return false;
+    }
+    lstrcpyW(out, path);
+    return true;
+}
+
+static void add_save_files_from_steam_dir(const wchar_t *dir_path, const wchar_t *steam_id, bool filename_only) {
+    wchar_t search_path[MAX_PATH];
+    WIN32_FIND_DATAW find_data;
+    HANDLE find;
+
+    if (!copy_path_to_buffer(search_path, dir_path) || !PathAppendW(search_path, L"*")) {
+        return;
+    }
+
+    find = FindFirstFileW(search_path, &find_data);
+    if (find == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    do {
+        wchar_t display_name[MAX_PATH];
+
+        if (!save_discovery_is_candidate_save_file(&find_data)) {
+            continue;
+        }
+        if (!save_discovery_make_display_name(steam_id, find_data.cFileName,
+                                              filename_only, display_name, MAX_PATH)) {
+            continue;
+        }
+
+        SendMessageW(combo_box_save_folder, CB_ADDSTRING, 0, (LPARAM)display_name);
+    } while (FindNextFileW(find, &find_data));
+
+    FindClose(find);
+}
+
+static int find_initial_save_selection_index(void) {
+    int idx;
+
+    if (config.save_subfolder[0] == L'\0') {
+        return 0;
+    }
+
+    idx = (int)SendMessageW(combo_box_save_folder, CB_FINDSTRINGEXACT, -1, (LPARAM)config.save_subfolder);
+    if (idx != CB_ERR) {
+        return idx;
+    }
+
+    /* Preserve pre-discovery-upgrade configs that stored only the Steam ID. */
+    if (save_discovery_is_steam_id_name(config.save_subfolder)) {
+        wchar_t legacy_display[MAX_PATH];
+        wchar_t legacy_prefix[64];
+
+        if (save_discovery_make_display_name(config.save_subfolder, L"ER0000.sl2", false,
+                                             legacy_display, MAX_PATH)) {
+            idx = (int)SendMessageW(combo_box_save_folder, CB_FINDSTRINGEXACT, -1, (LPARAM)legacy_display);
+            if (idx != CB_ERR) {
+                return idx;
+            }
+        }
+
+        if ((size_t)lstrlenW(config.save_subfolder) +
+            (size_t)lstrlenW(ER_SAVE_SELECTION_DELIMITER) < 64) {
+            lstrcpyW(legacy_prefix, config.save_subfolder);
+            lstrcatW(legacy_prefix, ER_SAVE_SELECTION_DELIMITER);
+            idx = (int)SendMessageW(combo_box_save_folder, CB_FINDSTRING, -1, (LPARAM)legacy_prefix);
+            if (idx != CB_ERR) {
+                return idx;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/* Fill the save-file combo box with detected save files */
 void add_folders_to_combo_box(void) {
-    /* Clear the combo box */
+    wchar_t steam_id[32];
+    wchar_t search_path[MAX_PATH];
+    WIN32_FIND_DATAW find_data;
+    HANDLE find;
+
     SendMessageW(combo_box_save_folder, CB_RESETCONTENT, 0, 0);
 
-    /* Get user's AppData\Roaming path */
-    wchar_t search_path[MAX_PATH];
-    if (config.save_path[0] == L'\0') return;
-
-    /* Create search pattern for subdirectories */
-    lstrcpyW(search_path, config.save_path);
-    PathAppendW(search_path, L"\\*");
-    WIN32_FIND_DATAW find_data;
-    HANDLE find = FindFirstFileW(search_path, &find_data);
-
-    if (find != INVALID_HANDLE_VALUE) {
-        do {
-            /* Skip "." and ".." directories */
-            if (find_data.cFileName[0] == L'.' && (find_data.cFileName[1] == L'\0' || (find_data.cFileName[1] == L'.' && find_data.cFileName[2] == L'\0'))) {
-                continue;
-            }
-
-            /* Skip non-directory entries */
-            if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                continue;
-            }
-
-            /* Check if SteamID is valid */
-            wchar_t *endptr;
-            uint64_t steam_id = wcstoull(find_data.cFileName, &endptr, 10);
-            /* Steam ID = (Universe << 56) | (Type << 52) | (Instance << 32) | AccountID
-             *  Universe: 0-3
-             *  Type: 1-10
-             *  Instance: usually 1
-             * So SteamID is always greater than 0x10000000000000ULL */
-            if (*endptr != L'\0' || steam_id < 0x10000000000000ULL) {
-                continue;
-            }
-
-            /* Check if ER0000.sl2 exists in the directory */
-            wchar_t save_path[MAX_PATH];
-            lstrcpyW(save_path, config.save_path);
-            PathAppendW(save_path, find_data.cFileName);
-            PathAppendW(save_path, L"\\ER0000.sl2");
-
-            if (!PathFileExistsW(save_path)) {
-                continue;
-            }
-
-            SendMessageW(combo_box_save_folder, CB_ADDSTRING, 0, (LPARAM)find_data.cFileName);
-        } while (FindNextFileW(find, &find_data));
-
-        FindClose(find);
+    if (config.save_path[0] == L'\0') {
+        return;
     }
+
+    if (save_discovery_root_is_steam_id_dir(config.save_path, steam_id, 32)) {
+        add_save_files_from_steam_dir(config.save_path, steam_id, true);
+        return;
+    }
+
+    if (!copy_path_to_buffer(search_path, config.save_path) || !PathAppendW(search_path, L"*")) {
+        return;
+    }
+
+    find = FindFirstFileW(search_path, &find_data);
+    if (find == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    do {
+        wchar_t steam_dir_path[MAX_PATH];
+
+        if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+            continue;
+        }
+        if (!save_discovery_is_steam_id_name(find_data.cFileName)) {
+            continue;
+        }
+        if (!copy_path_to_buffer(steam_dir_path, config.save_path) ||
+            !PathAppendW(steam_dir_path, find_data.cFileName)) {
+            continue;
+        }
+
+        add_save_files_from_steam_dir(steam_dir_path, find_data.cFileName, false);
+    } while (FindNextFileW(find, &find_data));
+
+    FindClose(find);
 }
 
 void ui_create_controls(HWND hwnd, HMODULE module) {
@@ -337,12 +406,7 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     add_folders_to_combo_box();
 
     /* Set initial ComboBox selection */
-    if (config.save_subfolder[0] == L'\0') {
-        SendMessageW(combo_box_save_folder, CB_SETCURSEL, 0, 0);
-    } else {
-        int idx = SendMessageW(combo_box_save_folder, CB_FINDSTRING, -1, (LPARAM)config.save_subfolder);
-        SendMessageW(combo_box_save_folder, CB_SETCURSEL, idx == CB_ERR ? 0 : idx, 0);
-    }
+    SendMessageW(combo_box_save_folder, CB_SETCURSEL, find_initial_save_selection_index(), 0);
     handle_save_folder_selection(hwnd);
 
     /* Create menu bar */

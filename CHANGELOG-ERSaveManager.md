@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - ERSaveManager: Source files relocated to `src/ERSaveManager/` subdirectory (no behavior change)
+- ERSaveManager: Save discovery now accepts either the Steam ID parent directory or a Steam ID directory, lists all non-`.bak` files with the Elden Ring save size, and shows parent-directory matches as `<SteamID> / <filename>`.
 
 ## [1.0.0] - 2026-04-04
 

@@ -5,7 +5,7 @@ ERSaveManager is a Windows desktop tool for Elden Ring save editing. It focuses 
 ## Supported Save
 
 - Game: Elden Ring
-- Save file: `ER0000.sl2`
+- Save file: any non-`.bak` file of the Elden Ring save size (normally `ER0000.sl2`)
 - Default location: `%APPDATA%\EldenRing\<decimal SteamID>\`
 - Character slots: 10
 - Face data slots: 15
@@ -24,15 +24,15 @@ ERSaveManager is a Windows desktop tool for Elden Ring save editing. It focuses 
 
 ## Before You Use It
 
-Close Elden Ring before importing, renaming, or re-signing save data. These operations write directly to the selected `ER0000.sl2` file.
+Close Elden Ring before importing, renaming, or re-signing save data. These operations write directly to the selected save file.
 
 Keep a manual backup of your save folder before editing. ERSaveManager can export individual character and face data, but it does not automatically create a full-save safety copy before every edit.
 
 ## Quick Start
 
 1. Launch `ERSaveManager.exe`.
-2. If the save folder is not detected correctly, click **Change Save Folder** and select the folder that contains your Steam ID subfolders.
-3. Select a Steam ID folder from the dropdown. ERSaveManager loads that folder's `ER0000.sl2`.
+2. If the save folder is not detected correctly, click **Change Save Folder** and select either the folder that contains your Steam ID subfolders or a specific Steam ID folder.
+3. Select a detected save file from the dropdown. Parent folders show entries as `<SteamID> / <filename>`; Steam ID folders show only the filename.
 4. Select a character in the **Characters** list to view its details.
 5. Use **Import Character**, **Export Character**, or **Rename Character** for the selected slot.
 6. Click **Face Data...** to manage face slots and NPC presets.
@@ -60,7 +60,7 @@ The destination slot is overwritten.
 
 1. Select the destination character slot.
 2. Click **Import Character**.
-3. Pick another Elden Ring `ER0000.sl2` file.
+3. Pick another Elden Ring save file.
 4. Choose which character from that save to import.
 
 ## Face Data Workflows

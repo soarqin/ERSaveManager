@@ -12,6 +12,7 @@
 #include "file_dialog.h"
 #include "ui_controls.h"
 #include "save_compress.h"
+#include "save_discovery.h"
 
 #include <md5.h>
 
@@ -40,7 +41,7 @@ HWND main_window;
 /*** Top-row controls ***/
 /** @brief "Change Folder" button — opens folder picker dialog */
 HWND button_change_folder;
-/** @brief ComboBox showing available Steam save subfolders */
+/** @brief ComboBox showing available detected save files */
 HWND combo_box_save_folder;
 /** @brief "Manage Faces" button — opens face data dialog */
 HWND button_manage_faces;
@@ -92,39 +93,54 @@ static void update_detail_panel(int slot);
 /* add_folders_to_combo_box is defined in ui_controls.c */
 extern void add_folders_to_combo_box(void);
 
+static void restore_previous_save_selection(void) {
+    int idx = (int)SendMessageW(combo_box_save_folder, CB_FINDSTRINGEXACT, -1, (LPARAM)config.save_subfolder);
+    SendMessageW(combo_box_save_folder, CB_SETCURSEL, idx == CB_ERR ? 0 : idx, 0);
+}
+
 bool handle_save_folder_selection(HWND hwnd) {
-    /* Get selected Steam ID */
-    int index = SendMessageW(combo_box_save_folder, CB_GETCURSEL, 0, 0);
+    int index = (int)SendMessageW(combo_box_save_folder, CB_GETCURSEL, 0, 0);
+    int text_len;
+    wchar_t selection[MAX_PATH];
+    wchar_t save_path[MAX_PATH];
+    wchar_t steam_id_text[32];
+
     if (index == CB_ERR) {
         lstrcpyW(config.save_subfolder, L"");
         return false;
     }
 
-    wchar_t save_subfolder[32];
-    SendMessageW(combo_box_save_folder, CB_GETLBTEXT, index, (LPARAM)save_subfolder);
+    text_len = (int)SendMessageW(combo_box_save_folder, CB_GETLBTEXTLEN, index, 0);
+    if (text_len <= 0 || text_len >= MAX_PATH) {
+        restore_previous_save_selection();
+        MessageBoxW(hwnd, locale_str(STR_FAILED_LOAD_SAVE), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    SendMessageW(combo_box_save_folder, CB_GETLBTEXT, index, (LPARAM)selection);
 
-    /* Build save file path */
-    wchar_t save_path[MAX_PATH];
-    lstrcpyW(save_path, config.save_path);
-    PathAppendW(save_path, save_subfolder);
-    PathAppendW(save_path, L"\\ER0000.sl2");
+    if (!save_discovery_resolve_selection(config.save_path, selection,
+                                          save_path, MAX_PATH,
+                                          steam_id_text, 32)) {
+        restore_previous_save_selection();
+        MessageBoxW(hwnd, locale_str(STR_FAILED_LOAD_SAVE), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
+        return false;
+    }
 
     /* Load new save data */
     er_save_data_t *new_save_data = er_save_data_load(save_path);
     if (!new_save_data) {
-        int idx = SendMessageW(combo_box_save_folder, CB_FINDSTRING, -1, (LPARAM)config.save_subfolder);
-        SendMessageW(combo_box_save_folder, CB_SETCURSEL, idx == CB_ERR ? 0 : idx, 0);
+        restore_previous_save_selection();
         MessageBoxW(hwnd, locale_str(STR_FAILED_LOAD_SAVE), locale_str(STR_ERROR), MB_OK | MB_ICONERROR);
         return false;
     }
 
     /* Check if Steam ID matches */
     uint64_t user_id = er_save_get_userid(new_save_data);
-    uint64_t folder_steam_user_id = wcstoull(save_subfolder, NULL, 10);
+    uint64_t folder_steam_user_id = wcstoull(steam_id_text, NULL, 10);
     if (user_id != folder_steam_user_id) {
         if (MessageBoxW(hwnd, locale_str(STR_STEAM_ID_MISMATCH), locale_str(STR_ERROR), MB_YESNO | MB_ICONWARNING) == IDNO) {
-            int idx = SendMessageW(combo_box_save_folder, CB_FINDSTRING, -1, (LPARAM)config.save_subfolder);
-            SendMessageW(combo_box_save_folder, CB_SETCURSEL, idx == CB_ERR ? 0 : idx, 0);
+            restore_previous_save_selection();
+            er_save_data_free(new_save_data);
             return false;
         }
         er_save_resign_userid(new_save_data, folder_steam_user_id);
@@ -136,7 +152,7 @@ bool handle_save_folder_selection(HWND hwnd) {
     }
     save_data = new_save_data;
 
-    lstrcpyW(config.save_subfolder, save_subfolder);
+    lstrcpynW(config.save_subfolder, selection, MAX_PATH);
 
     /* Clear characters ListView */
     ListView_DeleteAllItems(list_view_chars);
@@ -1050,6 +1066,75 @@ static int selftest_make_legacy_slot(const wchar_t *path) {
     return 0;
 }
 
+static int selftest_save_discovery_helpers(void) {
+    const wchar_t *steam_id = L"76561199999999999";
+    const wchar_t *parent_root = L"C:\\Games\\EldenRing";
+    const wchar_t *steam_root = L"C:\\Games\\EldenRing\\76561199999999999";
+    WIN32_FIND_DATAW find_data;
+    wchar_t display[MAX_PATH];
+    wchar_t save_path[MAX_PATH];
+    wchar_t resolved_steam_id[32];
+
+    if (!save_discovery_is_steam_id_name(steam_id) ||
+        save_discovery_is_steam_id_name(L"not-a-steam-id")) {
+        st_printf(L"save-discovery-helpers FAIL: steam ID validation\n");
+        return 1;
+    }
+
+    ZeroMemory(&find_data, sizeof(find_data));
+    lstrcpyW(find_data.cFileName, L"ER0000.sl2");
+    find_data.nFileSizeHigh = (DWORD)(ER_SAVE_EXPECTED_FILE_SIZE >> 32);
+    find_data.nFileSizeLow = (DWORD)(ER_SAVE_EXPECTED_FILE_SIZE & 0xFFFFFFFFu);
+    if (!save_discovery_is_candidate_save_file(&find_data)) {
+        st_printf(L"save-discovery-helpers FAIL: candidate size check\n");
+        return 1;
+    }
+
+    find_data.nFileSizeLow--;
+    if (save_discovery_is_candidate_save_file(&find_data)) {
+        st_printf(L"save-discovery-helpers FAIL: wrong size accepted\n");
+        return 1;
+    }
+
+    find_data.nFileSizeLow = (DWORD)(ER_SAVE_EXPECTED_FILE_SIZE & 0xFFFFFFFFu);
+    lstrcpyW(find_data.cFileName, L"ER0000.sl2.bak");
+    if (save_discovery_is_candidate_save_file(&find_data)) {
+        st_printf(L"save-discovery-helpers FAIL: .bak accepted\n");
+        return 1;
+    }
+
+    if (!save_discovery_make_display_name(steam_id, L"ER0000.sl2", false, display, MAX_PATH) ||
+        lstrcmpW(display, L"76561199999999999 / ER0000.sl2") != 0) {
+        st_printf(L"save-discovery-helpers FAIL: parent display\n");
+        return 1;
+    }
+
+    if (!save_discovery_make_display_name(steam_id, L"ER0000.sl2", true, display, MAX_PATH) ||
+        lstrcmpW(display, L"ER0000.sl2") != 0) {
+        st_printf(L"save-discovery-helpers FAIL: direct display\n");
+        return 1;
+    }
+
+    if (!save_discovery_resolve_selection(parent_root, L"76561199999999999 / ER0000.sl2",
+                                          save_path, MAX_PATH, resolved_steam_id, 32) ||
+        lstrcmpW(save_path, L"C:\\Games\\EldenRing\\76561199999999999\\ER0000.sl2") != 0 ||
+        lstrcmpW(resolved_steam_id, steam_id) != 0) {
+        st_printf(L"save-discovery-helpers FAIL: parent resolve\n");
+        return 1;
+    }
+
+    if (!save_discovery_resolve_selection(steam_root, L"ER0000.sl2",
+                                          save_path, MAX_PATH, resolved_steam_id, 32) ||
+        lstrcmpW(save_path, L"C:\\Games\\EldenRing\\76561199999999999\\ER0000.sl2") != 0 ||
+        lstrcmpW(resolved_steam_id, steam_id) != 0) {
+        st_printf(L"save-discovery-helpers FAIL: direct resolve\n");
+        return 1;
+    }
+
+    st_printf(L"save_discovery_helpers_ok\n");
+    return 0;
+}
+
 /* Build a structurally valid BND4 save stub (12 slots) with the given user ID. */
 static bool make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
     const uint32_t char_slot_size    = 0x280010u;  /* ER_CHAR_SLOT_FILE_SIZE */
@@ -1060,8 +1145,13 @@ static bool make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
 
     const uint32_t summary_offset = slot0_offset + 10u * char_slot_size;
     const uint32_t index_offset   = summary_offset + summary_slot_size;
-    const uint32_t total_size     = index_offset + summary_slot_size;
+    const uint32_t minimum_size   = index_offset + summary_slot_size;
+    const uint32_t total_size     = (uint32_t)ER_SAVE_EXPECTED_FILE_SIZE;
     const uint32_t summary_layout_size = face_section_size + 0x14u;
+
+    if (minimum_size > total_size) {
+        return false;
+    }
 
     uint8_t *file_data = LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, total_size);
     if (!file_data) {
@@ -1272,6 +1362,8 @@ static int run_selftest(LPWSTR cmd_line) {
         } else {
             result = selftest_make_legacy_slot(argv[3]);
         }
+    } else if (wcscmp(sub, L"save-discovery-helpers") == 0) {
+        result = selftest_save_discovery_helpers();
     } else if (wcscmp(sub, L"make-bnd4-stub") == 0) {
         if (argc < 4) {
             st_printf(L"usage: --selftest make-bnd4-stub <path>\n");

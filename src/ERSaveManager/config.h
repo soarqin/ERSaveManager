@@ -21,7 +21,7 @@
  */
 typedef struct {
     wchar_t save_path[MAX_PATH];      /* Path to save game data */
-    wchar_t save_subfolder[32];       /* Subfolder name for save files */
+    wchar_t save_subfolder[MAX_PATH]; /* Dropdown save selection text */
     int language;                     /* Current language index (0-based) */
     int window_x;                     /* Window X position */
     int window_y;                     /* Window Y position */
