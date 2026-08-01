@@ -9,7 +9,7 @@ A collection of lightweight Windows desktop applications for managing Souls game
 
 - [ERSaveManager README](src/ERSaveManager/README.md) — Detailed features and usage for the ELDEN RING save manager.
 - [Praxis README](src/Praxis/README.md) — Detailed features and usage for the practice tool.
-- [Elden Ring save version research](docs/EldenRingSaveVersionResearch.md) — Save-format fields, verified Game and Regulation combinations, and the update checklist for future patches.
+- [Elden Ring save version research](docs/EldenRingSaveVersionResearch.md) — Save-format fields, Regulation reset behavior, and the update checklist for future patches.
 
 ## Building from Source
 

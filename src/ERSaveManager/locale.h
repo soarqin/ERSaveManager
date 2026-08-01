@@ -85,8 +85,6 @@ typedef enum locale_string_index_e {
     STR_DOWNGRADE_SUCCESS, /* "Character version downgraded successfully" */
     STR_DOWNGRADE_FAILED, /* "Failed to downgrade character version" */
     STR_DOWNGRADE_ALL_DATA, /* "Downgrade Save" */
-    STR_REGULATION_FOLDER, /* "Select the Regulations folder." */
-    STR_REGULATION_NOT_FOUND, /* Matching regulation.bin was not found */
     STR_DOWNGRADE_ALL_WARNING, /* Full save downgrade warning */
     STR_DOWNGRADE_ALL_SUCCESS, /* "Save downgraded successfully" */
     STR_MAX /* Total number of strings */

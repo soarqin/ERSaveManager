@@ -56,14 +56,13 @@ static void append_save_downgrade_menu(HMENU options_menu) {
     size_t count = er_save_downgrade_target_count();
 
     for (size_t i = 0; downgrade_menu && i < count; i++) {
-        const er_save_downgrade_target_t *target = er_save_downgrade_target_get(i);
+        const er_version_target_t *target = er_save_downgrade_target_get(i);
         wchar_t text[64];
 
         if (!target) {
             continue;
         }
-        wsprintfW(text, L"%s + Regulation %s", target->game_version,
-                  target->regulation_version);
+        wsprintfW(text, L"%s", target->game_version);
         AppendMenuW(downgrade_menu, MF_STRING,
                     IDM_DOWNGRADE_SAVE_VERSION_START + (UINT)i, text);
     }
