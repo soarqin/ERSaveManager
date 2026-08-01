@@ -230,12 +230,38 @@ static ersm_format_t detect_import_format(const wchar_t *path) {
     return ersm_detect_file_format(path);
 }
 
+static void format_character_version(uint32_t version, wchar_t *text) {
+    const er_version_target_t *first = NULL;
+    const er_version_target_t *last = NULL;
+
+    for (size_t i = 0; i < er_save_version_target_count(); i++) {
+        const er_version_target_t *target = er_save_version_target_get(i);
+        if (target && target->character_version == version) {
+            if (!first) {
+                first = target;
+            }
+            last = target;
+        }
+    }
+
+    if (!first) {
+        wsprintfW(text, L"%u", version);
+    } else if (first == last) {
+        wsprintfW(text, L"%s (%u)", first->game_version, version);
+    } else {
+        wsprintfW(text, L"%s-%s (%u)", first->game_version, last->game_version, version);
+    }
+}
+
 void update_char_list_view(int item, const er_char_data_t *char_data) {
     wchar_t text[64];
 
     if (!char_data) {
         wsprintfW(text, L"%s", locale_str(STR_EMPTY));
         ListView_SetItemText(list_view_chars, item, 1, text);
+        for (int i = 2; i <= 5; i++) {
+            ListView_SetItemText(list_view_chars, item, i, L"");
+        }
         return;
     }
 
@@ -258,6 +284,12 @@ void update_char_list_view(int item, const er_char_data_t *char_data) {
         wsprintfW(text, L"%02d:%02d:%02d", in_game_time / 3600, (in_game_time % 3600) / 60, in_game_time % 60);
     }
     ListView_SetItemText(list_view_chars, item, 4, text);
+
+    er_char_version_info_t version_info;
+    if (er_char_data_version_info(char_data, &version_info)) {
+        format_character_version(version_info.version, text);
+        ListView_SetItemText(list_view_chars, item, 5, text);
+    }
 }
 
 /* Update the detail panel with attribute info for the selected character slot */
@@ -542,6 +574,152 @@ static void rename_char_data(HWND hwnd, int item) {
     }
 }
 
+static void downgrade_char_data(HWND hwnd, int item, size_t target_index) {
+    const er_char_data_t *char_data = er_char_data_ref(save_data, item);
+    const er_version_target_t *target = er_save_version_target_get(target_index);
+    er_char_version_info_t version_info;
+    wchar_t prompt[1024];
+
+    if (!char_data || !target || !er_char_data_version_info(char_data, &version_info)
+        || target->character_version >= version_info.version) {
+        return;
+    }
+
+    wsprintfW(prompt, L"%s\n\n%s: %s (%u)", locale_str(STR_DOWNGRADE_WARNING),
+              locale_str(STR_VERSION), target->game_version, target->character_version);
+    if (MessageBoxW(hwnd, prompt, locale_str(STR_DOWNGRADE_CHARACTER),
+                    MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES) {
+        return;
+    }
+
+    if (er_save_downgrade_character(save_data, item, target->character_version)) {
+        update_char_list_view(item, er_char_data_ref(save_data, item));
+        MessageBoxW(hwnd, locale_str(STR_DOWNGRADE_SUCCESS), locale_str(STR_SUCCESS),
+                    MB_OK | MB_ICONINFORMATION);
+    } else {
+        MessageBoxW(hwnd, locale_str(STR_DOWNGRADE_FAILED), locale_str(STR_ERROR),
+                    MB_OK | MB_ICONERROR);
+    }
+}
+
+static bool find_regulation_file(const wchar_t *root, uint32_t regulation_version,
+                                 wchar_t *path) {
+    wchar_t search_path[MAX_PATH];
+    WIN32_FIND_DATAW find_data;
+    HANDLE find;
+
+    if (!root || !path || (size_t)lstrlenW(root) >= MAX_PATH) {
+        return false;
+    }
+    lstrcpyW(search_path, root);
+    if (!PathAppendW(search_path, L"*")) {
+        return false;
+    }
+
+    find = FindFirstFileW(search_path, &find_data);
+    if (find == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    do {
+        wchar_t suffix[32];
+        wchar_t candidate[MAX_PATH];
+
+        if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            || find_data.cFileName[0] == L'.') {
+            continue;
+        }
+        wsprintfW(suffix, L"(%u)", regulation_version);
+        if (!StrStrIW(find_data.cFileName, suffix)) {
+            continue;
+        }
+        lstrcpyW(candidate, root);
+        if (!PathAppendW(candidate, find_data.cFileName)
+            || !PathAppendW(candidate, L"regulation.bin")
+            || GetFileAttributesW(candidate) == INVALID_FILE_ATTRIBUTES) {
+            continue;
+        }
+        lstrcpyW(path, candidate);
+        FindClose(find);
+        return true;
+    } while (FindNextFileW(find, &find_data));
+
+    FindClose(find);
+    return false;
+}
+
+static bool find_local_regulation_file(uint32_t regulation_version, wchar_t *path) {
+    wchar_t root[MAX_PATH];
+
+    if (!GetModuleFileNameW(NULL, root, MAX_PATH) || !PathRemoveFileSpecW(root)) {
+        return false;
+    }
+    if (!PathAppendW(root, L"Regulations")) {
+        return false;
+    }
+    return find_regulation_file(root, regulation_version, path);
+}
+
+static bool choose_regulation_root(HWND hwnd, uint32_t regulation_version,
+                                   wchar_t *regulation_path) {
+    PWSTR selected;
+    bool found;
+
+    MessageBoxW(hwnd, locale_str(STR_REGULATION_FOLDER),
+                locale_str(STR_DOWNGRADE_ALL_DATA), MB_OK | MB_ICONINFORMATION);
+    selected = file_dialog_open_folder(hwnd, NULL);
+    if (!selected) {
+        return false;
+    }
+    found = find_regulation_file(selected, regulation_version, regulation_path);
+    CoTaskMemFree(selected);
+    if (!found) {
+        MessageBoxW(hwnd, locale_str(STR_REGULATION_NOT_FOUND), locale_str(STR_ERROR),
+                    MB_OK | MB_ICONERROR);
+    }
+    return found;
+}
+
+static void downgrade_save_data(HWND hwnd, size_t target_index) {
+    const er_save_downgrade_target_t *target =
+        er_save_downgrade_target_get(target_index);
+    er_save_version_info_t current;
+    wchar_t regulation_path[MAX_PATH];
+    wchar_t prompt[1024];
+
+    if (!save_data || !target
+        || !er_save_version_info(save_data, &current)
+        || target->summary_version >= current.summary_version) {
+        MessageBoxW(hwnd, locale_str(STR_DOWNGRADE_FAILED), locale_str(STR_ERROR),
+                    MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    if (!find_local_regulation_file(target->regulation_build, regulation_path)) {
+        if (!choose_regulation_root(hwnd, target->regulation_build, regulation_path)) {
+            return;
+        }
+    }
+
+    wsprintfW(prompt, L"%s\n\n%s: %s + Regulation %s",
+              locale_str(STR_DOWNGRADE_ALL_WARNING), locale_str(STR_VERSION),
+              target->game_version, target->regulation_version);
+    if (MessageBoxW(hwnd, prompt, locale_str(STR_DOWNGRADE_ALL_DATA),
+                    MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES) {
+        return;
+    }
+
+    if (er_save_downgrade(save_data, target, regulation_path)) {
+        for (int i = 0; i < 10; i++) {
+            update_char_list_view(i, er_char_data_ref(save_data, i));
+        }
+        MessageBoxW(hwnd, locale_str(STR_DOWNGRADE_ALL_SUCCESS), locale_str(STR_SUCCESS),
+                    MB_OK | MB_ICONINFORMATION);
+    } else {
+        MessageBoxW(hwnd, locale_str(STR_DOWNGRADE_FAILED), locale_str(STR_ERROR),
+                    MB_OK | MB_ICONERROR);
+    }
+}
+
 /* Function to handle characters ListView popup menu */
 static void list_view_chars_popup_menu(HWND hwnd, WPARAM wparam, LPARAM lparam) {
     /* Get the item under the cursor */
@@ -569,6 +747,36 @@ static void list_view_chars_popup_menu(HWND hwnd, WPARAM wparam, LPARAM lparam) 
         if (char_data) {
             AppendMenuW(menu, MF_BYPOSITION | MF_STRING, IDM_EXPORT_CHAR, locale_str(STR_EXPORT_CHARACTER));
             AppendMenuW(menu, MF_BYPOSITION | MF_STRING, IDM_RENAME_CHAR, locale_str(STR_RENAME_CHARACTER));
+            er_char_version_info_t version_info;
+            if (er_char_data_version_info(char_data, &version_info)) {
+                HMENU downgrade_menu = CreatePopupMenu();
+                size_t count = er_save_version_target_count();
+                for (size_t i = 0; downgrade_menu && i < count; i++) {
+                    const er_version_target_t *target = er_save_version_target_get(i);
+                    if (target && target->character_version < version_info.version) {
+                        wchar_t text[64];
+                        wsprintfW(text, L"%s (%u)", target->game_version, target->character_version);
+                        bool duplicate = false;
+                        for (size_t j = 0; j < i; j++) {
+                            const er_version_target_t *previous = er_save_version_target_get(j);
+                            if (previous && previous->character_version == target->character_version) {
+                                duplicate = true;
+                                break;
+                            }
+                        }
+                        if (!duplicate) {
+                            AppendMenuW(downgrade_menu, MF_STRING,
+                                        IDM_DOWNGRADE_VERSION_START + (UINT)i, text);
+                        }
+                    }
+                }
+                if (downgrade_menu && GetMenuItemCount(downgrade_menu) > 0) {
+                    AppendMenuW(menu, MF_POPUP, (UINT_PTR)downgrade_menu,
+                                locale_str(STR_DOWNGRADE_CHARACTER));
+                } else if (downgrade_menu) {
+                    DestroyMenu(downgrade_menu);
+                }
+            }
         }
 
         /* Convert window coordinates back to screen coordinates */
@@ -773,6 +981,16 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                         on_menu_change_language(id - IDM_LOCALE_START);
                     } else if (id == IDM_COMPRESSION_FAST || id == IDM_COMPRESSION_NORMAL || id == IDM_COMPRESSION_MAX) {
                         on_menu_change_compression(id);
+                    } else if (id >= IDM_DOWNGRADE_VERSION_START
+                               && id < IDM_DOWNGRADE_VERSION_START + (int)er_save_version_target_count()) {
+                        int item = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
+                        if (item >= 0) {
+                            downgrade_char_data(hwnd, item, (size_t)(id - IDM_DOWNGRADE_VERSION_START));
+                        }
+                    } else if (id >= IDM_DOWNGRADE_SAVE_VERSION_START
+                               && id < IDM_DOWNGRADE_SAVE_VERSION_START
+                                   + (int)er_save_downgrade_target_count()) {
+                        downgrade_save_data(hwnd, (size_t)(id - IDM_DOWNGRADE_SAVE_VERSION_START));
                     } else if (theme_is_menu_command(id)) {
                         theme_handle_menu_command(id);
                     }

@@ -114,7 +114,8 @@ static bool praxis_make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
     const uint32_t face_section_size = BND4_TEST_SUMMARY_FACE_SECTION;
     const uint32_t summary_offset = slot0_offset + 10u * char_slot_size;
     const uint32_t index_offset = summary_offset + summary_slot_size;
-    const uint32_t total_size = index_offset + summary_slot_size;
+    const uint32_t regulation_slot_size = BND4_TEST_REGULATION_SLOT_SIZE;
+    const uint32_t total_size = index_offset + regulation_slot_size;
     const uint32_t summary_layout_size = face_section_size + BND4_TEST_SUMMARY_LAYOUT_ADJUSTMENT;
     uint8_t *file_data = LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, total_size);
     HANDLE file;
@@ -135,16 +136,29 @@ static bool praxis_make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
 
     *(uint32_t *)(file_data + BND4_TEST_SLOT_SIZE_ARRAY_OFFSET + 10 * BND4_TEST_SLOT_ENTRY_STRIDE) = summary_slot_size;
     *(uint32_t *)(file_data + BND4_TEST_SLOT_OFFSET_ARRAY_OFFSET + 10 * BND4_TEST_SLOT_ENTRY_STRIDE) = summary_offset;
-    *(uint32_t *)(file_data + BND4_TEST_SLOT_SIZE_ARRAY_OFFSET + 11 * BND4_TEST_SLOT_ENTRY_STRIDE) = summary_slot_size;
+    *(uint32_t *)(file_data + BND4_TEST_SLOT_SIZE_ARRAY_OFFSET + 11 * BND4_TEST_SLOT_ENTRY_STRIDE) = regulation_slot_size;
     *(uint32_t *)(file_data + BND4_TEST_SLOT_OFFSET_ARRAY_OFFSET + 11 * BND4_TEST_SLOT_ENTRY_STRIDE) = index_offset;
 
     {
         uint8_t *summary_payload = file_data + summary_offset + BND4_TEST_MD5_HEADER_SIZE;
 
+        *(uint32_t *)summary_payload = 252u;
         *(uint64_t *)(summary_payload + BND4_TEST_SUMMARY_USER_ID_OFFSET) = user_id;
         *(uint32_t *)(summary_payload + BND4_TEST_SUMMARY_SZ_OFFSET) = summary_layout_size;
         *(uint32_t *)(summary_payload + BND4_TEST_SUMMARY_FACE_OFFSET) = face_section_size;
         md5_buffer(summary_payload, summary_data_size, file_data + summary_offset);
+    }
+
+    {
+        uint32_t *regulation_header = (uint32_t *)(file_data + index_offset + BND4_TEST_MD5_HEADER_SIZE);
+
+        regulation_header[0] = 0x52454720u;
+        regulation_header[1] = 2u;
+        regulation_header[2] = 11611000u;
+        regulation_header[3] = BND4_TEST_REGULATION_DATA_SIZE;
+        md5_buffer((uint8_t *)regulation_header,
+                   BND4_TEST_REGULATION_SLOT_SIZE - BND4_TEST_MD5_HEADER_SIZE,
+                   file_data + index_offset);
     }
 
     file = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -339,7 +353,7 @@ static bool praxis_make_min_valid_ds3_sl2(const wchar_t *path, uint64_t userid) 
 }
 
 static bool praxis_make_min_valid_sl2_with_slot(const wchar_t *path, uint64_t user_id,
-                                                int slot, const wchar_t *name) {
+                                                 int slot, const wchar_t *name) {
     const uint32_t summary_slot_size = BND4_TEST_SUMMARY_SLOT_SIZE;
     const uint32_t summary_offset = BND4_TEST_FILE_HEADER_SIZE + 10u * BND4_TEST_CHAR_SLOT_SIZE;
     const uint32_t summary_layout_size = BND4_TEST_SUMMARY_FACE_SECTION + BND4_TEST_SUMMARY_LAYOUT_ADJUSTMENT;
@@ -347,6 +361,7 @@ static bool praxis_make_min_valid_sl2_with_slot(const wchar_t *path, uint64_t us
     const uint32_t profile_offset = available_offset + 10u;
     HANDLE file;
     uint8_t *summary_payload;
+    uint8_t *char_payload;
     DWORD bytes_read;
     DWORD written;
     uint8_t md5[16];
@@ -362,7 +377,14 @@ static bool praxis_make_min_valid_sl2_with_slot(const wchar_t *path, uint64_t us
     }
 
     summary_payload = (uint8_t *)LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, BND4_TEST_SUMMARY_DATA_SIZE);
-    if (!summary_payload) {
+    char_payload = (uint8_t *)LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, BND4_TEST_CHAR_DATA_SIZE);
+    if (!summary_payload || !char_payload) {
+        if (summary_payload) {
+            LocalFree(summary_payload);
+        }
+        if (char_payload) {
+            LocalFree(char_payload);
+        }
         CloseHandle(file);
         return false;
     }
@@ -371,6 +393,7 @@ static bool praxis_make_min_valid_sl2_with_slot(const wchar_t *path, uint64_t us
             != summary_offset + BND4_TEST_MD5_HEADER_SIZE
         || !ReadFile(file, summary_payload, BND4_TEST_SUMMARY_DATA_SIZE, &bytes_read, NULL)
         || bytes_read != BND4_TEST_SUMMARY_DATA_SIZE) {
+        LocalFree(char_payload);
         LocalFree(summary_payload);
         CloseHandle(file);
         return false;
@@ -382,8 +405,22 @@ static bool praxis_make_min_valid_sl2_with_slot(const wchar_t *path, uint64_t us
                   name, BND4_TEST_CHAR_NAME_SIZE / sizeof(wchar_t));
     }
 
+    *(uint32_t *)char_payload = 252u;
+    *(uint32_t *)(char_payload + BND4_TEST_CHAR_TRAILING_VERSION_OFFSET) = 252u;
+    *(uint32_t *)(char_payload + BND4_TEST_CHAR_TRAILING_VERSION_OFFSET + 4u) = 252u;
+    *(uint32_t *)(char_payload + BND4_TEST_CHAR_TRAILING_VERSION_OFFSET + 8u) = 1u;
+    *(uint64_t *)(char_payload + BND4_TEST_CHAR_USER_ID_OFFSET) = user_id;
+
+    md5_buffer(char_payload, BND4_TEST_CHAR_DATA_SIZE, md5);
+    ok = SetFilePointer(file, BND4_TEST_FILE_HEADER_SIZE + (uint32_t)slot * BND4_TEST_CHAR_SLOT_SIZE, NULL, FILE_BEGIN)
+            == BND4_TEST_FILE_HEADER_SIZE + (uint32_t)slot * BND4_TEST_CHAR_SLOT_SIZE
+        && WriteFile(file, md5, sizeof(md5), &written, NULL)
+        && written == sizeof(md5)
+        && WriteFile(file, char_payload, BND4_TEST_CHAR_DATA_SIZE, &written, NULL)
+        && written == BND4_TEST_CHAR_DATA_SIZE;
+
     md5_buffer(summary_payload, BND4_TEST_SUMMARY_DATA_SIZE, md5);
-    ok = SetFilePointer(file, summary_offset, NULL, FILE_BEGIN) == summary_offset
+    ok = ok && SetFilePointer(file, summary_offset, NULL, FILE_BEGIN) == summary_offset
         && WriteFile(file, md5, sizeof(md5), &written, NULL)
         && written == sizeof(md5)
         && SetFilePointer(file, summary_offset + BND4_TEST_MD5_HEADER_SIZE, NULL, FILE_BEGIN)
@@ -391,6 +428,7 @@ static bool praxis_make_min_valid_sl2_with_slot(const wchar_t *path, uint64_t us
         && WriteFile(file, summary_payload, summary_slot_size - BND4_TEST_MD5_HEADER_SIZE, &written, NULL)
         && written == summary_slot_size - BND4_TEST_MD5_HEADER_SIZE;
 
+    LocalFree(char_payload);
     LocalFree(summary_payload);
     CloseHandle(file);
     return ok;
@@ -701,6 +739,561 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     }
                 }
             }
+        } else if (wcscmp(sub, L"ersave-character-downgrade") == 0) {
+            if (argc < 4) {
+                st_printf(L"usage: --selftest ersave-character-downgrade <save_path>\n");
+                exit_code = 2;
+            } else {
+                const uint32_t slot_offset = BND4_TEST_FILE_HEADER_SIZE;
+                er_save_data_t *save = NULL;
+                er_save_data_t *reloaded = NULL;
+                er_save_version_info_t save_info;
+                er_char_version_info_t char_info;
+                const er_char_data_t *char_data;
+                uint8_t *payload = NULL;
+                uint8_t stored_md5[16];
+                uint8_t actual_md5[16];
+                HANDLE file = INVALID_HANDLE_VALUE;
+                DWORD bytes_read;
+
+                exit_code = 1;
+                payload = (uint8_t *)LocalAlloc(LMEM_FIXED, BND4_TEST_CHAR_DATA_SIZE);
+                if (!payload) {
+                    st_printf(L"ersave-character-downgrade: allocation failed\n");
+                } else if (!praxis_make_min_valid_sl2_with_slot(argv[3], 76561199999999999ULL, 0, L"Versioned")) {
+                    st_printf(L"ersave-character-downgrade: fixture failed\n");
+                } else if ((save = er_save_data_load(argv[3])) == NULL
+                           || !er_save_version_info(save, &save_info)
+                           || save_info.character_versions[0] != 252u
+                           || save_info.summary_version != 252u) {
+                    st_printf(L"ersave-character-downgrade: initial versions failed\n");
+                } else if (!er_save_downgrade_character(save, 0, 251u)
+                           || er_save_downgrade_character(save, 0, 251u)
+                           || er_save_downgrade_character(save, 0, 249u)) {
+                    st_printf(L"ersave-character-downgrade: target validation failed\n");
+                } else if ((reloaded = er_save_data_load(argv[3])) == NULL
+                           || !er_save_version_info(reloaded, &save_info)
+                           || save_info.character_versions[0] != 251u
+                           || save_info.summary_version != 252u) {
+                    st_printf(L"ersave-character-downgrade: reload failed\n");
+                } else {
+                    char_data = er_char_data_ref(reloaded, 0);
+                    file = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL,
+                                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                    if (!char_data || !er_char_data_version_info(char_data, &char_info)
+                        || char_info.trailing_versions[0] != 251u
+                        || char_info.trailing_versions[1] != 251u
+                        || file == INVALID_HANDLE_VALUE
+                        || SetFilePointer(file, slot_offset, NULL, FILE_BEGIN) != slot_offset
+                        || !ReadFile(file, stored_md5, sizeof(stored_md5), &bytes_read, NULL)
+                        || bytes_read != sizeof(stored_md5)
+                        || !ReadFile(file, payload, BND4_TEST_CHAR_DATA_SIZE, &bytes_read, NULL)
+                        || bytes_read != BND4_TEST_CHAR_DATA_SIZE) {
+                        st_printf(L"ersave-character-downgrade: field read failed\n");
+                    } else {
+                        md5_buffer(payload, BND4_TEST_CHAR_DATA_SIZE, actual_md5);
+                        if (memcmp(stored_md5, actual_md5, sizeof(stored_md5)) != 0) {
+                            st_printf(L"ersave-character-downgrade: MD5 mismatch\n");
+                        } else {
+                            st_printf(L"ersave-character-downgrade: ok\n");
+                            exit_code = 0;
+                        }
+                    }
+                }
+                if (file != INVALID_HANDLE_VALUE) {
+                    CloseHandle(file);
+                }
+                if (reloaded) {
+                    er_save_data_free(reloaded);
+                }
+                if (save) {
+                    er_save_data_free(save);
+                }
+                if (payload) {
+                    LocalFree(payload);
+                }
+                DeleteFileW(argv[3]);
+            }
+        } else if (wcscmp(sub, L"ersave-full-downgrade") == 0) {
+            if (argc < 5) {
+                st_printf(L"usage: --selftest ersave-full-downgrade <save_path> <regulation.bin>\n");
+                exit_code = 2;
+            } else {
+                const uint32_t regulation_offset = BND4_TEST_FILE_HEADER_SIZE
+                    + 10u * BND4_TEST_CHAR_SLOT_SIZE + BND4_TEST_SUMMARY_SLOT_SIZE;
+                er_save_data_t *save = NULL;
+                er_save_data_t *reloaded = NULL;
+                er_save_version_info_t info;
+                const er_save_downgrade_target_t *target = NULL;
+                uint8_t *payload = NULL;
+                uint8_t stored_md5[16];
+                uint8_t actual_md5[16];
+                HANDLE file = INVALID_HANDLE_VALUE;
+                DWORD bytes_read;
+
+                exit_code = 1;
+                for (size_t i = 0; i < er_save_downgrade_target_count(); i++) {
+                    const er_save_downgrade_target_t *candidate =
+                        er_save_downgrade_target_get(i);
+                    if (candidate && lstrcmpW(candidate->game_version, L"1.10") == 0
+                        && lstrcmpW(candidate->regulation_version, L"1.10") == 0) {
+                        target = candidate;
+                        break;
+                    }
+                }
+                payload = (uint8_t *)LocalAlloc(LMEM_FIXED,
+                    BND4_TEST_REGULATION_SLOT_SIZE - BND4_TEST_MD5_HEADER_SIZE);
+                if (!target || !payload) {
+                    st_printf(L"ersave-full-downgrade: setup failed\n");
+                } else if (!praxis_make_min_valid_sl2_with_slot(argv[3], 76561199999999999ULL, 0, L"Versioned")) {
+                    st_printf(L"ersave-full-downgrade: fixture failed\n");
+                } else if ((save = er_save_data_load(argv[3])) == NULL) {
+                    st_printf(L"ersave-full-downgrade: load failed\n");
+                } else {
+                    if (!er_save_downgrade(save, target, argv[4])) {
+                        st_printf(L"ersave-full-downgrade: operation failed\n");
+                    } else if ((reloaded = er_save_data_load(argv[3])) == NULL
+                               || !er_save_version_info(reloaded, &info)
+                               || info.character_versions[0] != 150u
+                               || info.summary_version != 90u
+                               || !info.regulation_header_valid
+                               || info.regulation_header_version != 2u
+                               || info.regulation_build != 11001000u) {
+                        st_printf(L"ersave-full-downgrade: versions failed\n");
+                    } else {
+                        file = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL,
+                                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                        if (file == INVALID_HANDLE_VALUE
+                            || SetFilePointer(file, regulation_offset, NULL, FILE_BEGIN) != regulation_offset
+                            || !ReadFile(file, stored_md5, sizeof(stored_md5), &bytes_read, NULL)
+                            || bytes_read != sizeof(stored_md5)
+                            || !ReadFile(file, payload,
+                                        BND4_TEST_REGULATION_SLOT_SIZE - BND4_TEST_MD5_HEADER_SIZE,
+                                        &bytes_read, NULL)
+                            || bytes_read != BND4_TEST_REGULATION_SLOT_SIZE - BND4_TEST_MD5_HEADER_SIZE) {
+                            st_printf(L"ersave-full-downgrade: regulation read failed\n");
+                        } else {
+                            md5_buffer(payload,
+                                       BND4_TEST_REGULATION_SLOT_SIZE - BND4_TEST_MD5_HEADER_SIZE,
+                                       actual_md5);
+                            if (memcmp(stored_md5, actual_md5, sizeof(stored_md5)) != 0) {
+                                st_printf(L"ersave-full-downgrade: regulation MD5 mismatch\n");
+                            } else {
+                                st_printf(L"ersave-full-downgrade: ok\n");
+                                exit_code = 0;
+                            }
+                        }
+                    }
+                }
+                if (file != INVALID_HANDLE_VALUE) {
+                    CloseHandle(file);
+                }
+                if (reloaded) {
+                    er_save_data_free(reloaded);
+                }
+                if (save) {
+                    er_save_data_free(save);
+                }
+                if (payload) {
+                    LocalFree(payload);
+                }
+                DeleteFileW(argv[3]);
+            }
+        } else if (wcscmp(sub, L"ersave-full-downgrade-headerless-regulation") == 0) {
+            if (argc < 5) {
+                st_printf(L"usage: --selftest ersave-full-downgrade-headerless-regulation <save_path> <regulation.bin>\n");
+                exit_code = 2;
+            } else {
+                const uint32_t regulation_offset = BND4_TEST_FILE_HEADER_SIZE
+                    + 10u * BND4_TEST_CHAR_SLOT_SIZE + BND4_TEST_SUMMARY_SLOT_SIZE;
+                er_save_data_t *save = NULL;
+                er_save_data_t *reloaded = NULL;
+                er_save_version_info_t info;
+                const er_save_downgrade_target_t *target = NULL;
+                HANDLE file = INVALID_HANDLE_VALUE;
+                DWORD written;
+                uint8_t headerless[16] = {0};
+
+                headerless[8] = 0x88;
+                headerless[10] = 0x01;
+                headerless[11] = 0x2C;
+                exit_code = 1;
+                for (size_t i = 0; i < er_save_downgrade_target_count(); i++) {
+                    const er_save_downgrade_target_t *candidate =
+                        er_save_downgrade_target_get(i);
+                    if (candidate && lstrcmpW(candidate->game_version, L"1.16.1") == 0
+                        && lstrcmpW(candidate->regulation_version, L"1.16.1") == 0) {
+                        target = candidate;
+                        break;
+                    }
+                }
+                if (!target
+                    || !praxis_make_min_valid_sl2_with_slot(argv[3], 76561199999999999ULL,
+                                                            0, L"Headerless")) {
+                    st_printf(L"ersave-full-downgrade-headerless-regulation: setup failed\n");
+                } else {
+                    file = CreateFileW(argv[3], GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                                       FILE_ATTRIBUTE_NORMAL, NULL);
+                    if (file == INVALID_HANDLE_VALUE
+                        || SetFilePointer(file, regulation_offset
+                                               + BND4_TEST_MD5_HEADER_SIZE,
+                                          NULL, FILE_BEGIN)
+                            != regulation_offset + BND4_TEST_MD5_HEADER_SIZE
+                        || !WriteFile(file, headerless, sizeof(headerless), &written, NULL)
+                        || written != sizeof(headerless)) {
+                        st_printf(L"ersave-full-downgrade-headerless-regulation: fixture update failed\n");
+                    } else {
+                        CloseHandle(file);
+                        file = INVALID_HANDLE_VALUE;
+                        save = er_save_data_load(argv[3]);
+                        if (!save || !er_save_downgrade(save, target, argv[4])) {
+                            st_printf(L"ersave-full-downgrade-headerless-regulation: operation failed\n");
+                        } else {
+                            reloaded = er_save_data_load(argv[3]);
+                            if (!reloaded || !er_save_version_info(reloaded, &info)
+                                || !info.regulation_header_valid
+                                || info.regulation_header_version != 2u
+                                || info.regulation_build != 11611000u
+                                || info.summary_version != 251u) {
+                                st_printf(L"ersave-full-downgrade-headerless-regulation: validation failed\n");
+                            } else {
+                                st_printf(L"ersave-full-downgrade-headerless-regulation: ok\n");
+                                exit_code = 0;
+                            }
+                        }
+                    }
+                }
+                if (file != INVALID_HANDLE_VALUE) {
+                    CloseHandle(file);
+                }
+                if (reloaded) {
+                    er_save_data_free(reloaded);
+                }
+                if (save) {
+                    er_save_data_free(save);
+                }
+                DeleteFileW(argv[3]);
+            }
+        } else if (wcscmp(sub, L"ersave-real-copy-downgrade") == 0) {
+            if (argc < 6) {
+                st_printf(L"usage: --selftest ersave-real-copy-downgrade <source_save> <tmp_copy> <regulation.bin>\n");
+                exit_code = 2;
+            } else {
+                er_save_data_t *save = NULL;
+                er_save_data_t *reloaded = NULL;
+                er_save_version_info_t info;
+                const er_save_downgrade_target_t *target = NULL;
+
+                exit_code = 1;
+                for (size_t i = 0; i < er_save_downgrade_target_count(); i++) {
+                    const er_save_downgrade_target_t *candidate =
+                        er_save_downgrade_target_get(i);
+                    if (candidate && lstrcmpW(candidate->game_version, L"1.16.1") == 0
+                        && lstrcmpW(candidate->regulation_version, L"1.16.1") == 0) {
+                        target = candidate;
+                        break;
+                    }
+                }
+                DeleteFileW(argv[4]);
+                if (!target || !CopyFileW(argv[3], argv[4], TRUE)) {
+                    st_printf(L"ersave-real-copy-downgrade: copy failed\n");
+                } else {
+                    save = er_save_data_load(argv[4]);
+                    if (!save || !er_save_downgrade(save, target, argv[5])) {
+                        st_printf(L"ersave-real-copy-downgrade: operation failed\n");
+                    } else {
+                        reloaded = er_save_data_load(argv[4]);
+                        if (!reloaded || !er_save_version_info(reloaded, &info)
+                            || info.summary_version != 251u
+                            || !info.regulation_header_valid
+                            || info.regulation_header_version != 2u
+                            || info.regulation_build != 11611000u) {
+                            st_printf(L"ersave-real-copy-downgrade: validation failed\n");
+                        } else {
+                            st_printf(L"ersave-real-copy-downgrade: ok\n");
+                            exit_code = 0;
+                        }
+                    }
+                }
+                if (reloaded) {
+                    er_save_data_free(reloaded);
+                }
+                if (save) {
+                    er_save_data_free(save);
+                }
+                DeleteFileW(argv[4]);
+            }
+        } else if (wcscmp(sub, L"ersave-downgrade-rejects-wrong-regulation") == 0) {
+            if (argc < 6) {
+                st_printf(L"usage: --selftest ersave-downgrade-rejects-wrong-regulation <save_path> <regulation.bin> <wrong.bin>\n");
+                exit_code = 2;
+            } else {
+                er_save_data_t *save = NULL;
+                const er_save_downgrade_target_t *target = NULL;
+                HANDLE file = INVALID_HANDLE_VALUE;
+                uint8_t *before = NULL;
+                uint8_t *after = NULL;
+                LARGE_INTEGER size;
+                DWORD bytes_read;
+                DWORD written;
+
+                exit_code = 1;
+                for (size_t i = 0; i < er_save_downgrade_target_count(); i++) {
+                    const er_save_downgrade_target_t *candidate =
+                        er_save_downgrade_target_get(i);
+                    if (candidate && lstrcmpW(candidate->game_version, L"1.16.1") == 0
+                        && lstrcmpW(candidate->regulation_version, L"1.16.1") == 0) {
+                        target = candidate;
+                        break;
+                    }
+                }
+                DeleteFileW(argv[5]);
+                if (!target
+                    || !praxis_make_min_valid_sl2_with_slot(argv[3], 76561199999999999ULL,
+                                                            0, L"WrongReg")
+                    || !CopyFileW(argv[4], argv[5], TRUE)) {
+                    st_printf(L"ersave-downgrade-rejects-wrong-regulation: setup failed\n");
+                } else {
+                    file = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL,
+                                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                    if (file == INVALID_HANDLE_VALUE || !GetFileSizeEx(file, &size)
+                        || size.QuadPart <= 0 || size.QuadPart > MAXDWORD) {
+                        st_printf(L"ersave-downgrade-rejects-wrong-regulation: source read failed\n");
+                    } else {
+                        before = (uint8_t *)LocalAlloc(LMEM_FIXED, (SIZE_T)size.QuadPart);
+                        after = (uint8_t *)LocalAlloc(LMEM_FIXED, (SIZE_T)size.QuadPart);
+                        if (!before || !after
+                            || !ReadFile(file, before, (DWORD)size.QuadPart, &bytes_read, NULL)
+                            || bytes_read != (DWORD)size.QuadPart) {
+                            st_printf(L"ersave-downgrade-rejects-wrong-regulation: source read failed\n");
+                        } else {
+                            CloseHandle(file);
+                            file = CreateFileW(argv[5], GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                                               FILE_ATTRIBUTE_NORMAL, NULL);
+                            if (file == INVALID_HANDLE_VALUE
+                                || SetFilePointer(file, 16, NULL, FILE_BEGIN) != 16
+                                || !WriteFile(file, "bad!", 4, &written, NULL) || written != 4) {
+                                st_printf(L"ersave-downgrade-rejects-wrong-regulation: mutation failed\n");
+                            } else {
+                                CloseHandle(file);
+                                file = INVALID_HANDLE_VALUE;
+                                save = er_save_data_load(argv[3]);
+                                if (!save || er_save_downgrade(save, target, argv[5])) {
+                                    st_printf(L"ersave-downgrade-rejects-wrong-regulation: accepted invalid file\n");
+                                } else {
+                                    file = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL,
+                                                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                                    if (file == INVALID_HANDLE_VALUE
+                                        || !ReadFile(file, after, (DWORD)size.QuadPart,
+                                                     &bytes_read, NULL)
+                                        || bytes_read != (DWORD)size.QuadPart
+                                        || memcmp(before, after, (size_t)size.QuadPart) != 0) {
+                                        st_printf(L"ersave-downgrade-rejects-wrong-regulation: source changed\n");
+                                    } else {
+                                        st_printf(L"ersave-downgrade-rejects-wrong-regulation: ok\n");
+                                        exit_code = 0;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (file != INVALID_HANDLE_VALUE) {
+                    CloseHandle(file);
+                }
+                if (save) {
+                    er_save_data_free(save);
+                }
+                if (before) {
+                    LocalFree(before);
+                }
+                if (after) {
+                    LocalFree(after);
+                }
+                DeleteFileW(argv[3]);
+                DeleteFileW(argv[5]);
+            }
+        } else if (wcscmp(sub, L"ersave-downgrade-targets") == 0) {
+            static const struct {
+                const wchar_t *game_version;
+                const wchar_t *regulation_version;
+                uint32_t regulation_build;
+            } expected[] = {
+                { L"1.02", L"1.02.1", 10210038u },
+                { L"1.02.1", L"1.02.1", 10210038u },
+                { L"1.02.2", L"1.02.1", 10210038u },
+                { L"1.02.3", L"1.02.1", 10210038u },
+                { L"1.03", L"1.03.1", 10310059u },
+                { L"1.03.1", L"1.03.1", 10310059u },
+                { L"1.03.2", L"1.03.2", 10320064u },
+                { L"1.03.2", L"1.03.3", 10330078u },
+                { L"1.04", L"1.04.1", 10410090u },
+                { L"1.04.1", L"1.04.2", 10420097u },
+                { L"1.05", L"1.05", 10501000u },
+                { L"1.06", L"1.06", 10601000u },
+                { L"1.07", L"1.07.1", 10710188u },
+                { L"1.07", L"1.07", 10701000u },
+                { L"1.08", L"1.08", 10801000u },
+                { L"1.08.1", L"1.08.1", 10811000u },
+                { L"1.09", L"1.09", 10901000u },
+                { L"1.09.1", L"1.09.1", 10911000u },
+                { L"1.10", L"1.10", 11001000u },
+                { L"1.10.1", L"1.10", 11001000u },
+                { L"1.12", L"1.12.1", 11210015u },
+                { L"1.12", L"1.12.2", 11220021u },
+                { L"1.12.3", L"1.12.4", 11240023u },
+                { L"1.13", L"1.13.1", 11310027u },
+                { L"1.13", L"1.13.2", 11320031u },
+                { L"1.14", L"1.14.1", 11410033u },
+                { L"1.15", L"1.15", 11501000u },
+                { L"1.16", L"1.16", 11601000u },
+                { L"1.16.1", L"1.16.1", 11611000u },
+            };
+
+            exit_code = 0;
+            if (er_save_downgrade_target_count() != sizeof(expected) / sizeof(expected[0])) {
+                exit_code = 1;
+            }
+            for (size_t i = 0; exit_code == 0 && i < sizeof(expected) / sizeof(expected[0]); i++) {
+                const er_save_downgrade_target_t *target = er_save_downgrade_target_get(i);
+                if (!target || lstrcmpW(target->game_version, expected[i].game_version) != 0
+                    || lstrcmpW(target->regulation_version, expected[i].regulation_version) != 0
+                    || target->regulation_build != expected[i].regulation_build) {
+                    exit_code = 1;
+                }
+            }
+            if (exit_code == 0 && er_save_downgrade_target_get(
+                    er_save_downgrade_target_count()) != NULL) {
+                exit_code = 1;
+            }
+            st_printf(exit_code == 0 ? L"ersave-downgrade-targets: ok\n"
+                                     : L"ersave-downgrade-targets: failed\n");
+        } else if (wcscmp(sub, L"ersave-full-downgrade-mixed-versions") == 0) {
+            if (argc < 5) {
+                st_printf(L"usage: --selftest ersave-full-downgrade-mixed-versions <save_path> <regulation.bin>\n");
+                exit_code = 2;
+            } else {
+                er_save_data_t *save = NULL;
+                er_save_data_t *reloaded = NULL;
+                er_save_version_info_t info;
+                const er_save_downgrade_target_t *target = NULL;
+                HANDLE file = INVALID_HANDLE_VALUE;
+                DWORD written;
+                const uint32_t older_character_version = 100u;
+
+                exit_code = 1;
+                for (size_t i = 0; i < er_save_downgrade_target_count(); i++) {
+                    const er_save_downgrade_target_t *candidate =
+                        er_save_downgrade_target_get(i);
+                    if (candidate && lstrcmpW(candidate->game_version, L"1.10") == 0
+                        && lstrcmpW(candidate->regulation_version, L"1.10") == 0) {
+                        target = candidate;
+                        break;
+                    }
+                }
+                if (!target
+                    || !praxis_make_min_valid_sl2_with_slot(argv[3], 76561199999999999ULL,
+                                                            0, L"Mixed")) {
+                    st_printf(L"ersave-full-downgrade-mixed-versions: setup failed\n");
+                } else {
+                    file = CreateFileW(argv[3], GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                                       FILE_ATTRIBUTE_NORMAL, NULL);
+                    if (file == INVALID_HANDLE_VALUE
+                        || SetFilePointer(file, BND4_TEST_FILE_HEADER_SIZE
+                                               + BND4_TEST_MD5_HEADER_SIZE,
+                                          NULL, FILE_BEGIN)
+                            != BND4_TEST_FILE_HEADER_SIZE + BND4_TEST_MD5_HEADER_SIZE
+                        || !WriteFile(file, &older_character_version,
+                                      sizeof(older_character_version), &written, NULL)
+                        || written != sizeof(older_character_version)) {
+                        st_printf(L"ersave-full-downgrade-mixed-versions: fixture update failed\n");
+                    } else {
+                        CloseHandle(file);
+                        file = INVALID_HANDLE_VALUE;
+                        save = er_save_data_load(argv[3]);
+                        if (!save || !er_save_downgrade(save, target, argv[4])) {
+                            st_printf(L"ersave-full-downgrade-mixed-versions: operation failed\n");
+                        } else {
+                            reloaded = er_save_data_load(argv[3]);
+                            if (!reloaded || !er_save_version_info(reloaded, &info)
+                                || info.character_versions[0] != older_character_version
+                                || info.summary_version != target->summary_version
+                                || info.regulation_build != target->regulation_build) {
+                                st_printf(L"ersave-full-downgrade-mixed-versions: validation failed\n");
+                            } else {
+                                st_printf(L"ersave-full-downgrade-mixed-versions: ok\n");
+                                exit_code = 0;
+                            }
+                        }
+                    }
+                }
+                if (file != INVALID_HANDLE_VALUE) {
+                    CloseHandle(file);
+                }
+                if (reloaded) {
+                    er_save_data_free(reloaded);
+                }
+                if (save) {
+                    er_save_data_free(save);
+                }
+                DeleteFileW(argv[3]);
+            }
+        } else if (wcscmp(sub, L"ersave-downgrade-stale-snapshot") == 0) {
+            if (argc < 4) {
+                st_printf(L"usage: --selftest ersave-downgrade-stale-snapshot <save_path>\n");
+                exit_code = 2;
+            } else {
+                const uint32_t mutation_offset = BND4_TEST_FILE_HEADER_SIZE
+                    + BND4_TEST_MD5_HEADER_SIZE + 0x100u;
+                er_save_data_t *save = NULL;
+                HANDLE file = INVALID_HANDLE_VALUE;
+                DWORD written;
+                uint8_t before;
+                uint8_t after;
+
+                exit_code = 1;
+                if (!praxis_make_min_valid_sl2_with_slot(argv[3], 76561199999999999ULL, 0, L"Versioned")) {
+                    st_printf(L"ersave-downgrade-stale-snapshot: fixture failed\n");
+                } else if ((save = er_save_data_load(argv[3])) == NULL) {
+                    st_printf(L"ersave-downgrade-stale-snapshot: load failed\n");
+                } else {
+                    file = CreateFileW(argv[3], GENERIC_READ | GENERIC_WRITE, 0, NULL,
+                                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                    before = 0x5Au;
+                    if (file == INVALID_HANDLE_VALUE
+                        || SetFilePointer(file, mutation_offset, NULL, FILE_BEGIN) != mutation_offset
+                        || !WriteFile(file, &before, sizeof(before), &written, NULL)
+                        || written != sizeof(before)) {
+                        st_printf(L"ersave-downgrade-stale-snapshot: mutation failed\n");
+                    } else {
+                        CloseHandle(file);
+                        file = INVALID_HANDLE_VALUE;
+                        if (er_save_downgrade_character(save, 0, 251u)) {
+                            st_printf(L"ersave-downgrade-stale-snapshot: stale save accepted\n");
+                        } else {
+                            file = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL,
+                                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                            if (file == INVALID_HANDLE_VALUE
+                                || SetFilePointer(file, mutation_offset, NULL, FILE_BEGIN) != mutation_offset
+                                || !ReadFile(file, &after, sizeof(after), &written, NULL)
+                                || written != sizeof(after)
+                                || after != before) {
+                                st_printf(L"ersave-downgrade-stale-snapshot: source changed\n");
+                            } else {
+                                st_printf(L"ersave-downgrade-stale-snapshot: ok\n");
+                                exit_code = 0;
+                            }
+                        }
+                    }
+                }
+                if (file != INVALID_HANDLE_VALUE) {
+                    CloseHandle(file);
+                }
+                if (save) {
+                    er_save_data_free(save);
+                }
+                DeleteFileW(argv[3]);
+            }
         } else if (wcscmp(sub, L"ersave-null-guards") == 0) {
             uint8_t dummy_face[BND4_TEST_CHAR_NAME_SIZE] = {0};
 
@@ -728,6 +1321,18 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 exit_code = 1;
             } else if (er_face_data_to_file(NULL, L"NUL")) {
                 st_printf(L"ersave-null-guards: face write NULL should fail\n");
+                exit_code = 1;
+            } else if (er_save_version_info(NULL, NULL)) {
+                st_printf(L"ersave-null-guards: version info should fail\n");
+                exit_code = 1;
+            } else if (er_char_data_version_info(NULL, NULL)) {
+                st_printf(L"ersave-null-guards: char version info should fail\n");
+                exit_code = 1;
+            } else if (er_save_downgrade_character(NULL, 0, 251u)) {
+                st_printf(L"ersave-null-guards: downgrade should fail\n");
+                exit_code = 1;
+            } else if (er_save_downgrade(NULL, NULL, NULL)) {
+                st_printf(L"ersave-null-guards: full downgrade should fail\n");
                 exit_code = 1;
             } else {
                 st_printf(L"ersave-null-guards: ok\n");

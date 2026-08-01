@@ -2,13 +2,14 @@
 
 A collection of lightweight Windows desktop applications for managing Souls games save files.
 
-- **ERSaveManager** — Import and export ELDEN RING character slots, manage face data, apply built-in NPC face presets, and re-sign Steam IDs.
+- **ERSaveManager** — Import and export ELDEN RING character slots, manage face data, inspect or downgrade save versions, apply built-in NPC face presets, and re-sign Steam IDs.
 - **Praxis** — A practice save tool with global hotkeys, tree-structured save library, and automatic ring backups for Elden Ring, Dark Souls III, Dark Souls Remastered, Dark Souls II: Scholar of the First Sin, and Sekiro: Shadows Die Twice. Supports **multi-profile** configurations (multiple game accounts/versions per game, multiple backup directories per profile) with auto-refresh via filesystem watcher.
 
 ## Documentation
 
 - [ERSaveManager README](src/ERSaveManager/README.md) — Detailed features and usage for the ELDEN RING save manager.
 - [Praxis README](src/Praxis/README.md) — Detailed features and usage for the practice tool.
+- [Elden Ring save version research](docs/EldenRingSaveVersionResearch.md) — Save-format fields, verified Game and Regulation combinations, and the update checklist for future patches.
 
 ## Building from Source
 
