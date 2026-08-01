@@ -30,6 +30,47 @@ typedef struct er_char_info_s {
 } er_char_info_t;
 
 /**
+ * @brief Known save-format versions used by an Elden Ring game release
+ */
+typedef struct er_version_target_s {
+    const wchar_t *game_version; /* User-visible game version */
+    uint32_t character_version; /* UserData000-009 character format version */
+    uint32_t summary_version; /* UserData010 summary format version */
+} er_version_target_t;
+
+/**
+ * @brief Supported full-save downgrade combination
+ */
+typedef struct er_save_downgrade_target_s {
+    const wchar_t *game_version; /* Target game version */
+    const wchar_t *regulation_version; /* Target regulation version */
+    uint32_t character_version; /* UserData000-009 character format version */
+    uint32_t summary_version; /* UserData010 summary format version */
+    uint32_t regulation_build; /* UserData011 regulation build number */
+    uint32_t regulation_size; /* Exact encrypted regulation.bin size */
+    uint8_t regulation_md5[16]; /* Exact encrypted regulation.bin MD5 */
+} er_save_downgrade_target_t;
+
+/**
+ * @brief Version metadata read from a complete Elden Ring save
+ */
+typedef struct er_save_version_info_s {
+    uint32_t character_versions[10]; /* Zero for unavailable character slots */
+    uint32_t summary_version; /* UserData010 payload version */
+    uint32_t regulation_header_version; /* UserData011 header format version */
+    uint32_t regulation_build; /* Build number of the embedded regulation payload */
+    bool regulation_header_valid; /* Whether UserData011 starts with the standard header */
+} er_save_version_info_t;
+
+/**
+ * @brief Version fields read from an individual character payload
+ */
+typedef struct er_char_version_info_s {
+    uint32_t version; /* Leading character format version */
+    uint32_t trailing_versions[2]; /* Version-bearing fields before the Steam ID */
+} er_char_version_info_t;
+
+/**
  * @brief Loads save data from a file
  * @param path Path to the save file
  * @return Pointer to loaded save data structure, or NULL if loading fails
@@ -93,6 +134,75 @@ uint64_t er_save_get_userid(const er_save_data_t *save_data);
  * @return true on success, false if save_data is NULL or byte is out of range
  */
 bool er_save_get_active_slot(const er_save_data_t *save_data, int *out_slot);
+
+/**
+ * @brief Gets the known Elden Ring save-version target count
+ * @return Number of entries available through er_save_version_target_get
+ */
+size_t er_save_version_target_count(void);
+
+/**
+ * @brief Gets a known Elden Ring save-version target
+ * @param index Zero-based target index
+ * @return Pointer to an immutable target, or NULL if index is out of range
+ */
+const er_version_target_t *er_save_version_target_get(size_t index);
+
+/**
+ * @brief Gets the supported full-save downgrade target count
+ * @return Number of entries available through er_save_downgrade_target_get
+ */
+size_t er_save_downgrade_target_count(void);
+
+/**
+ * @brief Gets a supported Game and Regulation downgrade combination
+ * @param index Zero-based target index
+ * @return Pointer to an immutable target, or NULL if index is out of range
+ */
+const er_save_downgrade_target_t *er_save_downgrade_target_get(size_t index);
+
+/**
+ * @brief Gets version metadata from a loaded save
+ * @param save_data Pointer to loaded save data
+ * @param info Pointer to the output structure
+ * @return true on success, false if an argument is invalid
+ */
+bool er_save_version_info(const er_save_data_t *save_data, er_save_version_info_t *info);
+
+/**
+ * @brief Gets version fields from a character payload
+ * @param char_data Pointer to character data
+ * @param info Pointer to the output structure
+ * @return true on success, false if the character data is invalid
+ */
+bool er_char_data_version_info(const er_char_data_t *char_data, er_char_version_info_t *info);
+
+/**
+ * @brief Downgrades one character payload to a known older format version
+ * @details Changes only UserData000-009 character version fields and its MD5.
+ *          UserData010 and embedded UserData011 regulation data are not changed.
+ * @param save_data Pointer to loaded save data
+ * @param slot Character slot number (0-9)
+ * @param target_character_version Known older character format version
+ * @return true on success, false for invalid, unavailable, unknown, or non-older targets
+ */
+bool er_save_downgrade_character(er_save_data_t *save_data, int slot,
+                                 uint32_t target_character_version);
+
+/**
+ * @brief Downgrades every available character, UserData010, and UserData011
+ * @details Replaces the embedded regulation payload with the supplied encrypted
+ *          regulation.bin and recomputes all changed BND4 entry MD5 values.
+ * @param save_data Pointer to loaded save data
+ * @param target Pointer to a supported older Game and Regulation combination
+ * @param regulation_path Path to the matching encrypted regulation.bin
+ * @return true on success, false for invalid input, an unsupported Game and
+ *         Regulation combination, regulation data with an unexpected container
+ *         shape, non-older summary targets, or file I/O errors
+ */
+bool er_save_downgrade(er_save_data_t *save_data,
+                       const er_save_downgrade_target_t *target,
+                       const wchar_t *regulation_path);
 
 /**
  * @brief Re-signs the user ID in save data

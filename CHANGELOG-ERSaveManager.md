@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- ERSaveManager: Display the detected Elden Ring save-format version for each character slot.
+- ERSaveManager: Downgrade an individual character's version fields from its context menu.
+- ERSaveManager: Downgrade a complete save to a verified Game and Regulation version combination, replacing `UserData011` with the matching encrypted `regulation.bin` and recalculating all changed BND4 entry checksums.
+- ERSaveManager: Search for Regulation archives under `Regulations` beside the executable, with manual Regulations-root selection and exact file size and MD5 validation when no local match is available.
+
 ### Changed
+
 - ERSaveManager: Source files relocated to `src/ERSaveManager/` subdirectory (no behavior change)
 - ERSaveManager: Save discovery now accepts either the Steam ID parent directory or a Steam ID directory, lists all non-`.bak` files with the Elden Ring save size, and shows parent-directory matches as `<SteamID> / <filename>`.
+- ERSaveManager: Full-save downgrade writes through a verified same-directory temporary copy and atomically replaces the source while rejecting stale loaded snapshots.
+
+### Fixed
+
+- ERSaveManager: Allow full-save downgrade when populated character slots contain a mixture of older and newer save-format versions without upgrading already older slots.
+- ERSaveManager: Normalize headerless `UserData011` Regulation entries to the standard header when replacing the entire entry during a full-save downgrade.
 
 ## [1.0.0] - 2026-04-04
 

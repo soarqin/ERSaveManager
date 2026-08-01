@@ -13,7 +13,9 @@ ERSaveManager is a Windows desktop tool for Elden Ring save editing. It focuses 
 ## Features
 
 - View character slots with name, body type, level, play time, attributes, runes held, and death count.
+- Inspect the save-format version of each occupied character slot.
 - Import, export, and rename character slots.
+- Downgrade one character's version fields or downgrade the complete save to a verified Game and Regulation version combination.
 - Import a character slot from another full Elden Ring save file.
 - Manage face data slots, including import and export.
 - Apply built-in NPC face presets from the base game and Shadow of the Erdtree.
@@ -24,9 +26,9 @@ ERSaveManager is a Windows desktop tool for Elden Ring save editing. It focuses 
 
 ## Before You Use It
 
-Close Elden Ring before importing, renaming, or re-signing save data. These operations write directly to the selected save file.
+Close Elden Ring before importing, renaming, re-signing, or downgrading save data. These operations modify the selected save file.
 
-Keep a manual backup of your save folder before editing. ERSaveManager can export individual character and face data, but it does not automatically create a full-save safety copy before every edit.
+Keep a manual backup of your save folder before editing. Version downgrade uses an atomic temporary-copy replacement, but it is not a substitute for a separate backup.
 
 ## Quick Start
 
@@ -36,6 +38,35 @@ Keep a manual backup of your save folder before editing. ERSaveManager can expor
 4. Select a character in the **Characters** list to view its details.
 5. Use **Import Character**, **Export Character**, or **Rename Character** for the selected slot.
 6. Click **Face Data...** to manage face slots and NPC presets.
+
+## Version Downgrade
+
+### Downgrade One Character
+
+1. Right-click an occupied character slot.
+2. Open **Downgrade Character** and select an older game version.
+3. Review and confirm the warning.
+
+This changes only that character's save-format version fields and checksum. It does not replace the embedded Regulation data or change the complete save's summary version.
+
+### Downgrade the Complete Save
+
+1. Close Elden Ring and make a separate backup of the save folder.
+2. Open **Options > Downgrade Save**.
+3. Select an explicitly listed Game and Regulation combination.
+4. Review and confirm the warning.
+
+A complete downgrade updates occupied character slots and `UserData010`, replaces `UserData011` with the matching encrypted `regulation.bin`, and recalculates the changed BND4 checksums. Character slots that are already older than the selected target remain at their existing version.
+
+ERSaveManager first searches for the required file under `Regulations` beside `ERSaveManager.exe`. The expected layout is:
+
+```text
+Regulations\1.16.1 (11611000)\regulation.bin
+```
+
+If no local file matches the selected Regulation build, select a Regulations root containing the same folder layout. The downgrade is cancelled when the exact Regulation build is unavailable. Game and Regulation versions are independent, so only verified combinations appear in the menu.
+
+The currently verified combinations and the process for adding future game updates are documented in [Elden Ring Save Version Research](../../docs/EldenRingSaveVersionResearch.md).
 
 ## Character Workflows
 
@@ -81,3 +112,4 @@ When ERSaveManager loads a save, it compares the Steam ID inside the save file w
 - **Language** changes the UI language.
 - **Options > Compression Ratio** changes exported character-file compression.
 - **Options > Theme** selects System, Light, or Dark mode.
+- **Options > Downgrade Save** selects a verified full-save Game and Regulation downgrade target.

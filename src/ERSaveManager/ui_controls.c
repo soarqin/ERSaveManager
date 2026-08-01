@@ -51,6 +51,43 @@ extern void update_char_list_view(int item, const er_char_data_t *char_data);
 
 static HMENU compression_submenu_handle = NULL;
 
+static void append_save_downgrade_menu(HMENU options_menu) {
+    HMENU downgrade_menu = CreatePopupMenu();
+    size_t count = er_save_downgrade_target_count();
+
+    for (size_t i = 0; downgrade_menu && i < count; i++) {
+        const er_save_downgrade_target_t *target = er_save_downgrade_target_get(i);
+        wchar_t text[64];
+
+        if (!target) {
+            continue;
+        }
+        wsprintfW(text, L"%s + Regulation %s", target->game_version,
+                  target->regulation_version);
+        AppendMenuW(downgrade_menu, MF_STRING,
+                    IDM_DOWNGRADE_SAVE_VERSION_START + (UINT)i, text);
+    }
+    if (downgrade_menu && GetMenuItemCount(downgrade_menu) > 0) {
+        AppendMenuW(options_menu, MF_POPUP, (UINT_PTR)downgrade_menu,
+                    locale_str(STR_DOWNGRADE_ALL_DATA));
+    } else if (downgrade_menu) {
+        DestroyMenu(downgrade_menu);
+    }
+}
+
+static void rebuild_save_downgrade_menu(HMENU options_menu) {
+    if (!options_menu) {
+        return;
+    }
+
+    HMENU old_menu = GetSubMenu(options_menu, 2);
+    if (old_menu) {
+        RemoveMenu(options_menu, 2, MF_BYPOSITION);
+        DestroyMenu(old_menu);
+    }
+    append_save_downgrade_menu(options_menu);
+}
+
 /* Mapping from stat index to locale string index */
 static const locale_string_index_t stat_str_indices[STAT_COUNT] = {
     STR_VIGOR, STR_MIND, STR_ENDURANCE, STR_STRENGTH,
@@ -305,6 +342,11 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     lvc.pszText = (LPWSTR)locale_str(STR_IN_GAME_TIME);
     ListView_InsertColumn(list_view_chars, 4, &lvc);
 
+    lvc.iSubItem = 5;
+    lvc.cx = 125;
+    lvc.pszText = (LPWSTR)locale_str(STR_VERSION);
+    ListView_InsertColumn(list_view_chars, 5, &lvc);
+
     /* Create detail panel group box for attributes */
     detail_group = CreateWindowW(
         L"BUTTON", locale_str(STR_ATTRIBUTES),
@@ -435,6 +477,7 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     AppendMenuW(options_menu, MF_POPUP, (UINT_PTR)compression_submenu, locale_str(STR_COMPRESSION_LEVEL));
     /* Theme submenu (System / Light / Dark). */
     theme_build_submenu(options_menu);
+    append_save_downgrade_menu(options_menu);
     AppendMenuW(menu_bar, MF_POPUP, (UINT_PTR)options_menu, locale_str(STR_OPTIONS));
     SetMenu(hwnd, menu_bar);
     compression_submenu_handle = compression_submenu;
@@ -664,6 +707,7 @@ void ui_refresh_language(void) {
         if (options_menu) {
             ModifyMenuW(options_menu, 1, MF_BYPOSITION | MF_POPUP,
                 (UINT_PTR)GetSubMenu(options_menu, 1), locale_str(STR_THEME));
+            rebuild_save_downgrade_menu(options_menu);
         }
         DrawMenuBar(main_window);
     }
@@ -691,6 +735,10 @@ void ui_refresh_language(void) {
     lvc.iSubItem = 4;
     lvc.pszText = (LPWSTR)locale_str(STR_IN_GAME_TIME);
     ListView_SetColumn(list_view_chars, 4, &lvc);
+
+    lvc.iSubItem = 5;
+    lvc.pszText = (LPWSTR)locale_str(STR_VERSION);
+    ListView_SetColumn(list_view_chars, 5, &lvc);
 
     /* Force relayout to adapt detail panel width for the new locale */
     RECT rc;
