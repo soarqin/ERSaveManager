@@ -476,15 +476,9 @@ void theme_core_apply_to_listview(HWND hwnd) {
     ListView_SetExtendedListViewStyleEx(hwnd, LVS_EX_DOUBLEBUFFER, LVS_EX_DOUBLEBUFFER);
 
     const theme_palette_t *p = theme_core_palette();
-    if (g_is_dark) {
-        ListView_SetBkColor    (hwnd, p->ctrl_bg);
-        ListView_SetTextBkColor(hwnd, p->ctrl_bg);
-        ListView_SetTextColor  (hwnd, p->text);
-    } else {
-        ListView_SetBkColor    (hwnd, CLR_DEFAULT);
-        ListView_SetTextBkColor(hwnd, CLR_DEFAULT);
-        ListView_SetTextColor  (hwnd, CLR_DEFAULT);
-    }
+    ListView_SetBkColor    (hwnd, p->ctrl_bg);
+    ListView_SetTextBkColor(hwnd, p->ctrl_bg);
+    ListView_SetTextColor  (hwnd, p->text);
     /* Subclass intercepts the header's NM_CUSTOMDRAW (which goes to the
      * ListView, not the dialog) so we can paint header text in our color. */
     SetWindowSubclass(hwnd, listview_subclass_proc, LISTVIEW_SUBCLASS_ID, 0);

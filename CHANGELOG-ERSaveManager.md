@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ERSaveManager: Correct ListView background and text colors in Light theme mode.
 - ERSaveManager: Allow full-save downgrade when populated character slots contain a mixture of older and newer save-format versions without upgrading already older slots.
 - ERSaveManager: Normalize headerless `UserData011` Regulation entries to the standard header when replacing the entire entry during a full-save downgrade.
 

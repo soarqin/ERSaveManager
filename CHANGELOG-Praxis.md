@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Praxis: Correct ListView background and text colors in Light theme mode.
+
 ## [1.0.0] - 2026-06-03
 
 ### Added
@@ -20,4 +26,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-language UI supporting 11 languages with automatic system language detection.
 - System, Light, and Dark theme modes.
 
+[Unreleased]: https://github.com/soarqin/ERSaveManager/compare/praxis-v1.0.0...HEAD
 [1.0.0]: https://github.com/soarqin/ERSaveManager/releases/tag/praxis-v1.0.0
