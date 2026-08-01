@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-02
+
 ### Added
 
 - ERSaveManager: Display the detected Elden Ring save-format version for each character slot.
@@ -39,5 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Native Win32 GUI with visual styles.
 - BND4 save file format parsing with MD5 checksum validation.
 
-[Unreleased]: https://github.com/soarqin/ERSaveManager/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/soarqin/ERSaveManager/compare/saveman-v1.1.0...HEAD
+[1.1.0]: https://github.com/soarqin/ERSaveManager/compare/v1.0.0...saveman-v1.1.0
 [1.0.0]: https://github.com/soarqin/ERSaveManager/releases/tag/v1.0.0
