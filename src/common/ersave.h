@@ -194,7 +194,9 @@ bool er_save_downgrade_character(er_save_data_t *save_data, int slot,
  * @details Replaces the embedded regulation payload with the supplied encrypted
  *          regulation.bin and recomputes all changed BND4 entry MD5 values.
  * @param save_data Pointer to loaded save data
- * @param target Pointer to a supported older Game and Regulation combination
+ * @param target Pointer returned by er_save_downgrade_target_get for a supported
+ *               older Game and Regulation combination. Do not construct this
+ *               structure manually; target identity is validated by the API.
  * @param regulation_path Path to the matching encrypted regulation.bin
  * @return true on success, false for invalid input, an unsupported Game and
  *         Regulation combination, regulation data with an unexpected container

@@ -289,6 +289,8 @@ void update_char_list_view(int item, const er_char_data_t *char_data) {
     if (er_char_data_version_info(char_data, &version_info)) {
         format_character_version(version_info.version, text);
         ListView_SetItemText(list_view_chars, item, 5, text);
+    } else {
+        ListView_SetItemText(list_view_chars, item, 5, L"");
     }
 }
 
