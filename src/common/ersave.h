@@ -39,19 +39,6 @@ typedef struct er_version_target_s {
 } er_version_target_t;
 
 /**
- * @brief Supported full-save downgrade combination
- */
-typedef struct er_save_downgrade_target_s {
-    const wchar_t *game_version; /* Target game version */
-    const wchar_t *regulation_version; /* Target regulation version */
-    uint32_t character_version; /* UserData000-009 character format version */
-    uint32_t summary_version; /* UserData010 summary format version */
-    uint32_t regulation_build; /* UserData011 regulation build number */
-    uint32_t regulation_size; /* Exact encrypted regulation.bin size */
-    uint8_t regulation_md5[16]; /* Exact encrypted regulation.bin MD5 */
-} er_save_downgrade_target_t;
-
-/**
  * @brief Version metadata read from a complete Elden Ring save
  */
 typedef struct er_save_version_info_s {
@@ -155,11 +142,11 @@ const er_version_target_t *er_save_version_target_get(size_t index);
 size_t er_save_downgrade_target_count(void);
 
 /**
- * @brief Gets a supported Game and Regulation downgrade combination
+ * @brief Gets a supported full-save downgrade target
  * @param index Zero-based target index
  * @return Pointer to an immutable target, or NULL if index is out of range
  */
-const er_save_downgrade_target_t *er_save_downgrade_target_get(size_t index);
+const er_version_target_t *er_save_downgrade_target_get(size_t index);
 
 /**
  * @brief Gets version metadata from a loaded save
@@ -179,8 +166,9 @@ bool er_char_data_version_info(const er_char_data_t *char_data, er_char_version_
 
 /**
  * @brief Downgrades one character payload to a known older format version
- * @details Changes only UserData000-009 character version fields and its MD5.
- *          UserData010 and embedded UserData011 regulation data are not changed.
+ * @details Changes the selected UserData000-009 character version fields, clears
+ *          the UserData011 payload (unless its leading uint32 is already zero),
+ *          and recomputes the affected BND4 entry MD5 values. UserData010 is not changed.
  * @param save_data Pointer to loaded save data
  * @param slot Character slot number (0-9)
  * @param target_character_version Known older character format version
@@ -191,20 +179,16 @@ bool er_save_downgrade_character(er_save_data_t *save_data, int slot,
 
 /**
  * @brief Downgrades every available character, UserData010, and UserData011
- * @details Replaces the embedded regulation payload with the supplied encrypted
- *          regulation.bin and recomputes all changed BND4 entry MD5 values.
+ * @details Clears the embedded regulation payload so the target game rebuilds it,
+ *          and recomputes all changed BND4 entry MD5 values.
  * @param save_data Pointer to loaded save data
  * @param target Pointer returned by er_save_downgrade_target_get for a supported
- *               older Game and Regulation combination. Do not construct this
- *               structure manually; target identity is validated by the API.
- * @param regulation_path Path to the matching encrypted regulation.bin
- * @return true on success, false for invalid input, an unsupported Game and
- *         Regulation combination, regulation data with an unexpected container
- *         shape, non-older summary targets, or file I/O errors
+ *               older game version. Target identity is validated by the API.
+ * @return true on success, false for invalid input, an unsupported or non-older
+ *         target, an unexpected container shape, or file I/O errors
  */
 bool er_save_downgrade(er_save_data_t *save_data,
-                       const er_save_downgrade_target_t *target,
-                       const wchar_t *regulation_path);
+                       const er_version_target_t *target);
 
 /**
  * @brief Re-signs the user ID in save data

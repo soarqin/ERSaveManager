@@ -66,8 +66,8 @@
 #define ER_CHAR_TRAILING_VERSION_SIZE       0x10
 #define ER_REGULATION_HEADER_SIZE           0x10
 #define ER_REGULATION_MAGIC                 0x52454720u
-#define ER_REGULATION_DATA_SIZE             0x240000
 #define ER_REGULATION_SLOT_FILE_SIZE        0x240020
+#define ER_REGULATION_SLOT_PAYLOAD_SIZE     (ER_REGULATION_SLOT_FILE_SIZE - ER_SLOT_HEADER_SIZE)
 
 static const er_version_target_t version_targets[] = {
     { L"1.02",   69,  13  },
@@ -99,38 +99,6 @@ static const er_version_target_t version_targets[] = {
     { L"1.16.2", 252, 252 },
 };
 
-static const er_save_downgrade_target_t save_downgrade_targets[] = {
-    { L"1.02",   L"1.02.1", 69,  13,  10210038, 1811088, {0xF6,0x96,0x05,0xBE,0x94,0x25,0x56,0xB1,0xE2,0xE6,0x98,0x40,0xD8,0x74,0x58,0x6F} },
-    { L"1.02.1", L"1.02.1", 70,  14,  10210038, 1811088, {0xF6,0x96,0x05,0xBE,0x94,0x25,0x56,0xB1,0xE2,0xE6,0x98,0x40,0xD8,0x74,0x58,0x6F} },
-    { L"1.02.2", L"1.02.1", 71,  15,  10210038, 1811088, {0xF6,0x96,0x05,0xBE,0x94,0x25,0x56,0xB1,0xE2,0xE6,0x98,0x40,0xD8,0x74,0x58,0x6F} },
-    { L"1.02.3", L"1.02.1", 72,  16,  10210038, 1811088, {0xF6,0x96,0x05,0xBE,0x94,0x25,0x56,0xB1,0xE2,0xE6,0x98,0x40,0xD8,0x74,0x58,0x6F} },
-    { L"1.03",   L"1.03.1", 80,  20,  10310059, 1829216, {0x3A,0x26,0x41,0xD0,0x49,0x13,0x33,0xCE,0x5D,0x28,0x31,0x0E,0xAC,0x2E,0x09,0x47} },
-    { L"1.03.1", L"1.03.1", 80,  20,  10310059, 1829216, {0x3A,0x26,0x41,0xD0,0x49,0x13,0x33,0xCE,0x5D,0x28,0x31,0x0E,0xAC,0x2E,0x09,0x47} },
-    { L"1.03.2", L"1.03.2", 81,  21,  10320064, 1829232, {0x70,0x32,0x8E,0x2A,0xE4,0xE4,0x87,0x82,0x28,0xD9,0x51,0xF7,0x13,0x66,0xC8,0x1B} },
-    { L"1.03.2", L"1.03.3", 81,  21,  10330078, 1829232, {0x38,0x3F,0xDE,0xA8,0x39,0x75,0xFD,0x2B,0xFD,0x19,0xDB,0x2F,0x8D,0x91,0x58,0x95} },
-    { L"1.04",   L"1.04.1", 90,  30,  10410090, 1831120, {0x4F,0x58,0x96,0x20,0x25,0x98,0x0B,0x94,0x3C,0xB5,0xC9,0x6D,0x63,0xD8,0xE1,0xF1} },
-    { L"1.04.1", L"1.04.2", 91,  31,  10420097, 1831120, {0x7C,0x30,0x6C,0x8E,0x51,0x64,0xB8,0x92,0x43,0x38,0x21,0xE8,0x5E,0x9F,0x3F,0xD4} },
-    { L"1.05",   L"1.05",   100, 40,  10501000, 1831600, {0xE7,0xF1,0x81,0x72,0x1D,0x98,0xB6,0xA6,0x22,0x78,0x6F,0xAD,0x54,0x87,0xDF,0x0C} },
-    { L"1.06",   L"1.06",   110, 50,  10601000, 1834080, {0xFF,0xE8,0x29,0x02,0xFA,0x70,0x2F,0xA1,0x51,0x87,0xBC,0xCF,0xA8,0x57,0x0F,0x14} },
-    { L"1.07",   L"1.07.1", 120, 60,  10710188, 1838496, {0x74,0x0E,0xDD,0x4E,0x0B,0x31,0x99,0x25,0xBC,0x2E,0xFA,0xC7,0xAF,0xA8,0x8B,0x25} },
-    { L"1.07",   L"1.07",   120, 60,  10701000, 1838496, {0xE7,0x85,0xD4,0x1C,0xFD,0xCB,0x3C,0x10,0x17,0x22,0xF8,0xC9,0x2C,0x19,0xE2,0x5A} },
-    { L"1.08",   L"1.08",   130, 70,  10801000, 1844112, {0x34,0x56,0x9B,0x99,0x17,0x2D,0x0C,0xE4,0xB0,0x77,0x30,0x27,0x09,0xCE,0x64,0x58} },
-    { L"1.08.1", L"1.08.1", 131, 71,  10811000, 1844112, {0xAD,0x5B,0x77,0x0F,0x2D,0x3B,0xBD,0x7E,0x72,0xED,0x23,0xCC,0x9E,0x21,0xAF,0x76} },
-    { L"1.09",   L"1.09",   140, 80,  10901000, 1852464, {0x87,0x36,0x55,0xD8,0xF1,0xD6,0xC0,0x28,0x2C,0x18,0x6D,0x20,0x2B,0xC8,0x91,0x88} },
-    { L"1.09.1", L"1.09.1", 141, 81,  10911000, 1852608, {0xEA,0x55,0x76,0xE9,0xBF,0x67,0xC5,0x78,0xC0,0x10,0xA1,0xD8,0xC0,0x5E,0x7E,0x43} },
-    { L"1.10",   L"1.10",   150, 90,  11001000, 1859440, {0x9D,0xE4,0x83,0x80,0x78,0xB2,0x28,0x9D,0x83,0x8D,0x28,0x7A,0x24,0x31,0xE6,0x45} },
-    { L"1.10.1", L"1.10",   151, 91,  11001000, 1859440, {0x9D,0xE4,0x83,0x80,0x78,0xB2,0x28,0x9D,0x83,0x8D,0x28,0x7A,0x24,0x31,0xE6,0x45} },
-    { L"1.12",   L"1.12.1", 210, 211, 11210015, 2006960, {0x46,0xDC,0xF5,0xDB,0x86,0x16,0x76,0xE6,0xA5,0xDD,0xB8,0x93,0x7A,0x04,0x84,0xE1} },
-    { L"1.12",   L"1.12.2", 210, 211, 11220021, 2006960, {0x21,0xE6,0xE0,0x4D,0x0B,0x62,0xF0,0x31,0x97,0x62,0x72,0x0C,0x6D,0x9C,0x89,0x74} },
-    { L"1.12.3", L"1.12.4", 211, 212, 11240023, 2001488, {0xF9,0xAE,0x59,0x98,0x92,0x64,0xEA,0x4D,0xBE,0x82,0x8C,0x61,0x41,0xE1,0x80,0x31} },
-    { L"1.13",   L"1.13.1", 220, 220, 11310027, 2025152, {0x20,0xDE,0x73,0xC1,0x14,0x8B,0x23,0xF0,0x63,0x65,0x6F,0x31,0xDF,0x7D,0x21,0x13} },
-    { L"1.13",   L"1.13.2", 220, 220, 11320031, 2019824, {0xA6,0xD0,0x9F,0x42,0x45,0x0F,0x84,0xB3,0x8B,0x67,0xEF,0x23,0x9E,0x8D,0x59,0x1C} },
-    { L"1.14",   L"1.14.1", 230, 230, 11410033, 2036288, {0xCA,0x52,0xB5,0xBA,0x65,0x98,0x54,0x70,0x4D,0x66,0xE7,0x5B,0x4A,0x0D,0x00,0x52} },
-    { L"1.15",   L"1.15",   240, 240, 11501000, 2036272, {0x1C,0x98,0x20,0x5A,0x71,0xCE,0xC4,0x5A,0xEE,0x7D,0xF4,0x47,0x30,0x98,0xB2,0x35} },
-    { L"1.16",   L"1.16",   250, 250, 11601000, 2036272, {0x42,0xA1,0x04,0x6B,0xA1,0xAA,0x17,0xBE,0x58,0xCE,0x92,0x25,0xF0,0x3A,0xC5,0x3F} },
-    { L"1.16.1", L"1.16.1", 251, 251, 11611000, 2036272, {0x56,0xEC,0x3B,0x35,0xBC,0x94,0x12,0xAA,0xC9,0x83,0x8F,0x39,0x9F,0x2F,0x8A,0xFD} },
-};
-
 /* Structure to hold summary data - Contains face data for all character slots */
 typedef struct er_summary_data_s {
     uint8_t data[ER_SUMMARY_DATA_SIZE]; /* Raw summary data buffer - Stores face data for all slots */
@@ -157,7 +125,7 @@ typedef struct er_save_data_s {
     wchar_t full_path[MAX_PATH]; /* Full path to save file - Stores the complete file path */
     er_char_data_t char_data[10]; /* Array of character data slots - Stores data for up to 10 characters */
     er_summary_data_t summary_data; /* Summary data structure - Contains face data for all slots */
-    uint32_t regulation_header[4]; /* UserData011 header, or zeroes for a nonstandard entry */
+    uint32_t regulation_header[4]; /* First 16 bytes of UserData011 payload */
     uint32_t regulation_slot_offset; /* Offset to UserData011 in the BND4 file */
     uint32_t regulation_slot_size; /* Total UserData011 entry size including MD5 */
 } er_save_data_t;
@@ -320,51 +288,43 @@ static bool read_regulation_header(er_save_data_t *save_data, HANDLE file,
     return true;
 }
 
-static uint8_t *read_regulation_file(const wchar_t *path, DWORD *out_size) {
-    LARGE_INTEGER size;
-    uint8_t *data;
-    HANDLE file;
-    DWORD bytes_read;
-
-    if (!path || !out_size) {
-        return NULL;
-    }
-
-    file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
-                       FILE_ATTRIBUTE_NORMAL, NULL);
-    if (file == INVALID_HANDLE_VALUE) {
-        return NULL;
-    }
-    if (!GetFileSizeEx(file, &size) || size.QuadPart <= 16
-        || size.QuadPart > ER_REGULATION_DATA_SIZE || (size.QuadPart & 0xF) != 0) {
-        CloseHandle(file);
-        return NULL;
-    }
-
-    data = (uint8_t *)LocalAlloc(LMEM_FIXED, (SIZE_T)size.QuadPart);
-    if (!data) {
-        CloseHandle(file);
-        return NULL;
-    }
-    if (!ReadFile(file, data, (DWORD)size.QuadPart, &bytes_read, NULL)
-        || bytes_read != (DWORD)size.QuadPart) {
-        LocalFree(data);
-        CloseHandle(file);
-        return NULL;
-    }
-
-    CloseHandle(file);
-    *out_size = (DWORD)size.QuadPart;
-    return data;
-}
-
-static bool downgrade_target_is_known(const er_save_downgrade_target_t *target) {
+static bool downgrade_target_is_known(const er_version_target_t *target) {
     for (size_t i = 0; i < er_save_downgrade_target_count(); i++) {
         if (target == er_save_downgrade_target_get(i)) {
             return true;
         }
     }
     return false;
+}
+
+static bool regulation_slot_layout_is_valid(const er_save_data_t *save_data) {
+    uint64_t expected_offset = (uint64_t)save_data->summary_data.slot_offset
+        + ER_SUMMARY_SLOT_FILE_SIZE;
+
+    return expected_offset <= UINT32_MAX
+        && save_data->regulation_slot_offset == (uint32_t)expected_offset
+        && save_data->regulation_slot_size == ER_REGULATION_SLOT_FILE_SIZE;
+}
+
+static bool clear_regulation_slot(HANDLE file, const er_save_data_t *save_data) {
+    uint8_t md5[ER_SLOT_HEADER_SIZE];
+    uint8_t *payload;
+    bool ok;
+
+    if (save_data->regulation_header[0] == 0) {
+        return true;
+    }
+    payload = (uint8_t *)LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT,
+                                    ER_REGULATION_SLOT_PAYLOAD_SIZE);
+    if (!payload) {
+        return false;
+    }
+    md5_buffer(payload, ER_REGULATION_SLOT_PAYLOAD_SIZE, md5);
+    ok = write_at(file, save_data->regulation_slot_offset, md5, sizeof(md5))
+        && write_at(file, save_data->regulation_slot_offset + ER_SLOT_HEADER_SIZE,
+                    payload, ER_REGULATION_SLOT_PAYLOAD_SIZE);
+    LocalFree(payload);
+    return ok;
 }
 
 static bool make_downgrade_temp_path(const wchar_t *save_path, wchar_t *temp_path) {
@@ -1059,14 +1019,16 @@ const er_version_target_t *er_save_version_target_get(size_t index) {
 }
 
 size_t er_save_downgrade_target_count(void) {
-    return sizeof(save_downgrade_targets) / sizeof(save_downgrade_targets[0]);
+    size_t count = er_save_version_target_count();
+
+    return count > 0 ? count - 1 : 0;
 }
 
-const er_save_downgrade_target_t *er_save_downgrade_target_get(size_t index) {
+const er_version_target_t *er_save_downgrade_target_get(size_t index) {
     if (index >= er_save_downgrade_target_count()) {
         return NULL;
     }
-    return &save_downgrade_targets[index];
+    return &version_targets[index];
 }
 
 bool er_char_data_version_info(const er_char_data_t *char_data, er_char_version_info_t *info) {
@@ -1120,11 +1082,13 @@ bool er_save_downgrade_character(er_save_data_t *save_data, int slot,
     HANDLE source_file;
     uint8_t *source_snapshot;
     DWORD source_size;
+    bool regulation_present;
     bool ok;
 
     if (!save_data || slot < 0 || slot >= 10
         || !is_known_character_version(target_character_version)
-        || !save_data->summary_data.data[save_data->summary_data.available_offset + slot]) {
+        || !save_data->summary_data.data[save_data->summary_data.available_offset + slot]
+        || !regulation_slot_layout_is_valid(save_data)) {
         return false;
     }
 
@@ -1135,6 +1099,7 @@ bool er_save_downgrade_character(er_save_data_t *save_data, int slot,
     }
 
     trailing_offset = char_data->userid_offset - ER_CHAR_TRAILING_VERSION_SIZE;
+    regulation_present = save_data->regulation_header[0] != 0;
     original_versions[0] = version_info.version;
     original_versions[1] = version_info.trailing_versions[0];
     original_versions[2] = version_info.trailing_versions[1];
@@ -1158,13 +1123,16 @@ bool er_save_downgrade_character(er_save_data_t *save_data, int slot,
     ok = ok && write_at(file, char_data->slot_offset + ER_SLOT_HEADER_SIZE + trailing_offset,
                         char_data->data + trailing_offset, sizeof(uint32_t) * 2);
     ok = ok && write_at(file, char_data->slot_offset, updated_md5, sizeof(updated_md5));
+    ok = ok && clear_regulation_slot(file, save_data);
     if (ok) {
         ok = commit_downgrade_temp_copy(save_data->full_path, temp_path, file,
                                         source_file, source_snapshot, source_size);
         file = INVALID_HANDLE_VALUE;
         source_file = INVALID_HANDLE_VALUE;
     }
-    if (!ok) {
+    if (ok && regulation_present) {
+        ZeroMemory(save_data->regulation_header, sizeof(save_data->regulation_header));
+    } else if (!ok) {
         *(uint32_t *)(char_data->data + ER_CHAR_VERSION_OFFSET) = original_versions[0];
         *(uint32_t *)(char_data->data + trailing_offset) = original_versions[1];
         *(uint32_t *)(char_data->data + trailing_offset + sizeof(uint32_t)) = original_versions[2];
@@ -1179,70 +1147,29 @@ bool er_save_downgrade_character(er_save_data_t *save_data, int slot,
 }
 
 bool er_save_downgrade(er_save_data_t *save_data,
-                       const er_save_downgrade_target_t *target,
-                       const wchar_t *regulation_path) {
-    uint8_t *regulation_data;
-    uint8_t *regulation_payload;
+                       const er_version_target_t *target) {
     uint8_t char_md5[10][ER_SLOT_HEADER_SIZE];
     uint8_t summary_md5[ER_SLOT_HEADER_SIZE];
-    uint8_t regulation_md5[ER_SLOT_HEADER_SIZE];
-    uint8_t regulation_file_md5[ER_SLOT_HEADER_SIZE];
     uint32_t original_char_versions[10][3] = {0};
     uint32_t original_summary_version;
-    uint32_t original_regulation_header[4];
-    uint64_t expected_regulation_offset;
-    DWORD regulation_size;
     wchar_t temp_path[MAX_PATH];
     HANDLE file;
     HANDLE source_file;
     uint8_t *source_snapshot;
     DWORD source_size;
-    bool ok = true;
+    bool regulation_present;
+    bool ok;
 
-    if (!save_data || !downgrade_target_is_known(target) || !regulation_path) {
+    if (!save_data || !downgrade_target_is_known(target)) {
         return false;
     }
-    expected_regulation_offset = (uint64_t)save_data->summary_data.slot_offset
-        + ER_SUMMARY_SLOT_FILE_SIZE;
-    if (expected_regulation_offset > UINT32_MAX
-        || save_data->regulation_slot_offset != (uint32_t)expected_regulation_offset
-        || save_data->regulation_slot_size != ER_REGULATION_SLOT_FILE_SIZE
+    if (!regulation_slot_layout_is_valid(save_data)
         || target->summary_version >= *(const uint32_t *)save_data->summary_data.data) {
         return false;
     }
 
-    regulation_data = read_regulation_file(regulation_path, &regulation_size);
-    if (!regulation_data || regulation_size != target->regulation_size) {
-        if (regulation_data) {
-            LocalFree(regulation_data);
-        }
-        return false;
-    }
-    md5_buffer(regulation_data, regulation_size, regulation_file_md5);
-    if (RtlCompareMemory(regulation_file_md5, target->regulation_md5,
-                         sizeof(regulation_file_md5)) != sizeof(regulation_file_md5)) {
-        LocalFree(regulation_data);
-        return false;
-    }
-
-    regulation_payload = (uint8_t *)LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT,
-                                               ER_REGULATION_DATA_SIZE);
-    if (!regulation_payload) {
-        LocalFree(regulation_data);
-        return false;
-    }
-    CopyMemory(regulation_payload, regulation_data, regulation_size);
-    LocalFree(regulation_data);
-    for (int i = 0; i < 16; i++) {
-        if (regulation_payload[i] != 0) {
-            LocalFree(regulation_payload);
-            return false;
-        }
-    }
-
     original_summary_version = *(uint32_t *)save_data->summary_data.data;
-    CopyMemory(original_regulation_header, save_data->regulation_header,
-               sizeof(original_regulation_header));
+    regulation_present = save_data->regulation_header[0] != 0;
     for (int i = 0; i < 10; i++) {
         er_char_version_info_t info;
 
@@ -1250,7 +1177,6 @@ bool er_save_downgrade(er_save_data_t *save_data,
             continue;
         }
         if (!er_char_data_version_info(&save_data->char_data[i], &info)) {
-            LocalFree(regulation_payload);
             return false;
         }
         original_char_versions[i][0] = info.version;
@@ -1261,15 +1187,10 @@ bool er_save_downgrade(er_save_data_t *save_data,
     file = make_verified_downgrade_temp_copy(save_data, temp_path, &source_file,
                                              &source_snapshot, &source_size);
     if (file == INVALID_HANDLE_VALUE) {
-        LocalFree(regulation_payload);
         return false;
     }
 
     *(uint32_t *)save_data->summary_data.data = target->summary_version;
-    save_data->regulation_header[0] = ER_REGULATION_MAGIC;
-    save_data->regulation_header[1] = 2;
-    save_data->regulation_header[2] = target->regulation_build;
-    save_data->regulation_header[3] = ER_REGULATION_DATA_SIZE;
     for (int i = 0; i < 10; i++) {
         er_char_data_t *char_data;
         uint32_t trailing_offset;
@@ -1294,67 +1215,41 @@ bool er_save_downgrade(er_save_data_t *save_data,
         md5_buffer(char_data->data, sizeof(char_data->data), char_md5[i]);
     }
     md5_buffer(save_data->summary_data.data, sizeof(save_data->summary_data.data), summary_md5);
-    {
-        uint8_t *slot_payload = (uint8_t *)LocalAlloc(LMEM_FIXED, ER_REGULATION_HEADER_SIZE + ER_REGULATION_DATA_SIZE);
-        if (!slot_payload) {
-            ok = false;
-        } else {
-            CopyMemory(slot_payload, save_data->regulation_header, ER_REGULATION_HEADER_SIZE);
-            CopyMemory(slot_payload + ER_REGULATION_HEADER_SIZE, regulation_payload,
-                       ER_REGULATION_DATA_SIZE);
-            md5_buffer(slot_payload, ER_REGULATION_HEADER_SIZE + ER_REGULATION_DATA_SIZE,
-                       regulation_md5);
-            LocalFree(slot_payload);
+
+    ok = true;
+    for (int i = 0; i < 10 && ok; i++) {
+        er_char_data_t *char_data;
+
+        if (!save_data->summary_data.data[save_data->summary_data.available_offset + i]) {
+            continue;
         }
+        char_data = &save_data->char_data[i];
+        ok = write_at(file, char_data->slot_offset, char_md5[i], ER_SLOT_HEADER_SIZE)
+            && write_at(file, char_data->slot_offset + ER_SLOT_HEADER_SIZE,
+                        char_data->data, sizeof(char_data->data));
     }
-
-    if (ok) {
-        for (int i = 0; i < 10 && ok; i++) {
-            er_char_data_t *char_data;
-
-            if (!save_data->summary_data.data[save_data->summary_data.available_offset + i]) {
-                continue;
-            }
-            char_data = &save_data->char_data[i];
-            ok = write_at(file, char_data->slot_offset, char_md5[i], ER_SLOT_HEADER_SIZE)
-                && write_at(file, char_data->slot_offset + ER_SLOT_HEADER_SIZE,
-                            char_data->data, sizeof(char_data->data));
-        }
-        ok = ok && write_at(file, save_data->summary_data.slot_offset, summary_md5,
-                            ER_SLOT_HEADER_SIZE)
-            && write_at(file, save_data->summary_data.slot_offset + ER_SLOT_HEADER_SIZE,
-                        save_data->summary_data.data, sizeof(save_data->summary_data.data))
-            && write_at(file, save_data->regulation_slot_offset, regulation_md5,
+    ok = ok && write_at(file, save_data->summary_data.slot_offset, summary_md5,
                         ER_SLOT_HEADER_SIZE)
-            && write_at(file, save_data->regulation_slot_offset + ER_SLOT_HEADER_SIZE,
-                        save_data->regulation_header, ER_REGULATION_HEADER_SIZE)
-            && write_at(file, save_data->regulation_slot_offset + ER_SLOT_HEADER_SIZE
-                              + ER_REGULATION_HEADER_SIZE,
-                        regulation_payload, ER_REGULATION_DATA_SIZE);
-        if (ok) {
-            ok = commit_downgrade_temp_copy(save_data->full_path, temp_path, file,
-                                            source_file, source_snapshot, source_size);
-            file = INVALID_HANDLE_VALUE;
-            source_file = INVALID_HANDLE_VALUE;
-        }
-        if (file != INVALID_HANDLE_VALUE) {
-            CloseHandle(file);
-            CloseHandle(source_file);
-            DeleteFileW(temp_path);
-            file = INVALID_HANDLE_VALUE;
-        }
-    } else {
+        && write_at(file, save_data->summary_data.slot_offset + ER_SLOT_HEADER_SIZE,
+                    save_data->summary_data.data, sizeof(save_data->summary_data.data))
+        && clear_regulation_slot(file, save_data);
+    if (ok) {
+        ok = commit_downgrade_temp_copy(save_data->full_path, temp_path, file,
+                                        source_file, source_snapshot, source_size);
+        file = INVALID_HANDLE_VALUE;
+        source_file = INVALID_HANDLE_VALUE;
+    }
+    if (file != INVALID_HANDLE_VALUE) {
         CloseHandle(file);
         CloseHandle(source_file);
         DeleteFileW(temp_path);
-        file = INVALID_HANDLE_VALUE;
     }
 
     LocalFree(source_snapshot);
-    if (!ok) {
+    if (ok && regulation_present) {
+        ZeroMemory(save_data->regulation_header, sizeof(save_data->regulation_header));
+    } else if (!ok) {
         *(uint32_t *)save_data->summary_data.data = original_summary_version;
-        CopyMemory(save_data->regulation_header, original_regulation_header,
-                   sizeof(original_regulation_header));
         for (int i = 0; i < 10; i++) {
             er_char_data_t *char_data;
             uint32_t trailing_offset;
@@ -1369,8 +1264,6 @@ bool er_save_downgrade(er_save_data_t *save_data,
             *(uint32_t *)(char_data->data + trailing_offset + sizeof(uint32_t)) = original_char_versions[i][2];
         }
     }
-
-    LocalFree(regulation_payload);
     return ok;
 }
 

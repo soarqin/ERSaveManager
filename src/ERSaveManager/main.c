@@ -604,88 +604,10 @@ static void downgrade_char_data(HWND hwnd, int item, size_t target_index) {
     }
 }
 
-static bool find_regulation_file(const wchar_t *root, uint32_t regulation_version,
-                                 wchar_t *path) {
-    wchar_t search_path[MAX_PATH];
-    WIN32_FIND_DATAW find_data;
-    HANDLE find;
-
-    if (!root || !path || (size_t)lstrlenW(root) >= MAX_PATH) {
-        return false;
-    }
-    lstrcpyW(search_path, root);
-    if (!PathAppendW(search_path, L"*")) {
-        return false;
-    }
-
-    find = FindFirstFileW(search_path, &find_data);
-    if (find == INVALID_HANDLE_VALUE) {
-        return false;
-    }
-    do {
-        wchar_t suffix[32];
-        wchar_t candidate[MAX_PATH];
-
-        if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-            || find_data.cFileName[0] == L'.') {
-            continue;
-        }
-        wsprintfW(suffix, L"(%u)", regulation_version);
-        if (!StrStrIW(find_data.cFileName, suffix)) {
-            continue;
-        }
-        lstrcpyW(candidate, root);
-        if (!PathAppendW(candidate, find_data.cFileName)
-            || !PathAppendW(candidate, L"regulation.bin")
-            || GetFileAttributesW(candidate) == INVALID_FILE_ATTRIBUTES) {
-            continue;
-        }
-        lstrcpyW(path, candidate);
-        FindClose(find);
-        return true;
-    } while (FindNextFileW(find, &find_data));
-
-    FindClose(find);
-    return false;
-}
-
-static bool find_local_regulation_file(uint32_t regulation_version, wchar_t *path) {
-    wchar_t root[MAX_PATH];
-
-    if (!GetModuleFileNameW(NULL, root, MAX_PATH) || !PathRemoveFileSpecW(root)) {
-        return false;
-    }
-    if (!PathAppendW(root, L"Regulations")) {
-        return false;
-    }
-    return find_regulation_file(root, regulation_version, path);
-}
-
-static bool choose_regulation_root(HWND hwnd, uint32_t regulation_version,
-                                   wchar_t *regulation_path) {
-    PWSTR selected;
-    bool found;
-
-    MessageBoxW(hwnd, locale_str(STR_REGULATION_FOLDER),
-                locale_str(STR_DOWNGRADE_ALL_DATA), MB_OK | MB_ICONINFORMATION);
-    selected = file_dialog_open_folder(hwnd, NULL);
-    if (!selected) {
-        return false;
-    }
-    found = find_regulation_file(selected, regulation_version, regulation_path);
-    CoTaskMemFree(selected);
-    if (!found) {
-        MessageBoxW(hwnd, locale_str(STR_REGULATION_NOT_FOUND), locale_str(STR_ERROR),
-                    MB_OK | MB_ICONERROR);
-    }
-    return found;
-}
-
 static void downgrade_save_data(HWND hwnd, size_t target_index) {
-    const er_save_downgrade_target_t *target =
+    const er_version_target_t *target =
         er_save_downgrade_target_get(target_index);
     er_save_version_info_t current;
-    wchar_t regulation_path[MAX_PATH];
     wchar_t prompt[1024];
 
     if (!save_data || !target
@@ -696,21 +618,15 @@ static void downgrade_save_data(HWND hwnd, size_t target_index) {
         return;
     }
 
-    if (!find_local_regulation_file(target->regulation_build, regulation_path)) {
-        if (!choose_regulation_root(hwnd, target->regulation_build, regulation_path)) {
-            return;
-        }
-    }
-
-    wsprintfW(prompt, L"%s\n\n%s: %s + Regulation %s",
+    wsprintfW(prompt, L"%s\n\n%s: %s",
               locale_str(STR_DOWNGRADE_ALL_WARNING), locale_str(STR_VERSION),
-              target->game_version, target->regulation_version);
+              target->game_version);
     if (MessageBoxW(hwnd, prompt, locale_str(STR_DOWNGRADE_ALL_DATA),
                     MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES) {
         return;
     }
 
-    if (er_save_downgrade(save_data, target, regulation_path)) {
+    if (er_save_downgrade(save_data, target)) {
         for (int i = 0; i < 10; i++) {
             update_char_list_view(i, er_char_data_ref(save_data, i));
         }
