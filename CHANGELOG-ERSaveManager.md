@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- ERSaveManager: Support downgrading Elden Ring 1.17 saves to the 1.16.2 save format.
+
 ## [1.1.0] - 2026-08-02
 
 ### Added

@@ -142,7 +142,7 @@ static bool praxis_make_min_valid_sl2(const wchar_t *path, uint64_t user_id) {
     {
         uint8_t *summary_payload = file_data + summary_offset + BND4_TEST_MD5_HEADER_SIZE;
 
-        *(uint32_t *)summary_payload = 252u;
+        *(uint32_t *)summary_payload = BND4_TEST_CURRENT_SAVE_VERSION;
         *(uint64_t *)(summary_payload + BND4_TEST_SUMMARY_USER_ID_OFFSET) = user_id;
         *(uint32_t *)(summary_payload + BND4_TEST_SUMMARY_SZ_OFFSET) = summary_layout_size;
         *(uint32_t *)(summary_payload + BND4_TEST_SUMMARY_FACE_OFFSET) = face_section_size;
@@ -405,9 +405,9 @@ static bool praxis_make_min_valid_sl2_with_slot(const wchar_t *path, uint64_t us
                   name, BND4_TEST_CHAR_NAME_SIZE / sizeof(wchar_t));
     }
 
-    *(uint32_t *)char_payload = 252u;
-    *(uint32_t *)(char_payload + BND4_TEST_CHAR_TRAILING_VERSION_OFFSET) = 252u;
-    *(uint32_t *)(char_payload + BND4_TEST_CHAR_TRAILING_VERSION_OFFSET + 4u) = 252u;
+    *(uint32_t *)char_payload = BND4_TEST_CURRENT_SAVE_VERSION;
+    *(uint32_t *)(char_payload + BND4_TEST_CHAR_TRAILING_VERSION_OFFSET) = BND4_TEST_CURRENT_SAVE_VERSION;
+    *(uint32_t *)(char_payload + BND4_TEST_CHAR_TRAILING_VERSION_OFFSET + 4u) = BND4_TEST_CURRENT_SAVE_VERSION;
     *(uint32_t *)(char_payload + BND4_TEST_CHAR_TRAILING_VERSION_OFFSET + 8u) = 1u;
     *(uint64_t *)(char_payload + BND4_TEST_CHAR_USER_ID_OFFSET) = user_id;
 
@@ -804,8 +804,8 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     st_printf(L"ersave-character-downgrade: fixture failed\n");
                 } else if ((save = er_save_data_load(argv[3])) == NULL
                            || !er_save_version_info(save, &save_info)
-                           || save_info.character_versions[0] != 252u
-                           || save_info.summary_version != 252u) {
+                           || save_info.character_versions[0] != BND4_TEST_CURRENT_SAVE_VERSION
+                           || save_info.summary_version != BND4_TEST_CURRENT_SAVE_VERSION) {
                     st_printf(L"ersave-character-downgrade: initial versions failed\n");
                 } else if (!er_save_downgrade_character(save, 0, 251u)
                            || er_save_downgrade_character(save, 0, 251u)
@@ -814,7 +814,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 } else if ((reloaded = er_save_data_load(argv[3])) == NULL
                            || !er_save_version_info(reloaded, &save_info)
                            || save_info.character_versions[0] != 251u
-                           || save_info.summary_version != 252u
+                           || save_info.summary_version != BND4_TEST_CURRENT_SAVE_VERSION
                            || save_info.regulation_header_valid
                            || !selftest_regulation_slot_is_cleared(argv[3])) {
                     st_printf(L"ersave-character-downgrade: reload failed\n");
@@ -922,7 +922,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 for (size_t i = 0; i < er_save_downgrade_target_count(); i++) {
                     const er_version_target_t *candidate =
                         er_save_downgrade_target_get(i);
-                    if (candidate && lstrcmpW(candidate->game_version, L"1.16.1") == 0) {
+                    if (candidate && lstrcmpW(candidate->game_version, L"1.16.2") == 0) {
                         target = candidate;
                         break;
                     }
@@ -951,7 +951,8 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                             reloaded = er_save_data_load(argv[3]);
                             if (!reloaded || !er_save_version_info(reloaded, &info)
                                 || info.regulation_header_valid
-                                || info.summary_version != 251u
+                                || info.character_versions[0] != 252u
+                                || info.summary_version != 252u
                                 || !selftest_regulation_slot_is_cleared(argv[3])) {
                                 st_printf(L"ersave-full-downgrade-headerless-regulation: validation failed\n");
                             } else {
@@ -1102,6 +1103,7 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                 L"1.06", L"1.07", L"1.08", L"1.08.1", L"1.09",
                 L"1.09.1", L"1.10", L"1.10.1", L"1.12", L"1.12.3",
                 L"1.13", L"1.13.2", L"1.14", L"1.15", L"1.16", L"1.16.1",
+                L"1.16.2",
             };
 
             exit_code = 0;
@@ -1111,6 +1113,19 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
             for (size_t i = 0; exit_code == 0 && i < sizeof(expected) / sizeof(expected[0]); i++) {
                 const er_version_target_t *target = er_save_downgrade_target_get(i);
                 if (!target || lstrcmpW(target->game_version, expected[i]) != 0) {
+                    exit_code = 1;
+                }
+            }
+            if (exit_code == 0) {
+                const er_version_target_t *target = er_save_downgrade_target_get(
+                    er_save_downgrade_target_count() - 1);
+                const er_version_target_t *current = er_save_version_target_get(
+                    er_save_downgrade_target_count());
+                if (!target || target->character_version != 252u
+                    || target->summary_version != 252u || !current
+                    || lstrcmpW(current->game_version, L"1.17") != 0
+                    || current->character_version != BND4_TEST_CURRENT_SAVE_VERSION
+                    || current->summary_version != BND4_TEST_CURRENT_SAVE_VERSION) {
                     exit_code = 1;
                 }
             }

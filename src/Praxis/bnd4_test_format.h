@@ -23,6 +23,7 @@
 #define BND4_TEST_CHAR_NAME_SIZE    0x22u      /* ER_CHAR_NAME_SIZE */
 #define BND4_TEST_CHAR_USER_ID_OFFSET 0x215C65u /* Parsed ER character Steam ID offset */
 #define BND4_TEST_CHAR_TRAILING_VERSION_OFFSET (BND4_TEST_CHAR_USER_ID_OFFSET - 0x10u)
+#define BND4_TEST_CURRENT_SAVE_VERSION 260u
 
 /* ER save file offsets and layout */
 #define BND4_TEST_FILE_HEADER_SIZE       0x300u   /* ER_FILE_HEADER_SIZE */

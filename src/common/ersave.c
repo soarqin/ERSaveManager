@@ -97,6 +97,7 @@ static const er_version_target_t version_targets[] = {
     { L"1.16",   250, 250 },
     { L"1.16.1", 251, 251 },
     { L"1.16.2", 252, 252 },
+    { L"1.17",   260, 260 },
 };
 
 /* Structure to hold summary data - Contains face data for all character slots */
