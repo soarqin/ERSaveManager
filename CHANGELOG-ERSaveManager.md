@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-29
+
 ### Added
 
 - ERSaveManager: Support downgrading Elden Ring 1.17 saves to the 1.16.2 save format.
@@ -45,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Native Win32 GUI with visual styles.
 - BND4 save file format parsing with MD5 checksum validation.
 
-[Unreleased]: https://github.com/soarqin/ERSaveManager/compare/saveman-v1.1.0...HEAD
+[Unreleased]: https://github.com/soarqin/ERSaveManager/compare/saveman-v1.1.1...HEAD
+[1.1.1]: https://github.com/soarqin/ERSaveManager/compare/saveman-v1.1.0...saveman-v1.1.1
 [1.1.0]: https://github.com/soarqin/ERSaveManager/compare/v1.0.0...saveman-v1.1.0
 [1.0.0]: https://github.com/soarqin/ERSaveManager/releases/tag/v1.0.0
