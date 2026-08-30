@@ -104,6 +104,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Downgrade Save",
         L"This changes all character versions and UserData010, then clears UserData011 so the game can rebuild its regulation data. Back up the save before continuing.",
         L"Save downgraded successfully",
+        L"DLC",
+        L"Bonus Gesture",
+        L"Shadow of the Erdtree",
+        L"Shadow of the Erdtree Bonus Gesture",
+        L"Tarnished Pack",
     },
     /* French strings */
     {
@@ -181,6 +186,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Rétrograder la sauvegarde",
         L"Cette opération modifie toutes les versions de personnage et UserData010, puis efface UserData011 afin que le jeu puisse reconstruire ses données de réglementation. Sauvegardez le fichier avant de continuer.",
         L"La sauvegarde a été rétrogradée",
+        L"DLC",
+        L"Geste bonus",
+        L"Shadow of the Erdtree",
+        L"Geste bonus de Shadow of the Erdtree",
+        L"Pack du Sans-éclat",
     },
     /* German strings */
     {
@@ -258,6 +268,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Spielstand herabstufen",
         L"Dies ändert alle Charakterversionen und UserData010 und leert anschließend UserData011, damit das Spiel die Regulationsdaten neu erstellen kann. Sichern Sie den Spielstand vorher.",
         L"Spielstand erfolgreich herabgestuft",
+        L"DLC",
+        L"Bonus-Geste",
+        L"Shadow of the Erdtree",
+        L"Bonus-Geste von Shadow of the Erdtree",
+        L"Befleckten-Paket",
     },
     /* Italian strings */
     {
@@ -335,6 +350,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Retrocedi salvataggio",
         L"Vengono modificate tutte le versioni dei personaggi e UserData010, quindi UserData011 viene svuotato affinché il gioco possa ricreare i dati di regolazione. Esegui prima un backup.",
         L"Salvataggio retrocesso correttamente",
+        L"DLC",
+        L"Gesto bonus",
+        L"Shadow of the Erdtree",
+        L"Gesto bonus di Shadow of the Erdtree",
+        L"Pacchetto Senzaluce",
     },
     /* Spanish strings */
     {
@@ -412,6 +432,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Degradar partida",
         L"Se cambian todas las versiones de personajes y UserData010, y después se borra UserData011 para que el juego pueda reconstruir los datos de regulación. Cree una copia de seguridad antes de continuar.",
         L"Partida degradada correctamente",
+        L"DLC",
+        L"Gesto adicional",
+        L"Shadow of the Erdtree",
+        L"Gesto adicional de Shadow of the Erdtree",
+        L"Paquete del Sinluz",
     },
     /* Portuguese strings */
     {
@@ -489,6 +514,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Rebaixar salvamento",
         L"Serão alteradas todas as versões de personagens e UserData010; depois, UserData011 será limpo para que o jogo possa reconstruir os dados de regulamentação. Faça um backup antes de continuar.",
         L"Salvamento rebaixado com sucesso",
+        L"DLC",
+        L"Gesto bônus",
+        L"Shadow of the Erdtree",
+        L"Gesto bônus de Shadow of the Erdtree",
+        L"Pacote do Maculado",
     },
     /* Russian strings */
     {
@@ -566,6 +596,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"Понизить версию сохранения",
         L"Будут изменены версии всех персонажей и UserData010, а затем очищен UserData011, чтобы игра могла заново создать данные regulation. Перед продолжением создайте резервную копию.",
         L"Версия сохранения успешно понижена",
+        L"DLC",
+        L"Бонусный жест",
+        L"Shadow of the Erdtree",
+        L"Бонусный жест Shadow of the Erdtree",
+        L"Набор Погасшего",
     },
     /* Japanese strings */
     {
@@ -643,6 +678,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"セーブデータをダウングレード",
         L"すべてのキャラクターバージョンと UserData010 を変更し、ゲームが regulation データを再構築できるよう UserData011 を消去します。続行前にバックアップしてください。",
         L"セーブデータをダウングレードしました",
+        L"DLC",
+        L"ボーナスジェスチャー",
+        L"Shadow of the Erdtree",
+        L"Shadow of the Erdtree ボーナスジェスチャー",
+        L"褪せ人パック",
     },
     /* Korean strings */
     {
@@ -720,6 +760,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"저장 파일 다운그레이드",
         L"모든 캐릭터 버전과 UserData010을 변경한 뒤 게임이 regulation 데이터를 다시 만들 수 있도록 UserData011을 지웁니다. 계속하기 전에 저장 파일을 백업하세요.",
         L"저장 파일을 다운그레이드했습니다",
+        L"DLC",
+        L"보너스 제스처",
+        L"Shadow of the Erdtree",
+        L"Shadow of the Erdtree 보너스 제스처",
+        L"빛바랜 자 패키지",
     },
     /* Simplified Chinese strings */
     {
@@ -797,6 +842,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"降级存档",
         L"此操作将修改所有角色版本和 UserData010，并清空 UserData011，使游戏重新生成 regulation 数据。继续前请备份存档。",
         L"存档已降级",
+        L"DLC",
+        L"奖励动作",
+        L"Shadow of the Erdtree",
+        L"Shadow of the Erdtree 奖励动作",
+        L"褪色者礼包",
     },
     /* Traditional Chinese strings */
     {
@@ -874,6 +924,11 @@ static const wchar_t *locale_strings[11][STR_MAX] = {
         L"降級存檔",
         L"此操作將修改所有角色版本和 UserData010，並清空 UserData011，讓遊戲重新產生 regulation 數據。繼續前請備份存檔。",
         L"存檔已降級",
+        L"DLC",
+        L"獎勵動作",
+        L"Shadow of the Erdtree",
+        L"Shadow of the Erdtree 獎勵動作",
+        L"褪色者禮包",
     }
 };
 

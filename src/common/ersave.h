@@ -16,6 +16,8 @@ typedef struct er_save_data_s er_save_data_t;
 typedef struct er_save_simple_data_s er_save_simple_data_t;
 typedef struct er_char_data_s er_char_data_t;
 
+#define ER_DLC_COUNT 4
+
 /**
  * @brief Character info output structure returned by er_char_data_info
  * @details Groups all character metadata into a single struct for easier extension.
@@ -247,6 +249,24 @@ const wchar_t *er_char_data_get_name(const er_char_data_t *char_data);
  * @return true if information retrieval successful, false otherwise
  */
 bool er_char_data_info(const er_char_data_t *char_data, er_char_info_t *info);
+
+/**
+ * @brief Gets the four DLC state flags from a character payload
+ * @param char_data Pointer to character data
+ * @param flags Output array with ER_DLC_COUNT flag bytes
+ * @return true on success, false if an argument is invalid
+ */
+bool er_char_data_get_dlc_flags(const er_char_data_t *char_data, uint8_t *flags);
+
+/**
+ * @brief Changes one DLC state flag and persists the character entry
+ * @param save_data Pointer to loaded save data
+ * @param slot Character slot number (0-9)
+ * @param dlc_index DLC index (0-ER_DLC_COUNT-1)
+ * @param enabled New flag value
+ * @return true on success, false if validation or file I/O fails
+ */
+bool er_char_data_set_dlc_flag(er_save_data_t *save_data, int slot, int dlc_index, bool enabled);
 
 /**
  * @brief Loads character data from a file

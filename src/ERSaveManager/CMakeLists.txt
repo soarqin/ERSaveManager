@@ -15,7 +15,7 @@ add_project(saveman WIN32
     resource.h
     app.rc
 
-    VERSION 1.1.1
+    VERSION 1.1.2
     FOLDER "app"
     OUTPUT_NAME "ERSaveManager"
 )

@@ -737,6 +737,89 @@ int praxis_selftest_run(int argc, wchar_t **argv) {
                     }
                 }
             }
+        } else if (wcscmp(sub, L"ersave-dlc-dump") == 0) {
+            if (argc < 4) {
+                st_printf(L"usage: --selftest ersave-dlc-dump <save_path>\n");
+                exit_code = 2;
+            } else {
+                er_save_data_t *save = er_save_data_load(argv[3]);
+                exit_code = save ? 0 : 1;
+                if (save) {
+                    for (int i = 0; i < 10; i++) {
+                        const er_char_data_t *char_data = er_char_data_ref(save, i);
+                        uint8_t flags[ER_DLC_COUNT];
+                        if (char_data && er_char_data_get_dlc_flags(char_data, flags)) {
+                            st_printf(L"slot=%d flags=%u,%u,%u,%u\n", i,
+                                      flags[0], flags[1], flags[2], flags[3]);
+                        }
+                    }
+                    er_save_data_free(save);
+                }
+            }
+        } else if (wcscmp(sub, L"ersave-dlc-flags") == 0) {
+            if (argc < 4) {
+                st_printf(L"usage: --selftest ersave-dlc-flags <tmp_save_path>\n");
+                exit_code = 2;
+            } else {
+                er_save_data_t *save = NULL;
+                const er_char_data_t *char_data;
+                uint8_t flags[ER_DLC_COUNT] = {0};
+                uint8_t stored_md5[16];
+                uint8_t actual_md5[16];
+                uint8_t *flat = NULL;
+                HANDLE file = INVALID_HANDLE_VALUE;
+                DWORD bytes_read = 0;
+
+                exit_code = 1;
+                if (!praxis_make_min_valid_sl2_with_slot(argv[3], 76561199999999999ULL, 0, L"DLC Test")) {
+                    st_printf(L"ersave-dlc-flags: fixture failed\n");
+                } else if ((save = er_save_data_load(argv[3])) == NULL) {
+                    st_printf(L"ersave-dlc-flags: load failed\n");
+                } else if ((char_data = er_char_data_ref(save, 0)) == NULL
+                           || !er_char_data_get_dlc_flags(char_data, flags)
+                           || flags[0] || flags[1] || flags[2] || flags[3]) {
+                    st_printf(L"ersave-dlc-flags: initial flags failed\n");
+                } else if (!er_char_data_set_dlc_flag(save, 0, 0, true)
+                           || !er_char_data_set_dlc_flag(save, 0, 1, true)
+                           || !er_char_data_set_dlc_flag(save, 0, 2, true)
+                           || !er_char_data_set_dlc_flag(save, 0, 3, true)
+                           || !er_char_data_set_dlc_flag(save, 0, 1, false)) {
+                    st_printf(L"ersave-dlc-flags: write failed\n");
+                } else {
+                    er_save_data_free(save);
+                    save = er_save_data_load(argv[3]);
+                    char_data = er_char_data_ref(save, 0);
+                    flat = (uint8_t *)LocalAlloc(LMEM_FIXED,
+                                                 BND4_TEST_CHAR_DATA_SIZE + BND4_TEST_PROFILE_SIZE);
+                    file = CreateFileW(argv[3], GENERIC_READ, FILE_SHARE_READ, NULL,
+                                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                    if (!save || !char_data || !flat
+                        || !er_char_data_get_dlc_flags(char_data, flags)
+                        || flags[0] != 1 || flags[1] != 0 || flags[2] != 1 || flags[3] != 1
+                        || !er_char_data_serialize(char_data, flat,
+                                                   BND4_TEST_CHAR_DATA_SIZE + BND4_TEST_PROFILE_SIZE)
+                        || file == INVALID_HANDLE_VALUE
+                        || SetFilePointer(file, BND4_TEST_FILE_HEADER_SIZE, NULL, FILE_BEGIN)
+                            != BND4_TEST_FILE_HEADER_SIZE
+                        || !ReadFile(file, stored_md5, sizeof(stored_md5), &bytes_read, NULL)
+                        || bytes_read != sizeof(stored_md5)) {
+                        st_printf(L"ersave-dlc-flags: reload failed\n");
+                    } else {
+                        md5_buffer(flat, BND4_TEST_CHAR_DATA_SIZE, actual_md5);
+                        if (RtlCompareMemory(stored_md5, actual_md5, sizeof(stored_md5))
+                            == sizeof(stored_md5)) {
+                            st_printf(L"ersave-dlc-flags: ok\n");
+                            exit_code = 0;
+                        } else {
+                            st_printf(L"ersave-dlc-flags: MD5 mismatch\n");
+                        }
+                    }
+                }
+                if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+                if (flat) LocalFree(flat);
+                if (save) er_save_data_free(save);
+                DeleteFileW(argv[3]);
+            }
         } else if (wcscmp(sub, L"char-set-name-profile") == 0) {
             if (argc < 4) {
                 st_printf(L"usage: --selftest char-set-name-profile <save_path>\n");

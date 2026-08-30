@@ -259,7 +259,7 @@ void update_char_list_view(int item, const er_char_data_t *char_data) {
     if (!char_data) {
         wsprintfW(text, L"%s", locale_str(STR_EMPTY));
         ListView_SetItemText(list_view_chars, item, 1, text);
-        for (int i = 2; i <= 5; i++) {
+        for (int i = 2; i <= 6; i++) {
             ListView_SetItemText(list_view_chars, item, i, L"");
         }
         return;
@@ -291,6 +291,25 @@ void update_char_list_view(int item, const er_char_data_t *char_data) {
         ListView_SetItemText(list_view_chars, item, 5, text);
     } else {
         ListView_SetItemText(list_view_chars, item, 5, L"");
+    }
+
+    uint8_t dlc_flags[ER_DLC_COUNT];
+    if (er_char_data_get_dlc_flags(char_data, dlc_flags)) {
+        static const locale_string_index_t dlc_strings[ER_DLC_COUNT] = {
+            STR_DLC_BONUS_GESTURE, STR_DLC_SHADOW, STR_DLC_SHADOW_BONUS_GESTURE,
+            STR_DLC_TARNISHED_PACK
+        };
+        wchar_t dlc_text[256] = L"";
+        bool has_dlc = false;
+        for (int i = 0; i < ER_DLC_COUNT; i++) {
+            if (!dlc_flags[i]) continue;
+            if (has_dlc) lstrcatW(dlc_text, L", ");
+            lstrcatW(dlc_text, locale_str(dlc_strings[i]));
+            has_dlc = true;
+        }
+        ListView_SetItemText(list_view_chars, item, 6, has_dlc ? dlc_text : L"-");
+    } else {
+        ListView_SetItemText(list_view_chars, item, 6, L"");
     }
 }
 
@@ -665,6 +684,21 @@ static void list_view_chars_popup_menu(HWND hwnd, WPARAM wparam, LPARAM lparam) 
         if (char_data) {
             AppendMenuW(menu, MF_BYPOSITION | MF_STRING, IDM_EXPORT_CHAR, locale_str(STR_EXPORT_CHARACTER));
             AppendMenuW(menu, MF_BYPOSITION | MF_STRING, IDM_RENAME_CHAR, locale_str(STR_RENAME_CHARACTER));
+            uint8_t dlc_flags[ER_DLC_COUNT];
+            static const locale_string_index_t dlc_strings[ER_DLC_COUNT] = {
+                STR_DLC_BONUS_GESTURE, STR_DLC_SHADOW, STR_DLC_SHADOW_BONUS_GESTURE,
+                STR_DLC_TARNISHED_PACK
+            };
+            HMENU dlc_menu = CreatePopupMenu();
+            if (dlc_menu && er_char_data_get_dlc_flags(char_data, dlc_flags)) {
+                for (int i = 0; i < ER_DLC_COUNT; i++) {
+                    AppendMenuW(dlc_menu, MF_STRING | (dlc_flags[i] ? MF_CHECKED : MF_UNCHECKED),
+                                IDM_DLC_FLAG_START + i, locale_str(dlc_strings[i]));
+                }
+                AppendMenuW(menu, MF_POPUP, (UINT_PTR)dlc_menu, locale_str(STR_DLC));
+            } else if (dlc_menu) {
+                DestroyMenu(dlc_menu);
+            }
             er_char_version_info_t version_info;
             if (er_char_data_version_info(char_data, &version_info)) {
                 HMENU downgrade_menu = CreatePopupMenu();
@@ -909,6 +943,18 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                                && id < IDM_DOWNGRADE_SAVE_VERSION_START
                                    + (int)er_save_downgrade_target_count()) {
                         downgrade_save_data(hwnd, (size_t)(id - IDM_DOWNGRADE_SAVE_VERSION_START));
+                    } else if (id >= IDM_DLC_FLAG_START && id < IDM_DLC_FLAG_START + ER_DLC_COUNT) {
+                        int item = ListView_GetNextItem(list_view_chars, -1, LVNI_SELECTED);
+                        if (item >= 0 && save_data) {
+                            const er_char_data_t *char_data = er_char_data_ref(save_data, item);
+                            uint8_t flags[ER_DLC_COUNT];
+                            if (char_data && er_char_data_get_dlc_flags(char_data, flags)
+                                && er_char_data_set_dlc_flag(save_data, item,
+                                                             id - IDM_DLC_FLAG_START,
+                                                             flags[id - IDM_DLC_FLAG_START] == 0)) {
+                                update_char_list_view(item, er_char_data_ref(save_data, item));
+                            }
+                        }
                     } else if (theme_is_menu_command(id)) {
                         theme_handle_menu_command(id);
                     }

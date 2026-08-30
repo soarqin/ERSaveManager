@@ -16,6 +16,7 @@
 /* Data buffer sizes */
 #define ER_SUMMARY_DATA_SIZE         0x60000    /* Summary slot data buffer size */
 #define ER_CHAR_DATA_SIZE            0x280000   /* Character slot data buffer size */
+#define ER_DLC_FLAGS_AFTER_USERID    0x28       /* Steam ID + 0x20-byte activity data */
 #define ER_PROFILE_SIZE              0x24C      /* Character profile data size */
 #define ER_FACE_DATA_SIZE            0x130      /* Face data entry size */
 #define ER_FILE_HEADER_SIZE          0x300      /* BND4 file header read size */
@@ -1456,6 +1457,50 @@ bool er_char_data_info(const er_char_data_t *char_data, er_char_info_t *info) {
     info->runes_held = *(uint32_t *)(char_data->data + char_data->stats_offset + 4 * 25);
     info->death_count = *(uint32_t *)(char_data->data + char_data->death_count_offset);
     return true;
+}
+
+bool er_char_data_get_dlc_flags(const er_char_data_t *char_data, uint8_t *flags) {
+    if (!char_data || !flags || char_data->userid_offset > ER_CHAR_DATA_SIZE
+        || ER_DLC_FLAGS_AFTER_USERID > ER_CHAR_DATA_SIZE - char_data->userid_offset
+        || ER_DLC_COUNT > ER_CHAR_DATA_SIZE - char_data->userid_offset - ER_DLC_FLAGS_AFTER_USERID) {
+        return false;
+    }
+    CopyMemory(flags, char_data->data + char_data->userid_offset + ER_DLC_FLAGS_AFTER_USERID, ER_DLC_COUNT);
+    return true;
+}
+
+bool er_char_data_set_dlc_flag(er_save_data_t *save_data, int slot, int dlc_index, bool enabled) {
+    if (!save_data || slot < 0 || slot >= 10 || dlc_index < 0 || dlc_index >= ER_DLC_COUNT) {
+        return false;
+    }
+    if (!save_data->summary_data.data[save_data->summary_data.available_offset + slot]) {
+        return false;
+    }
+
+    er_char_data_t *char_data = &save_data->char_data[slot];
+    HANDLE file = CreateFileW(save_data->full_path, GENERIC_READ | GENERIC_WRITE,
+                              FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                              FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    if (char_data->userid_offset > ER_CHAR_DATA_SIZE
+        || ER_DLC_FLAGS_AFTER_USERID > ER_CHAR_DATA_SIZE - char_data->userid_offset
+        || ER_DLC_COUNT > ER_CHAR_DATA_SIZE - char_data->userid_offset - ER_DLC_FLAGS_AFTER_USERID) {
+        CloseHandle(file);
+        return false;
+    }
+    uint32_t dlc_offset = char_data->userid_offset + ER_DLC_FLAGS_AFTER_USERID;
+    uint8_t value = enabled ? 1 : 0;
+    char_data->data[dlc_offset + dlc_index] = value;
+    uint8_t md5[0x10];
+    md5_buffer(char_data->data, sizeof(char_data->data), md5);
+    bool ok = write_at(file, char_data->slot_offset, md5, sizeof(md5));
+    ok = ok && write_at(file, char_data->slot_offset + ER_SLOT_HEADER_SIZE
+                        + dlc_offset + dlc_index, &value, sizeof(value));
+    CloseHandle(file);
+    return ok;
 }
 
 er_char_data_t *er_char_data_from_file(const wchar_t *path) {

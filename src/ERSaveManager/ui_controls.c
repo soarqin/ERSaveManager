@@ -346,6 +346,11 @@ void ui_create_controls(HWND hwnd, HMODULE module) {
     lvc.pszText = (LPWSTR)locale_str(STR_VERSION);
     ListView_InsertColumn(list_view_chars, 5, &lvc);
 
+    lvc.iSubItem = 6;
+    lvc.cx = 260;
+    lvc.pszText = (LPWSTR)locale_str(STR_DLC);
+    ListView_InsertColumn(list_view_chars, 6, &lvc);
+
     /* Create detail panel group box for attributes */
     detail_group = CreateWindowW(
         L"BUTTON", locale_str(STR_ATTRIBUTES),
@@ -738,6 +743,10 @@ void ui_refresh_language(void) {
     lvc.iSubItem = 5;
     lvc.pszText = (LPWSTR)locale_str(STR_VERSION);
     ListView_SetColumn(list_view_chars, 5, &lvc);
+
+    lvc.iSubItem = 6;
+    lvc.pszText = (LPWSTR)locale_str(STR_DLC);
+    ListView_SetColumn(list_view_chars, 6, &lvc);
 
     /* Force relayout to adapt detail panel width for the new locale */
     RECT rc;

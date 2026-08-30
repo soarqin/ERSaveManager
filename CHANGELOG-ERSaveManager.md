@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-08-30
+
+### Added
+
+- ERSaveManager: Display the DLCs carried by each character slot.
+- ERSaveManager: View and modify the four Elden Ring DLC flags from a character's context menu.
+- ERSaveManager: Support Bonus Gesture, Shadow of the Erdtree, Shadow of the Erdtree Bonus Gesture, and Tarnished Pack flags.
+
 ## [1.1.1] - 2026-08-29
 
 ### Added
@@ -48,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BND4 save file format parsing with MD5 checksum validation.
 
 [Unreleased]: https://github.com/soarqin/ERSaveManager/compare/saveman-v1.1.1...HEAD
+[1.1.2]: https://github.com/soarqin/ERSaveManager/compare/saveman-v1.1.1...saveman-v1.1.2
 [1.1.1]: https://github.com/soarqin/ERSaveManager/compare/saveman-v1.1.0...saveman-v1.1.1
 [1.1.0]: https://github.com/soarqin/ERSaveManager/compare/v1.0.0...saveman-v1.1.0
 [1.0.0]: https://github.com/soarqin/ERSaveManager/releases/tag/v1.0.0

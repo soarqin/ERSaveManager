@@ -87,6 +87,11 @@ typedef enum locale_string_index_e {
     STR_DOWNGRADE_ALL_DATA, /* "Downgrade Save" */
     STR_DOWNGRADE_ALL_WARNING, /* Full save downgrade warning */
     STR_DOWNGRADE_ALL_SUCCESS, /* "Save downgraded successfully" */
+    STR_DLC,
+    STR_DLC_BONUS_GESTURE,
+    STR_DLC_SHADOW,
+    STR_DLC_SHADOW_BONUS_GESTURE,
+    STR_DLC_TARNISHED_PACK,
     STR_MAX /* Total number of strings */
 } locale_string_index_t;
 
